@@ -1,6 +1,8 @@
 # File Manager Tauri
 
-<img width="1502" height="895" alt="image" src="https://github.com/user-attachments/assets/cba0e896-82f7-4d77-8273-ca0f68403e09" />
+<!-- markdownlint-disable MD033 -->
+<img width="1502" height="895" alt="File manager screenshot" src="https://github.com/user-attachments/assets/cba0e896-82f7-4d77-8273-ca0f68403e09" />
+<!-- markdownlint-enable MD033 -->
 
 Десктопный файловый менеджер на **Tauri 2.x + React 19 + TypeScript**, построенный по архитектуре **Feature-Sliced Design (FSD)**.
 
@@ -22,12 +24,12 @@
 
 ### Frontend
 
-- **React 19** + **TypeScript 5.8**
+- **React 19.2** + **TypeScript 5.9**
 - **Zustand 5** — UI состояние (выделение, навигация, буфер обмена)
 - **TanStack Query 5** — серверное состояние (запросы к файловой системе)
 - **TanStack Virtual 3** — виртуализация списков
 - **Radix UI** — примитивы UI (context-menu, dialog, tooltip)
-- **Tailwind CSS 3.4** — стилизация
+- **Tailwind CSS 4** — стилизация
 - **Lucide React** — иконки
 
 ### Backend
@@ -39,7 +41,7 @@
 
 ## Архитектура FSD
 
-```
+```text
 src/
 ├── app/                    # Точка входа, провайдеры, глобальные стили
 ├── pages/                  # Страницы приложения
