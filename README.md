@@ -1,6 +1,6 @@
 # File Manager Tauri
-<img width="1502" height="895" alt="image" src="https://github.com/user-attachments/assets/cba0e896-82f7-4d77-8273-ca0f68403e09" />
 
+<img width="1502" height="895" alt="image" src="https://github.com/user-attachments/assets/cba0e896-82f7-4d77-8273-ca0f68403e09" />
 
 Десктопный файловый менеджер на **Tauri 2.x + React 19 + TypeScript**, построенный по архитектуре **Feature-Sliced Design (FSD)**.
 
