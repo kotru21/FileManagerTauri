@@ -30,6 +30,7 @@ pub fn run() {
     builder
         .export(
             specta_typescript::Typescript::default()
+                .header("/* eslint-disable */\n// @ts-nocheck\n")
                 .bigint(specta_typescript::BigIntExportBehavior::Number),
             "../src/shared/api/tauri/bindings.ts",
         )
@@ -37,7 +38,6 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .plugin(tauri_plugin_fs::init())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);
