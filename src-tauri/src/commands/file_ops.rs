@@ -149,19 +149,48 @@ pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn create_directory(path: String) -> Result<(), String> {
+    println!("Creating directory: {}", path);
+    
+    if path.is_empty() {
+        return Err("Path is empty".to_string());
+    }
+    
+    let dir_path = Path::new(&path);
+    
+    // Проверяем, что путь абсолютный
+    if !dir_path.is_absolute() {
+        return Err(format!("Path must be absolute: {}", path));
+    }
+    
     fs::create_dir_all(&path)
-        .map_err(|e| format!("Failed to create directory: {}", e))
+        .map_err(|e| format!("Failed to create directory: {} (path: {})", e, path))
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn create_file(path: String) -> Result<(), String> {
-    if let Some(parent) = Path::new(&path).parent() {
-        fs::create_dir_all(parent)
-            .map_err(|e| format!("Failed to create parent directory: {}", e))?;
+    println!("Creating file: {}", path);
+    
+    if path.is_empty() {
+        return Err("Path is empty".to_string());
     }
+    
+    let file_path = Path::new(&path);
+    
+    // Проверяем, что путь абсолютный
+    if !file_path.is_absolute() {
+        return Err(format!("Path must be absolute: {}", path));
+    }
+    
+    if let Some(parent) = file_path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)
+                .map_err(|e| format!("Failed to create parent directory: {} (path: {:?})", e, parent))?;
+        }
+    }
+    
     fs::File::create(&path)
-        .map_err(|e| format!("Failed to create file: {}", e))?;
+        .map_err(|e| format!("Failed to create file: {} (path: {})", e, path))?;
     Ok(())
 }
 
