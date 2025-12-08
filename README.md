@@ -8,7 +8,7 @@
 
 ![Tauri](https://img.shields.io/badge/Tauri-2.x-blue)
 ![React](https://img.shields.io/badge/React-19-61dafb)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6)
 
 ## Возможности
 
