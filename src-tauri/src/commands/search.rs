@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::path::Path;
+use std::{fs::File, io::{BufRead, BufReader}, path::Path};
+use tauri::async_runtime::spawn_blocking;
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -32,6 +33,14 @@ pub struct SearchOptions {
 #[tauri::command]
 #[specta::specta]
 pub async fn search_files(options: SearchOptions) -> Result<Vec<SearchResult>, String> {
+    // Heavy IO, run on a blocking thread to keep async runtime responsive.
+    spawn_blocking(move || search_files_sync(options))
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|r| r)
+}
+
+fn search_files_sync(options: SearchOptions) -> Result<Vec<SearchResult>, String> {
     let search_path = Path::new(&options.search_path);
     
     if !search_path.exists() {
@@ -79,35 +88,40 @@ pub async fn search_files(options: SearchOptions) -> Result<Vec<SearchResult>, S
 
         // Search content if enabled and it's a file
         if options.search_content && entry.file_type().is_file() {
-            if let Ok(content) = std::fs::read_to_string(path) {
-                for (line_num, line) in content.lines().enumerate() {
-                    let matches = if options.case_sensitive {
-                        line.contains(&options.query)
+            // Skip very large files to keep UX snappy (e.g., > 4 MB)
+            const MAX_FILE_SIZE: u64 = 4 * 1024 * 1024;
+            if let Ok(meta) = entry.metadata() {
+                if meta.len() > MAX_FILE_SIZE {
+                    continue;
+                }
+            }
+
+            if let Ok(file) = File::open(path) {
+                let reader = BufReader::new(file);
+                for (line_num, line) in reader.lines().enumerate() {
+                    let Ok(line) = line else { continue };
+
+                    let haystack_owned;
+                    let haystack = if options.case_sensitive {
+                        line.as_str()
                     } else {
-                        line.to_lowercase().contains(&query_lower)
+                        haystack_owned = line.to_lowercase();
+                        &haystack_owned
                     };
 
-                    if matches {
-                        let search_in = if options.case_sensitive {
-                            line.to_string()
-                        } else {
-                            line.to_lowercase()
-                        };
-                        
-                        let search_for = if options.case_sensitive {
-                            &options.query
-                        } else {
-                            &query_lower
-                        };
+                    let needle = if options.case_sensitive {
+                        options.query.as_str()
+                    } else {
+                        query_lower.as_str()
+                    };
 
-                        if let Some(start) = search_in.find(search_for) {
-                            content_matches.push(ContentMatch {
-                                line_number: (line_num + 1) as u64,
-                                line_content: line.to_string(),
-                                match_start: start as u64,
-                                match_end: (start + options.query.len()) as u64,
-                            });
-                        }
+                    if let Some(start) = haystack.find(needle) {
+                        content_matches.push(ContentMatch {
+                            line_number: (line_num + 1) as u64,
+                            line_content: line,
+                            match_start: start as u64,
+                            match_end: (start + needle.len()) as u64,
+                        });
 
                         if content_matches.len() >= 10 {
                             break;

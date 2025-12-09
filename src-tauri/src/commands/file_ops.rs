@@ -3,6 +3,7 @@ use specta::Type;
 use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
+use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileEntry {
@@ -57,6 +58,14 @@ fn is_hidden(path: &Path) -> bool {
 #[tauri::command]
 #[specta::specta]
 pub async fn read_directory(path: String) -> Result<Vec<FileEntry>, String> {
+    let path_clone = path.clone();
+    spawn_blocking(move || read_directory_sync(path_clone))
+        .await
+        .map_err(|e| e.to_string())
+        .and_then(|r| r)
+}
+
+fn read_directory_sync(path: String) -> Result<Vec<FileEntry>, String> {
     let dir_path = Path::new(&path);
     
     if !dir_path.exists() {
