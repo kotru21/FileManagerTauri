@@ -4,11 +4,11 @@
 <img width="1502" height="895" alt="File manager screenshot" src="https://github.com/user-attachments/assets/cba0e896-82f7-4d77-8273-ca0f68403e09" />
 <!-- markdownlint-enable MD033 -->
 
-Десктопный файловый менеджер на **Tauri 2.x + React 19 + TypeScript**, построенный по архитектуре **Feature-Sliced Design (FSD)**.
+Десктопный файловый менеджер на **Tauri 2.x + React 19.2 + TypeScript**, построенный по архитектуре **Feature-Sliced Design (FSD)**.
 
 ![Tauri](https://img.shields.io/badge/Tauri-2.x-blue)
-![React](https://img.shields.io/badge/React-19-61dafb)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.8-3178c6)
+![React](https://img.shields.io/badge/React-19.2-61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6)
 
 ## Возможности
 
