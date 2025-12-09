@@ -1,7 +1,7 @@
 {
   "name": "file-manager-tauri",
   "private": false,
-  "version": "0.1.1",
+  "version": "0.1.2",
   "type": "module",
   "scripts": {
     "dev": "vite",
@@ -28,6 +28,7 @@
     "lucide-react": "^0.556.0",
     "react": "^19.2.1",
     "react-dom": "^19.2.1",
+    "react-resizable-panels": "^3.0.6",
     "tailwind-merge": "^3.4.0",
     "zustand": "^5.0.9"
   },

@@ -29,3 +29,8 @@ export {
   TooltipProvider,
 } from "./tooltip";
 export { Separator } from "./separator";
+export {
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
+} from "./resizable";
