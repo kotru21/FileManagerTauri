@@ -108,6 +108,28 @@ export function useCopyEntries() {
   });
 }
 
+/**
+ * Параллельное копирование с прогрессом (для больших операций)
+ * Отправляет события "copy-progress" через Tauri
+ */
+export function useCopyEntriesParallel() {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      sources,
+      destination,
+    }: {
+      sources: string[];
+      destination: string;
+    }) =>
+      unwrapResult(await commands.copyEntriesParallel(sources, destination)),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: fileKeys.all });
+    },
+  });
+}
+
 export function useMoveEntries() {
   const queryClient = useQueryClient();
 

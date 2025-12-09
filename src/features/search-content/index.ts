@@ -2,7 +2,7 @@
 export { SearchBar, SearchResultItem } from "./ui";
 
 // Model
-export { useSearchStore } from "./model/store";
+export { useSearchStore, type SearchProgress } from "./model/store";
 
 // API
 export {
@@ -11,3 +11,6 @@ export {
   useSearchContent,
   useSearch,
 } from "./api/queries";
+
+// Hooks
+export { useSearchWithProgress } from "./hooks";

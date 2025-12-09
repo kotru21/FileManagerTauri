@@ -1,9 +1,10 @@
-import { useCallback, useMemo } from "react";
+import { useCallback, useMemo, useState } from "react";
 import { openPath } from "@tauri-apps/plugin-opener";
 
 import {
   useDirectoryContents,
   useCopyEntries,
+  useCopyEntriesParallel,
   useMoveEntries,
   useDeleteEntries,
   sortEntries,
@@ -15,6 +16,7 @@ import { useNavigationStore } from "@/features/navigation";
 import { useClipboardStore } from "@/features/clipboard";
 import { FileContextMenu } from "@/features/context-menu";
 import { VirtualFileList } from "./VirtualFileList";
+import { CopyProgressDialog } from "@/widgets/progress-dialog";
 import { cn } from "@/shared/lib";
 
 interface FileExplorerProps {
@@ -58,8 +60,12 @@ export function FileExplorer({
   } = useClipboardStore();
 
   const copyMutation = useCopyEntries();
+  const copyParallelMutation = useCopyEntriesParallel();
   const moveMutation = useMoveEntries();
   const deleteMutation = useDeleteEntries();
+
+  // Состояние для диалога прогресса
+  const [showCopyProgress, setShowCopyProgress] = useState(false);
 
   const files = useMemo(() => {
     const filtered = filterEntries(rawFiles, { showHidden });
@@ -118,10 +124,19 @@ export function FileExplorer({
         });
         clearClipboard();
       } else {
-        await copyMutation.mutateAsync({
-          sources: clipboardPaths,
-          destination: currentPath,
-        });
+        // Используем параллельное копирование с прогрессом для множества файлов
+        if (clipboardPaths.length > 1) {
+          setShowCopyProgress(true);
+          await copyParallelMutation.mutateAsync({
+            sources: clipboardPaths,
+            destination: currentPath,
+          });
+        } else {
+          await copyMutation.mutateAsync({
+            sources: clipboardPaths,
+            destination: currentPath,
+          });
+        }
       }
     } catch (error) {
       console.error("Paste failed:", error);
@@ -132,6 +147,7 @@ export function FileExplorer({
     isCut,
     moveMutation,
     copyMutation,
+    copyParallelMutation,
     clearClipboard,
   ]);
 
@@ -155,24 +171,36 @@ export function FileExplorer({
   }, [getSelectedPaths, onRenameRequest]);
 
   return (
-    <FileContextMenu
-      selectedPaths={getSelectedPaths()}
-      onCopy={handleCopy}
-      onCut={handleCut}
-      onPaste={handlePaste}
-      onDelete={handleDelete}
-      onRename={handleRename}
-      onNewFolder={() => onNewFolderRequest?.()}
-      onNewFile={() => onNewFileRequest?.()}
-      onRefresh={() => refetch()}
-      canPaste={hasContent()}>
-      <VirtualFileList
-        files={files}
-        selectedPaths={selectedPaths}
-        onSelect={handleSelect}
-        onOpen={handleOpen}
-        className={cn("flex-1", className)}
+    <>
+      <FileContextMenu
+        selectedPaths={getSelectedPaths()}
+        onCopy={handleCopy}
+        onCut={handleCut}
+        onPaste={handlePaste}
+        onDelete={handleDelete}
+        onRename={handleRename}
+        onNewFolder={() => onNewFolderRequest?.()}
+        onNewFile={() => onNewFileRequest?.()}
+        onRefresh={() => refetch()}
+        canPaste={hasContent()}>
+        <VirtualFileList
+          files={files}
+          selectedPaths={selectedPaths}
+          onSelect={handleSelect}
+          onOpen={handleOpen}
+          className={cn("flex-1", className)}
+        />
+      </FileContextMenu>
+
+      {/* Диалог прогресса копирования */}
+      <CopyProgressDialog
+        open={showCopyProgress}
+        onComplete={() => setShowCopyProgress(false)}
+        onCancel={() => {
+          // TODO: Реализовать отмену операции
+          setShowCopyProgress(false);
+        }}
       />
-    </FileContextMenu>
+    </>
   );
 }

@@ -3,7 +3,11 @@ use specta::Type;
 use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
+use std::sync::Arc;
+use std::sync::atomic::{AtomicUsize, Ordering};
 use tauri::async_runtime::spawn_blocking;
+use tauri::{AppHandle, Emitter};
+use tokio::task::JoinSet;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileEntry {
@@ -32,6 +36,13 @@ pub struct OperationProgress {
     pub current: u64,
     pub total: u64,
     pub current_file: String,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct CopyProgress {
+    pub current: usize,
+    pub total: usize,
+    pub file: String,
 }
 
 fn system_time_to_timestamp(time: SystemTime) -> Option<i64> {
@@ -323,4 +334,124 @@ pub async fn get_parent_path(path: String) -> Result<Option<String>, String> {
 #[specta::specta]
 pub async fn path_exists(path: String) -> Result<bool, String> {
     Ok(Path::new(&path).exists())
+}
+
+/// Параллельное копирование файлов с прогрессом
+#[tauri::command]
+#[specta::specta]
+pub async fn copy_entries_parallel(
+    sources: Vec<String>,
+    destination: String,
+    app: AppHandle,
+) -> Result<(), String> {
+    let total = sources.len();
+    let mut set = JoinSet::new();
+    let counter = Arc::new(AtomicUsize::new(0));
+    
+    for source in sources {
+        let dest = destination.clone();
+        let app = app.clone();
+        let counter = counter.clone();
+        
+        set.spawn(async move {
+            let result = copy_single_entry(&source, &dest).await;
+            let current = counter.fetch_add(1, Ordering::SeqCst);
+            
+            // Отправляем прогресс
+            let _ = app.emit("copy-progress", CopyProgress {
+                current: current + 1,
+                total,
+                file: source,
+            });
+            
+            result
+        });
+    }
+    
+    while let Some(result) = set.join_next().await {
+        result.map_err(|e| e.to_string())??;
+    }
+    
+    Ok(())
+}
+
+async fn copy_single_entry(source: &str, destination: &str) -> Result<(), String> {
+    let src_path = Path::new(source);
+    let dest_path = Path::new(destination);
+    let file_name = src_path.file_name().ok_or("Invalid source path")?;
+    let target = dest_path.join(file_name);
+    
+    if src_path.is_dir() {
+        copy_dir_recursive(src_path, &target)?;
+    } else {
+        fs::copy(source, &target)
+            .map_err(|e| format!("Failed to copy {}: {}", source, e))?;
+    }
+    Ok(())
+}
+
+/// Стриминг директории пакетами для больших директорий
+#[tauri::command]
+#[specta::specta]
+pub async fn read_directory_stream(
+    path: String,
+    app: AppHandle,
+) -> Result<(), String> {
+    let path_clone = path.clone();
+    
+    spawn_blocking(move || {
+        let dir_path = Path::new(&path_clone);
+        let read_dir = fs::read_dir(dir_path).map_err(|e| e.to_string())?;
+        
+        let mut batch = Vec::with_capacity(100);
+        
+        for entry in read_dir.flatten() {
+            if let Some(file_entry) = entry_to_file_entry(&entry) {
+                batch.push(file_entry);
+                
+                // Отправляем пакетами по 100
+                if batch.len() >= 100 {
+                    let _ = app.emit("directory-batch", &batch);
+                    batch.clear();
+                }
+            }
+        }
+        
+        // Остаток
+        if !batch.is_empty() {
+            let _ = app.emit("directory-batch", &batch);
+        }
+        
+        let _ = app.emit("directory-complete", &path_clone);
+        Ok::<_, String>(())
+    }).await.map_err(|e| e.to_string())??;
+    
+    Ok(())
+}
+
+fn entry_to_file_entry(entry: &fs::DirEntry) -> Option<FileEntry> {
+    let entry_path = entry.path();
+    let metadata = entry.metadata().ok()?;
+    
+    let name = entry_path
+        .file_name()
+        .and_then(|n| n.to_str())
+        .unwrap_or("")
+        .to_string();
+    
+    let extension = entry_path
+        .extension()
+        .and_then(|e| e.to_str())
+        .map(|s| s.to_lowercase());
+    
+    Some(FileEntry {
+        name,
+        path: entry_path.to_string_lossy().to_string(),
+        is_dir: metadata.is_dir(),
+        is_hidden: is_hidden(&entry_path),
+        size: if metadata.is_file() { metadata.len() } else { 0 },
+        modified: metadata.modified().ok().and_then(system_time_to_timestamp),
+        created: metadata.created().ok().and_then(system_time_to_timestamp),
+        extension,
+    })
 }
