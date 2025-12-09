@@ -11,11 +11,34 @@ interface ColumnHeaderProps {
   className?: string;
 }
 
+const handleWidth = 8;
+
 export function ColumnHeader({
   columnWidths,
   onColumnResize,
   className,
 }: ColumnHeaderProps) {
+  const resizeSize = useResizeHandler({
+    width: columnWidths.size,
+    min: 50,
+    max: 150,
+    onWidth: (w) => onColumnResize("size", w),
+  });
+
+  const resizeDate = useResizeHandler({
+    width: columnWidths.date,
+    min: 80,
+    max: 250,
+    onWidth: (w) => onColumnResize("date", w),
+  });
+
+  const resizePadding = useResizeHandler({
+    width: columnWidths.padding,
+    min: 8,
+    max: 100,
+    onWidth: (w) => onColumnResize("padding", w),
+  });
+
   return (
     <div
       className={cn(
@@ -23,95 +46,91 @@ export function ColumnHeader({
         className
       )}>
       <span className="w-[18px] mr-3" /> {/* Icon placeholder */}
-      <span className="flex-1">Имя</span>
-      <ResizableColumn
-        width={columnWidths.size}
-        minWidth={50}
-        maxWidth={150}
-        onResize={(w) => onColumnResize("size", w)}
-        showLeftBorder>
-        Размер
-      </ResizableColumn>
-      <ResizableColumn
-        width={columnWidths.date}
-        minWidth={80}
-        maxWidth={250}
-        onResize={(w) => onColumnResize("date", w)}
-        showLeftBorder>
-        Изменён
-      </ResizableColumn>
-      <ResizableColumn
-        width={columnWidths.padding}
-        minWidth={8}
-        maxWidth={100}
-        onResize={(w) => onColumnResize("padding", w)}
-        showLeftBorder
-      />
+      <div className="flex-1 text-center">Имя</div>
+      {/* Handle between Имя and Размер */}
+      <ResizeHandle onResize={resizeSize} />
+      <Column width={columnWidths.size} title="Размер" />
+      {/* Handle between Размер и Изменён */}
+      <ResizeHandle onResize={resizeDate} />
+      <Column width={columnWidths.date} title="Изменён" />
+      {/* Right padding handle to adjust trailing spacing */}
+      <ResizeHandle onResize={resizePadding} />
+      <div className="shrink-0" style={{ width: columnWidths.padding }} />
     </div>
   );
 }
 
-interface ResizableColumnProps {
+interface ColumnProps {
   width: number;
-  minWidth: number;
-  maxWidth: number;
-  onResize: (width: number) => void;
-  children?: React.ReactNode;
-  showLeftBorder?: boolean;
+  title: string;
 }
 
-function ResizableColumn({
-  width,
-  minWidth,
-  maxWidth,
-  onResize,
-  children,
-  showLeftBorder,
-}: ResizableColumnProps) {
-  const startXRef = useRef(0);
-  const startWidthRef = useRef(0);
+function Column({ width, title }: ColumnProps) {
+  return (
+    <div
+      className="shrink-0 text-center text-xs font-medium text-muted-foreground"
+      style={{ width }}>
+      {title}
+    </div>
+  );
+}
 
-  const handleMouseDown = useCallback(
+interface ResizeHandleProps {
+  onResize: (delta: number) => void;
+}
+
+function ResizeHandle({ onResize }: ResizeHandleProps) {
+  const startXRef = useRef(0);
+
+  const onMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault();
       e.stopPropagation();
       startXRef.current = e.clientX;
-      startWidthRef.current = width;
 
-      const handleMouseMove = (e: MouseEvent) => {
-        // Negative delta because handle is on the left - dragging left increases width
-        const delta = startXRef.current - e.clientX;
-        const newWidth = Math.min(
-          maxWidth,
-          Math.max(minWidth, startWidthRef.current + delta)
-        );
-        onResize(newWidth);
+      const handleMove = (moveEvent: MouseEvent) => {
+        const delta = moveEvent.clientX - startXRef.current;
+        onResize(delta);
       };
 
-      const handleMouseUp = () => {
-        document.removeEventListener("mousemove", handleMouseMove);
-        document.removeEventListener("mouseup", handleMouseUp);
+      const handleUp = () => {
+        document.removeEventListener("mousemove", handleMove);
+        document.removeEventListener("mouseup", handleUp);
       };
 
-      document.addEventListener("mousemove", handleMouseMove);
-      document.addEventListener("mouseup", handleMouseUp);
+      document.addEventListener("mousemove", handleMove);
+      document.addEventListener("mouseup", handleUp);
     },
-    [width, minWidth, maxWidth, onResize]
+    [onResize]
   );
 
   return (
     <div
-      className="relative text-right shrink-0 flex items-center"
-      style={{ width }}>
-      {/* Visible resize handle on the left edge */}
-      {showLeftBorder && (
-        <div
-          className="absolute left-0 top-0 bottom-0 w-[3px] cursor-col-resize bg-border hover:bg-primary/50 active:bg-primary transition-colors -ml-[1.5px] rounded-sm"
-          onMouseDown={handleMouseDown}
-          title="Перетащите для изменения ширины"
-        />
-      )}
-      {children && <span className="flex-1 truncate px-2">{children}</span>}
-    </div>
+      className="shrink-0 h-5 w-[8px] cursor-col-resize bg-border hover:bg-primary/60 active:bg-primary rounded-sm transition-colors"
+      onMouseDown={onMouseDown}
+      title="Перетащите для изменения ширины"
+      style={{ marginInline: -(handleWidth / 2) }}
+    />
   );
+}
+
+interface ResizeHandlerConfig {
+  width: number;
+  min: number;
+  max: number;
+  onWidth: (width: number) => void;
+}
+
+function useResizeHandler({ width, min, max, onWidth }: ResizeHandlerConfig) {
+  return useCallback(
+    (delta: number) => {
+      const next = clamp(width - delta, min, max);
+      onWidth(next);
+    },
+    [width, min, max, onWidth]
+  );
+}
+
+function clamp(value: number, min: number, max: number) {
+  return Math.min(max, Math.max(min, value));
 }
