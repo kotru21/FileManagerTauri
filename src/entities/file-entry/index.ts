@@ -21,5 +21,6 @@ export {
   useDeleteEntries,
   useRenameEntry,
   useCopyEntries,
+  useCopyEntriesParallel,
   useMoveEntries,
 } from "./api";

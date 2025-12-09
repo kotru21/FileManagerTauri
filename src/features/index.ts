@@ -4,3 +4,5 @@ export * from "./clipboard";
 export * from "./search-content";
 export * from "./context-menu";
 export * from "./layout";
+export * from "./keyboard-navigation";
+export * from "./tabs";

@@ -1,4 +1,4 @@
-import { useState, useCallback, useEffect, useMemo } from "react";
+import { useState, useCallback, useEffect } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   FileExplorer,
@@ -10,7 +10,6 @@ import {
 import {
   SearchBar,
   useSearchStore,
-  useSearch,
 } from "@/features/search-content";
 import { useNavigationStore } from "@/features/navigation";
 import { useLayoutStore } from "@/features/layout";
@@ -21,7 +20,6 @@ import {
   fileKeys,
 } from "@/entities/file-entry";
 import { SearchResultItem } from "@/features/search-content";
-import { type SearchOptions } from "@/shared/api/tauri";
 import { openPath } from "@tauri-apps/plugin-opener";
 import {
   Dialog,
@@ -52,35 +50,13 @@ export function FileBrowserPage() {
   const createFile = useCreateFile();
   const renameEntry = useRenameEntry();
 
-  const {
-    query,
-    searchContent,
-    searchPath,
-    setSearchPath,
-  } = useSearchStore();
+  const { searchPath, setSearchPath, results: searchResults } = useSearchStore();
 
   useEffect(() => {
     if (currentPath) {
       setSearchPath(currentPath);
     }
   }, [currentPath, setSearchPath]);
-
-  const searchOptions: SearchOptions | null = useMemo(() => {
-    if (!searchPath || query.length < 2) return null;
-    return {
-      query,
-      search_path: searchPath,
-      search_content: searchContent,
-      case_sensitive: false,
-      max_results: 500,
-      file_extensions: null,
-    };
-  }, [query, searchPath, searchContent]);
-
-  const { data: searchResults = [], isFetching: isSearching } = useSearch(
-    searchOptions as SearchOptions,
-    !!searchOptions && showSearch
-  );
 
   const handleRefresh = useCallback(() => {
     if (currentPath) {
@@ -179,9 +155,9 @@ export function FileBrowserPage() {
           <Breadcrumbs className="flex-1" />
         </header>
 
-        {/* Search Bar */}
+        {/* Search Bar - фиксированная позиция */}
         {showSearch && (
-          <div className="px-4 py-2 border-b space-y-3">
+          <div className="px-4 py-2 border-b">
             <SearchBar
               className="max-w-xl"
               onSearch={() => {
@@ -190,71 +166,75 @@ export function FileBrowserPage() {
                 }
               }}
             />
+          </div>
+        )}
 
-            <div className="border rounded-md overflow-hidden bg-muted/10">
-              {isSearching && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
-                  Поиск...
+        {/* Main Content - relative для overlay */}
+        <div className="flex-1 overflow-hidden relative">
+          {/* Search Results Overlay */}
+          {showSearch && searchResults.length > 0 && (
+            <div className="absolute top-0 left-0 right-0 z-40 mx-4 mt-2">
+              <div className="border rounded-lg shadow-xl bg-background/95 backdrop-blur-sm overflow-hidden max-w-2xl">
+                <div className="px-3 py-1.5 border-b bg-muted/50 text-xs text-muted-foreground flex justify-between items-center">
+                  <span>Найдено: {searchResults.length}</span>
+                  <button
+                    onClick={() => useSearchStore.getState().setResults([])}
+                    className="text-muted-foreground hover:text-foreground transition-colors"
+                  >
+                    Закрыть
+                  </button>
                 </div>
-              )}
-
-              {!isSearching && searchResults.length === 0 && query.length >= 2 && (
-                <div className="px-3 py-2 text-xs text-muted-foreground">
-                  Ничего не найдено.
-                </div>
-              )}
-
-              {!isSearching && searchResults.length > 0 && (
                 <div className="max-h-80 overflow-auto divide-y">
                   {searchResults.map((result) => (
                     <SearchResultItem
                       key={result.path}
                       result={result}
-                      onSelect={() => handleResultSelect(result.path, result.is_dir)}
+                      onSelect={() =>
+                        handleResultSelect(result.path, result.is_dir)
+                      }
                     />
                   ))}
                 </div>
-              )}
+              </div>
             </div>
-          </div>
-        )}
+          )}
 
-        {/* Main Content */}
-        <ResizablePanelGroup
-          direction="horizontal"
-          className="flex-1 overflow-hidden"
-          onLayout={(sizes) => {
-            if (sizes.length >= 2) {
-              useLayoutStore.getState().setLayout({
-                sidebarSize: sizes[0],
-                mainPanelSize: sizes[1],
-              });
-            }
-          }}>
-          <ResizablePanel
-            defaultSize={useLayoutStore.getState().layout.sidebarSize}
-            minSize={10}
-            maxSize={40}
-            collapsible>
-            <Sidebar className="h-full" />
-          </ResizablePanel>
+          <ResizablePanelGroup
+            direction="horizontal"
+            className="h-full"
+            onLayout={(sizes) => {
+              if (sizes.length >= 2) {
+                useLayoutStore.getState().setLayout({
+                  sidebarSize: sizes[0],
+                  mainPanelSize: sizes[1],
+                });
+              }
+            }}>
+            <ResizablePanel
+              defaultSize={useLayoutStore.getState().layout.sidebarSize}
+              minSize={10}
+              maxSize={40}
+              collapsible>
+              <Sidebar className="h-full" />
+            </ResizablePanel>
 
-          <ResizableHandle withHandle />
+            <ResizableHandle withHandle />
 
-          <ResizablePanel
-            defaultSize={useLayoutStore.getState().layout.mainPanelSize}
-            minSize={30}>
-            <main className="flex-1 flex flex-col overflow-hidden h-full">
-              <FileExplorer
-                showHidden={false}
-                onRenameRequest={handleRenameRequest}
-                onNewFolderRequest={handleNewFolder}
-                onNewFileRequest={handleNewFile}
-                className="flex-1"
-              />
-            </main>
-          </ResizablePanel>
-        </ResizablePanelGroup>
+            <ResizablePanel
+              defaultSize={useLayoutStore.getState().layout.mainPanelSize}
+              minSize={30}>
+              <main className="flex-1 flex flex-col overflow-hidden h-full">
+                <FileExplorer
+                  showHidden={false}
+                  onRenameRequest={handleRenameRequest}
+                  onNewFolderRequest={handleNewFolder}
+                  onNewFileRequest={handleNewFile}
+                  className="flex-1"
+                />
+              </main>
+            </ResizablePanel>
+          </ResizablePanelGroup>
+        </div>
 
         {/* Status Bar */}
         <StatusBar />
