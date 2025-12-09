@@ -1,4 +1,4 @@
-import { useState, useCallback } from "react";
+import { useState, useCallback, useEffect, useMemo } from "react";
 import { useQueryClient } from "@tanstack/react-query";
 import {
   FileExplorer,
@@ -7,7 +7,11 @@ import {
   Sidebar,
   StatusBar,
 } from "@/widgets";
-import { SearchBar, useSearchStore } from "@/features/search-content";
+import {
+  SearchBar,
+  useSearchStore,
+  useSearch,
+} from "@/features/search-content";
 import { useNavigationStore } from "@/features/navigation";
 import { useLayoutStore } from "@/features/layout";
 import {
@@ -16,6 +20,9 @@ import {
   useRenameEntry,
   fileKeys,
 } from "@/entities/file-entry";
+import { SearchResultItem } from "@/features/search-content";
+import { type SearchOptions } from "@/shared/api/tauri";
+import { openPath } from "@tauri-apps/plugin-opener";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +52,35 @@ export function FileBrowserPage() {
   const createFile = useCreateFile();
   const renameEntry = useRenameEntry();
 
-  const { setSearchPath } = useSearchStore();
+  const {
+    query,
+    searchContent,
+    searchPath,
+    setSearchPath,
+  } = useSearchStore();
+
+  useEffect(() => {
+    if (currentPath) {
+      setSearchPath(currentPath);
+    }
+  }, [currentPath, setSearchPath]);
+
+  const searchOptions: SearchOptions | null = useMemo(() => {
+    if (!searchPath || query.length < 2) return null;
+    return {
+      query,
+      search_path: searchPath,
+      search_content: searchContent,
+      case_sensitive: false,
+      max_results: 500,
+      file_extensions: null,
+    };
+  }, [query, searchPath, searchContent]);
+
+  const { data: searchResults = [], isFetching: isSearching } = useSearch(
+    searchOptions as SearchOptions,
+    !!searchOptions && showSearch
+  );
 
   const handleRefresh = useCallback(() => {
     if (currentPath) {
@@ -115,6 +150,21 @@ export function FileBrowserPage() {
     }
   }, [currentPath, setSearchPath]);
 
+  const handleResultSelect = useCallback(
+    async (path: string, isDir?: boolean) => {
+      if (isDir === true) {
+        useNavigationStore.getState().navigate(path);
+      } else {
+        try {
+          await openPath(path);
+        } catch (error) {
+          console.error("Failed to open file from search result:", error);
+        }
+      }
+    },
+    []
+  );
+
   return (
     <TooltipProvider>
       <div className="flex flex-col h-screen bg-background text-foreground">
@@ -131,8 +181,41 @@ export function FileBrowserPage() {
 
         {/* Search Bar */}
         {showSearch && (
-          <div className="px-4 py-2 border-b">
-            <SearchBar className="max-w-xl" />
+          <div className="px-4 py-2 border-b space-y-3">
+            <SearchBar
+              className="max-w-xl"
+              onSearch={() => {
+                if (!searchPath && currentPath) {
+                  setSearchPath(currentPath);
+                }
+              }}
+            />
+
+            <div className="border rounded-md overflow-hidden bg-muted/10">
+              {isSearching && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  Поиск...
+                </div>
+              )}
+
+              {!isSearching && searchResults.length === 0 && query.length >= 2 && (
+                <div className="px-3 py-2 text-xs text-muted-foreground">
+                  Ничего не найдено.
+                </div>
+              )}
+
+              {!isSearching && searchResults.length > 0 && (
+                <div className="max-h-80 overflow-auto divide-y">
+                  {searchResults.map((result) => (
+                    <SearchResultItem
+                      key={result.path}
+                      result={result}
+                      onSelect={() => handleResultSelect(result.path, result.is_dir)}
+                    />
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         )}
 
