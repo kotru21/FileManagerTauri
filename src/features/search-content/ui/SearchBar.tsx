@@ -22,7 +22,7 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
   // Debounce для автоматического поиска
   useEffect(() => {
     if (input.length < 2) return;
-    
+
     const timer = setTimeout(() => {
       setQuery(input);
       startSearch();
@@ -31,12 +31,15 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
     return () => clearTimeout(timer);
   }, [input, setQuery, startSearch]);
 
-  const handleChange = useCallback((value: string) => {
-    setInput(value);
-    if (value.length < 2) {
-      reset();
-    }
-  }, [reset]);
+  const handleChange = useCallback(
+    (value: string) => {
+      setInput(value);
+      if (value.length < 2) {
+        reset();
+      }
+    },
+    [reset]
+  );
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
@@ -120,10 +123,12 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
         <div className="flex flex-col gap-0.5 text-xs text-muted-foreground px-1 animate-in fade-in duration-200">
           <div className="flex items-center justify-between">
             <span>
-              Просканировано: <strong>{progress.scanned.toLocaleString()}</strong> файлов
+              Просканировано:{" "}
+              <strong>{progress.scanned.toLocaleString()}</strong> файлов
             </span>
             <span>
-              Найдено: <strong className="text-primary">{progress.found}</strong>
+              Найдено:{" "}
+              <strong className="text-primary">{progress.found}</strong>
             </span>
           </div>
           {shortPath && (

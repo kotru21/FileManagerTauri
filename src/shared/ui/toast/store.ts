@@ -24,7 +24,7 @@ export const useToastStore = create<ToastState>((set, get) => ({
   addToast: (toast) => {
     const id = `toast-${++toastId}`;
     const newToast: Toast = { ...toast, id };
-    
+
     set((state) => ({
       toasts: [...state.toasts, newToast],
     }));

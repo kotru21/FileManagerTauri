@@ -60,12 +60,12 @@ export function useSearchWithProgress() {
       "search-progress",
       (event) => {
         if (abortRef.current) return;
-        
+
         // Throttle: обновляем UI максимум раз в 200ms
         const now = Date.now();
         if (now - lastUpdateRef.current < 200) return;
         lastUpdateRef.current = now;
-        
+
         const prog: SearchProgress = {
           scanned: event.payload.scanned,
           found: event.payload.found,
@@ -95,7 +95,7 @@ export function useSearchWithProgress() {
 
       if (result.status === "ok" && !abortRef.current) {
         setResults(result.data);
-        
+
         // Показываем toast с результатом
         if (result.data.length === 0) {
           toast.info("Ничего не найдено", 3000);
@@ -109,7 +109,7 @@ export function useSearchWithProgress() {
     } catch (error) {
       console.error("Search failed:", error);
       toast.error("Ошибка поиска", 3000);
-      
+
       if (searchingToastRef.current) {
         useToastStore.getState().removeToast(searchingToastRef.current);
         searchingToastRef.current = null;
@@ -117,19 +117,27 @@ export function useSearchWithProgress() {
     } finally {
       setIsSearching(false);
       setProgress(null);
-      
+
       if (unlistenRef.current) {
         unlistenRef.current();
         unlistenRef.current = null;
       }
     }
-  }, [searchPath, query, searchContent, caseSensitive, setIsSearching, setProgress, setResults]);
+  }, [
+    searchPath,
+    query,
+    searchContent,
+    caseSensitive,
+    setIsSearching,
+    setProgress,
+    setResults,
+  ]);
 
   const cancelSearch = useCallback(() => {
     abortRef.current = true;
     setIsSearching(false);
     setProgress(null);
-    
+
     if (searchingToastRef.current) {
       useToastStore.getState().removeToast(searchingToastRef.current);
       searchingToastRef.current = null;

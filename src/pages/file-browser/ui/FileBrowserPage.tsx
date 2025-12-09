@@ -7,10 +7,7 @@ import {
   Sidebar,
   StatusBar,
 } from "@/widgets";
-import {
-  SearchBar,
-  useSearchStore,
-} from "@/features/search-content";
+import { SearchBar, useSearchStore } from "@/features/search-content";
 import { useNavigationStore } from "@/features/navigation";
 import { useLayoutStore } from "@/features/layout";
 import {
@@ -50,7 +47,11 @@ export function FileBrowserPage() {
   const createFile = useCreateFile();
   const renameEntry = useRenameEntry();
 
-  const { searchPath, setSearchPath, results: searchResults } = useSearchStore();
+  const {
+    searchPath,
+    setSearchPath,
+    results: searchResults,
+  } = useSearchStore();
 
   useEffect(() => {
     if (currentPath) {
@@ -179,8 +180,7 @@ export function FileBrowserPage() {
                   <span>Найдено: {searchResults.length}</span>
                   <button
                     onClick={() => useSearchStore.getState().setResults([])}
-                    className="text-muted-foreground hover:text-foreground transition-colors"
-                  >
+                    className="text-muted-foreground hover:text-foreground transition-colors">
                     Закрыть
                   </button>
                 </div>

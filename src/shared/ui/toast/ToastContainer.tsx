@@ -11,8 +11,10 @@ const icons: Record<ToastType, React.ComponentType<{ className?: string }>> = {
 
 const styles: Record<ToastType, string> = {
   info: "bg-background border-border text-foreground",
-  success: "bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400",
-  warning: "bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400",
+  success:
+    "bg-green-500/10 border-green-500/30 text-green-600 dark:text-green-400",
+  warning:
+    "bg-yellow-500/10 border-yellow-500/30 text-yellow-600 dark:text-yellow-400",
   error: "bg-red-500/10 border-red-500/30 text-red-600 dark:text-red-400",
 };
 
