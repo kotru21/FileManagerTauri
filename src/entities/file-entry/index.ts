@@ -1,5 +1,6 @@
 // UI
 export { FileIcon, FileRow, FileCard } from "./ui";
+export { ColumnHeader } from "./ui/ColumnHeader";
 
 // Model
 export {

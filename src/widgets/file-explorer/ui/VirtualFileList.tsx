@@ -1,7 +1,8 @@
 import { useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
 import type { FileEntry } from "@/shared/api/tauri";
-import { FileRow } from "@/entities/file-entry";
+import { FileRow, ColumnHeader } from "@/entities/file-entry";
+import { useLayoutStore } from "@/features/layout";
 
 import { cn } from "@/shared/lib";
 
@@ -13,6 +14,8 @@ interface VirtualFileListProps {
   className?: string;
 }
 
+const defaultColumnWidths = { size: 80, date: 140, padding: 12 };
+
 export function VirtualFileList({
   files,
   selectedPaths,
@@ -21,6 +24,9 @@ export function VirtualFileList({
   className,
 }: VirtualFileListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
+  const columnWidths =
+    useLayoutStore((s) => s.layout.columnWidths) ?? defaultColumnWidths;
+  const setColumnWidth = useLayoutStore((s) => s.setColumnWidth);
 
   const virtualizer = useVirtualizer({
     count: files.length,
@@ -71,39 +77,46 @@ export function VirtualFileList({
   }
 
   return (
-    <div
-      ref={parentRef}
-      className={cn("h-full overflow-auto focus:outline-none", className)}
-      tabIndex={0}
-      onKeyDown={handleKeyDown}>
+    <div className={cn("flex flex-col h-full", className)}>
+      <ColumnHeader
+        columnWidths={columnWidths}
+        onColumnResize={setColumnWidth}
+      />
       <div
-        style={{
-          height: `${virtualizer.getTotalSize()}px`,
-          width: "100%",
-          position: "relative",
-        }}>
-        {virtualizer.getVirtualItems().map((virtualRow) => {
-          const file = files[virtualRow.index];
-          return (
-            <div
-              key={file.path}
-              style={{
-                position: "absolute",
-                top: 0,
-                left: 0,
-                width: "100%",
-                height: `${virtualRow.size}px`,
-                transform: `translateY(${virtualRow.start}px)`,
-              }}>
-              <FileRow
-                file={file}
-                isSelected={selectedPaths.has(file.path)}
-                onSelect={(e) => onSelect(file.path, e)}
-                onOpen={() => onOpen(file.path, file.is_dir)}
-              />
-            </div>
-          );
-        })}
+        ref={parentRef}
+        className="flex-1 overflow-auto focus:outline-none"
+        tabIndex={0}
+        onKeyDown={handleKeyDown}>
+        <div
+          style={{
+            height: `${virtualizer.getTotalSize()}px`,
+            width: "100%",
+            position: "relative",
+          }}>
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            const file = files[virtualRow.index];
+            return (
+              <div
+                key={file.path}
+                style={{
+                  position: "absolute",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: `${virtualRow.size}px`,
+                  transform: `translateY(${virtualRow.start}px)`,
+                }}>
+                <FileRow
+                  file={file}
+                  isSelected={selectedPaths.has(file.path)}
+                  onSelect={(e) => onSelect(file.path, e)}
+                  onOpen={() => onOpen(file.path, file.is_dir)}
+                  columnWidths={columnWidths}
+                />
+              </div>
+            );
+          })}
+        </div>
       </div>
     </div>
   );

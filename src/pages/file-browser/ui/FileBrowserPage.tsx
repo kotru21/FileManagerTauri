@@ -9,6 +9,7 @@ import {
 } from "@/widgets";
 import { SearchBar, useSearchStore } from "@/features/search-content";
 import { useNavigationStore } from "@/features/navigation";
+import { useLayoutStore } from "@/features/layout";
 import {
   useCreateDirectory,
   useCreateFile,
@@ -24,6 +25,9 @@ import {
   Button,
   Input,
   TooltipProvider,
+  ResizablePanelGroup,
+  ResizablePanel,
+  ResizableHandle,
 } from "@/shared/ui";
 import { joinPath, getBasename } from "@/shared/lib";
 
@@ -133,19 +137,41 @@ export function FileBrowserPage() {
         )}
 
         {/* Main Content */}
-        <div className="flex flex-1 overflow-hidden">
-          <Sidebar className="w-48 shrink-0" />
+        <ResizablePanelGroup
+          direction="horizontal"
+          className="flex-1 overflow-hidden"
+          onLayout={(sizes) => {
+            if (sizes.length >= 2) {
+              useLayoutStore.getState().setLayout({
+                sidebarSize: sizes[0],
+                mainPanelSize: sizes[1],
+              });
+            }
+          }}>
+          <ResizablePanel
+            defaultSize={useLayoutStore.getState().layout.sidebarSize}
+            minSize={10}
+            maxSize={40}
+            collapsible>
+            <Sidebar className="h-full" />
+          </ResizablePanel>
 
-          <main className="flex-1 flex flex-col overflow-hidden">
-            <FileExplorer
-              showHidden={false}
-              onRenameRequest={handleRenameRequest}
-              onNewFolderRequest={handleNewFolder}
-              onNewFileRequest={handleNewFile}
-              className="flex-1"
-            />
-          </main>
-        </div>
+          <ResizableHandle withHandle />
+
+          <ResizablePanel
+            defaultSize={useLayoutStore.getState().layout.mainPanelSize}
+            minSize={30}>
+            <main className="flex-1 flex flex-col overflow-hidden h-full">
+              <FileExplorer
+                showHidden={false}
+                onRenameRequest={handleRenameRequest}
+                onNewFolderRequest={handleNewFolder}
+                onNewFileRequest={handleNewFile}
+                className="flex-1"
+              />
+            </main>
+          </ResizablePanel>
+        </ResizablePanelGroup>
 
         {/* Status Bar */}
         <StatusBar />

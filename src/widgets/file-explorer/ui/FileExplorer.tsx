@@ -1,4 +1,5 @@
 import { useCallback, useMemo } from "react";
+import { openPath } from "@tauri-apps/plugin-opener";
 
 import {
   useDirectoryContents,
@@ -83,12 +84,16 @@ export function FileExplorer({
   );
 
   const handleOpen = useCallback(
-    (path: string, isDir: boolean) => {
+    async (path: string, isDir: boolean) => {
       if (isDir) {
         clearSelection();
         navigate(path);
       } else {
-        // TODO: Open file with default app
+        try {
+          await openPath(path);
+        } catch (error) {
+          console.error("Failed to open file:", error);
+        }
       }
     },
     [navigate, clearSelection]
