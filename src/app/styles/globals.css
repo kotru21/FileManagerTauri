@@ -101,6 +101,12 @@ body {
   background: hsl(var(--muted-foreground) / 0.5);
 }
 
+/* Firefox scrollbar support */
+* {
+  scrollbar-width: thin;
+  scrollbar-color: hsl(var(--muted-foreground) / 0.3) transparent;
+}
+
 /* Prevent text selection during drag */
 .no-select {
   user-select: none;

@@ -1,6 +1,6 @@
 [package]
 name = "file-manager-tauri"
-version = "0.2.0"
+version = "0.3.0"
 description = "Desktop File Manager built with Tauri"
 authors = ["kotru21"]
 edition = "2024"

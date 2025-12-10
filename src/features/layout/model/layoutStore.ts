@@ -1,5 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
+import { STORAGE_VERSIONS } from "@/shared/config";
 
 export interface ColumnWidths {
   size: number;
@@ -88,6 +89,7 @@ export const useLayoutStore = create<LayoutState>()(
     }),
     {
       name: "file-manager-layout",
+      version: STORAGE_VERSIONS.LAYOUT,
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<LayoutState> | undefined;
         return {
@@ -101,6 +103,13 @@ export const useLayoutStore = create<LayoutState>()(
             },
           },
         };
+      },
+      migrate: (persistedState, version) => {
+        // Миграция для будущих версий
+        if (version === 0) {
+          return persistedState;
+        }
+        return persistedState as LayoutState;
       },
     }
   )

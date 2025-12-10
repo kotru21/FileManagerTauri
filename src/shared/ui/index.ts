@@ -36,3 +36,4 @@ export {
 } from "./resizable";
 export { Skeleton, FileListSkeleton } from "./skeleton";
 export { ToastContainer, useToastStore, toast } from "./toast";
+export { ErrorBoundary } from "./error-boundary";

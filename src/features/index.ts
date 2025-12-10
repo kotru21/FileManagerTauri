@@ -6,3 +6,4 @@ export * from "./context-menu";
 export * from "./layout";
 export * from "./keyboard-navigation";
 export * from "./tabs";
+export * from "./file-dialogs";

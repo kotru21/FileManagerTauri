@@ -3,7 +3,7 @@ import { useVirtualizer } from "@tanstack/react-virtual";
 import type { FileEntry } from "@/shared/api/tauri";
 import { FileRow, ColumnHeader } from "@/entities/file-entry";
 import { useLayoutStore } from "@/features/layout";
-
+import { VIRTUALIZATION } from "@/shared/config";
 import { cn } from "@/shared/lib";
 
 interface VirtualFileListProps {
@@ -31,8 +31,8 @@ export function VirtualFileList({
   const virtualizer = useVirtualizer({
     count: files.length,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => 32,
-    overscan: 10,
+    estimateSize: useCallback(() => VIRTUALIZATION.ROW_HEIGHT, []),
+    overscan: VIRTUALIZATION.OVERSCAN,
   });
 
   const handleKeyDown = useCallback(

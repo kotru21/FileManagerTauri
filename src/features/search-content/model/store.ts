@@ -26,17 +26,23 @@ interface SearchState {
   setProgress: (progress: SearchProgress | null) => void;
   cancelSearch: () => void;
   reset: () => void;
+  /** Очищает результаты и query, но сохраняет searchPath */
+  clearSearch: () => void;
 }
 
-export const useSearchStore = create<SearchState>((set) => ({
+const initialState = {
   query: "",
   searchPath: "",
   searchContent: false,
   caseSensitive: false,
   isSearching: false,
-  results: [],
-  progress: null,
+  results: [] as SearchResult[],
+  progress: null as SearchProgress | null,
   shouldCancel: false,
+};
+
+export const useSearchStore = create<SearchState>((set) => ({
+  ...initialState,
 
   setQuery: (query) => set({ query }),
   setSearchPath: (searchPath) => set({ searchPath }),
@@ -45,15 +51,14 @@ export const useSearchStore = create<SearchState>((set) => ({
   setIsSearching: (isSearching) => set({ isSearching }),
   setResults: (results) => set({ results }),
   setProgress: (progress) => set({ progress }),
-  cancelSearch: () => set({ shouldCancel: true }),
-  reset: () =>
+  cancelSearch: () => set({ shouldCancel: true, isSearching: false }),
+  reset: () => set(initialState),
+  clearSearch: () =>
     set({
       query: "",
-      searchContent: false,
-      caseSensitive: false,
-      isSearching: false,
       results: [],
       progress: null,
+      isSearching: false,
       shouldCancel: false,
     }),
 }));

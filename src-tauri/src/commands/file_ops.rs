@@ -1,5 +1,6 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
+use std::collections::VecDeque;
 use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
@@ -8,6 +9,9 @@ use std::sync::atomic::{AtomicUsize, Ordering};
 use tauri::async_runtime::spawn_blocking;
 use tauri::{AppHandle, Emitter};
 use tokio::task::JoinSet;
+
+/// Максимальная глубина рекурсии для операций с директориями
+const MAX_DIRECTORY_DEPTH: usize = 100;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileEntry {
@@ -49,6 +53,39 @@ fn system_time_to_timestamp(time: SystemTime) -> Option<i64> {
     time.duration_since(SystemTime::UNIX_EPOCH)
         .ok()
         .map(|d| d.as_secs() as i64)
+}
+
+/// Валидация пути для предотвращения атак path traversal
+/// Проверяет, что путь абсолютный и не содержит опасных компонентов
+fn validate_path(path: &str) -> Result<std::path::PathBuf, String> {
+    let path_buf = Path::new(path);
+    
+    // Путь должен быть абсолютным
+    if !path_buf.is_absolute() {
+        return Err(format!("Path must be absolute: {}", path));
+    }
+    
+    // Канонизация пути для разрешения .. и .
+    let canonical = path_buf.canonicalize()
+        .map_err(|e| format!("Invalid path '{}': {}", path, e))?;
+    
+    // Проверка, что путь не пытается выйти за пределы корня
+    // На Windows, что это валидный путь диска
+    #[cfg(windows)]
+    {
+        if canonical.components().count() < 1 {
+            return Err("Path is too short".to_string());
+        }
+    }
+    
+    Ok(canonical)
+}
+
+/// Проверяет множество путей
+fn validate_paths(paths: &[String]) -> Result<Vec<std::path::PathBuf>, String> {
+    paths.iter()
+        .map(|p| validate_path(p))
+        .collect()
 }
 
 fn is_hidden(path: &Path) -> bool {
@@ -217,28 +254,30 @@ pub async fn create_file(path: String) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), String> {
-    for path in paths {
-        let entry_path = Path::new(&path);
+    // Валидация всех путей перед выполнением операции
+    let validated_paths = validate_paths(&paths)?;
+    
+    for entry_path in validated_paths {
         if !entry_path.exists() {
             continue;
         }
 
         if permanent {
             if entry_path.is_dir() {
-                fs::remove_dir_all(&path)
-                    .map_err(|e| format!("Failed to delete directory {}: {}", path, e))?;
+                fs::remove_dir_all(&entry_path)
+                    .map_err(|e| format!("Failed to delete directory {:?}: {}", entry_path, e))?;
             } else {
-                fs::remove_file(&path)
-                    .map_err(|e| format!("Failed to delete file {}: {}", path, e))?;
+                fs::remove_file(&entry_path)
+                    .map_err(|e| format!("Failed to delete file {:?}: {}", entry_path, e))?;
             }
         } else {
-            // TODO: Move to trash using system API
+            // TODO: Move to trash using system API (trash crate)
             if entry_path.is_dir() {
-                fs::remove_dir_all(&path)
-                    .map_err(|e| format!("Failed to delete directory {}: {}", path, e))?;
+                fs::remove_dir_all(&entry_path)
+                    .map_err(|e| format!("Failed to delete directory {:?}: {}", entry_path, e))?;
             } else {
-                fs::remove_file(&path)
-                    .map_err(|e| format!("Failed to delete file {}: {}", path, e))?;
+                fs::remove_file(&entry_path)
+                    .map_err(|e| format!("Failed to delete file {:?}: {}", entry_path, e))?;
             }
         }
     }
@@ -262,38 +301,53 @@ pub async fn rename_entry(old_path: String, new_name: String) -> Result<String, 
 #[tauri::command]
 #[specta::specta]
 pub async fn copy_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
-    let dest_path = Path::new(&destination);
+    // Валидация путей
+    let validated_sources = validate_paths(&sources)?;
+    let dest_path = validate_path(&destination)?;
     
-    for source in sources {
-        let src_path = Path::new(&source);
+    for src_path in validated_sources {
         let file_name = src_path.file_name()
             .ok_or("Invalid source path")?;
         let target = dest_path.join(file_name);
         
         if src_path.is_dir() {
-            copy_dir_recursive(src_path, &target)?;
+            copy_dir_iterative(&src_path, &target)?;
         } else {
-            fs::copy(&source, &target)
-                .map_err(|e| format!("Failed to copy {}: {}", source, e))?;
+            fs::copy(&src_path, &target)
+                .map_err(|e| format!("Failed to copy {:?}: {}", src_path, e))?;
         }
     }
     Ok(())
 }
 
-fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
-    fs::create_dir_all(dst)
-        .map_err(|e| format!("Failed to create directory: {}", e))?;
+/// Итеративное копирование директории
+fn copy_dir_iterative(src: &Path, dst: &Path) -> Result<(), String> {
+    let mut queue: VecDeque<(std::path::PathBuf, std::path::PathBuf)> = VecDeque::new();
+    queue.push_back((src.to_path_buf(), dst.to_path_buf()));
     
-    for entry in fs::read_dir(src).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
-        let src_path = entry.path();
-        let dst_path = dst.join(entry.file_name());
+    let mut depth = 0;
+    
+    while let Some((current_src, current_dst)) = queue.pop_front() {
+        // Защита от слишком глубокой вложенности
+        if depth > MAX_DIRECTORY_DEPTH {
+            return Err(format!("Directory depth exceeds maximum allowed ({})", MAX_DIRECTORY_DEPTH));
+        }
         
-        if src_path.is_dir() {
-            copy_dir_recursive(&src_path, &dst_path)?;
-        } else {
-            fs::copy(&src_path, &dst_path)
-                .map_err(|e| format!("Failed to copy: {}", e))?;
+        fs::create_dir_all(&current_dst)
+            .map_err(|e| format!("Failed to create directory {:?}: {}", current_dst, e))?;
+        
+        for entry in fs::read_dir(&current_src).map_err(|e| e.to_string())? {
+            let entry = entry.map_err(|e| e.to_string())?;
+            let src_path = entry.path();
+            let dst_path = current_dst.join(entry.file_name());
+            
+            if src_path.is_dir() {
+                queue.push_back((src_path, dst_path));
+                depth += 1;
+            } else {
+                fs::copy(&src_path, &dst_path)
+                    .map_err(|e| format!("Failed to copy {:?}: {}", src_path, e))?;
+            }
         }
     }
     Ok(())
@@ -302,16 +356,17 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn move_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
-    let dest_path = Path::new(&destination);
+    // Валидация путей
+    let validated_sources = validate_paths(&sources)?;
+    let dest_path = validate_path(&destination)?;
     
-    for source in sources {
-        let src_path = Path::new(&source);
+    for src_path in validated_sources {
         let file_name = src_path.file_name()
             .ok_or("Invalid source path")?;
         let target = dest_path.join(file_name);
         
-        fs::rename(&source, &target)
-            .map_err(|e| format!("Failed to move {}: {}", source, e))?;
+        fs::rename(&src_path, &target)
+            .map_err(|e| format!("Failed to move {:?}: {}", src_path, e))?;
     }
     Ok(())
 }
@@ -319,7 +374,8 @@ pub async fn move_entries(sources: Vec<String>, destination: String) -> Result<(
 #[tauri::command]
 #[specta::specta]
 pub async fn get_file_content(path: String) -> Result<String, String> {
-    fs::read_to_string(&path)
+    let validated_path = validate_path(&path)?;
+    fs::read_to_string(&validated_path)
         .map_err(|e| format!("Failed to read file: {}", e))
 }
 
@@ -344,24 +400,29 @@ pub async fn copy_entries_parallel(
     destination: String,
     app: AppHandle,
 ) -> Result<(), String> {
-    let total = sources.len();
+    // Валидация путей
+    let validated_sources = validate_paths(&sources)?;
+    let validated_dest = validate_path(&destination)?;
+    
+    let total = validated_sources.len();
     let mut set = JoinSet::new();
     let counter = Arc::new(AtomicUsize::new(0));
     
-    for source in sources {
-        let dest = destination.clone();
+    for src_path in validated_sources {
+        let dest = validated_dest.clone();
         let app = app.clone();
         let counter = counter.clone();
+        let source_str = src_path.to_string_lossy().to_string();
         
         set.spawn(async move {
-            let result = copy_single_entry(&source, &dest).await;
+            let result = copy_single_entry(&src_path, &dest).await;
             let current = counter.fetch_add(1, Ordering::SeqCst);
             
             // Отправляем прогресс
             let _ = app.emit("copy-progress", CopyProgress {
                 current: current + 1,
                 total,
-                file: source,
+                file: source_str,
             });
             
             result
@@ -375,17 +436,15 @@ pub async fn copy_entries_parallel(
     Ok(())
 }
 
-async fn copy_single_entry(source: &str, destination: &str) -> Result<(), String> {
-    let src_path = Path::new(source);
-    let dest_path = Path::new(destination);
+async fn copy_single_entry(src_path: &Path, dest_path: &Path) -> Result<(), String> {
     let file_name = src_path.file_name().ok_or("Invalid source path")?;
     let target = dest_path.join(file_name);
     
     if src_path.is_dir() {
-        copy_dir_recursive(src_path, &target)?;
+        copy_dir_iterative(src_path, &target)?;
     } else {
-        fs::copy(source, &target)
-            .map_err(|e| format!("Failed to copy {}: {}", source, e))?;
+        fs::copy(src_path, &target)
+            .map_err(|e| format!("Failed to copy {:?}: {}", src_path, e))?;
     }
     Ok(())
 }

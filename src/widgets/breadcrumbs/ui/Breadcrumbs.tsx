@@ -27,10 +27,12 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
 
   if (!currentPath) {
     return (
-      <div className={cn("flex items-center gap-1 text-sm", className)}>
-        <Home className="h-4 w-4" />
+      <nav
+        className={cn("flex items-center gap-1 text-sm", className)}
+        aria-label="Навигация по пути">
+        <Home className="h-4 w-4" aria-hidden="true" />
         <span className="text-muted-foreground">Выберите диск</span>
-      </div>
+      </nav>
     );
   }
 
@@ -39,25 +41,33 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
       className={cn(
         "flex items-center gap-1 text-sm overflow-hidden",
         className
-      )}>
-      {parts.map((part, index) => (
-        <div key={part.path} className="flex items-center gap-1 min-w-0">
-          {index > 0 && (
-            <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
-          )}
-          <button
-            onClick={() => navigate(part.path)}
-            className={cn(
-              "hover:text-foreground transition-colors truncate",
-              index === parts.length - 1
-                ? "text-foreground font-medium"
-                : "text-muted-foreground"
+      )}
+      aria-label="Навигация по пути">
+      <ol className="flex items-center gap-1 min-w-0 list-none m-0 p-0">
+        {parts.map((part, index) => (
+          <li key={part.path} className="flex items-center gap-1 min-w-0">
+            {index > 0 && (
+              <ChevronRight
+                className="h-4 w-4 text-muted-foreground shrink-0"
+                aria-hidden="true"
+              />
             )}
-            title={part.path}>
-            {part.name}
-          </button>
-        </div>
-      ))}
+            <button
+              onClick={() => navigate(part.path)}
+              className={cn(
+                "hover:text-foreground transition-colors truncate max-w-[200px]",
+                index === parts.length - 1
+                  ? "text-foreground font-medium"
+                  : "text-muted-foreground"
+              )}
+              title={part.path}
+              aria-current={index === parts.length - 1 ? "page" : undefined}
+              aria-label={`Перейти к ${part.name}`}>
+              {part.name}
+            </button>
+          </li>
+        ))}
+      </ol>
     </nav>
   );
 }

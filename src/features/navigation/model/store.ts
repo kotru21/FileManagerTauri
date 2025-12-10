@@ -1,6 +1,7 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { commands } from "@/shared/api/tauri";
+import { STORAGE_VERSIONS } from "@/shared/config";
 
 interface NavigationState {
   currentPath: string | null;
@@ -78,9 +79,18 @@ export const useNavigationStore = create<NavigationState>()(
     }),
     {
       name: "navigation-storage",
+      version: STORAGE_VERSIONS.NAVIGATION,
       partialize: (state) => ({
         currentPath: state.currentPath,
       }),
+      migrate: (persistedState, version) => {
+        // Миграция для будущих версий
+        if (version === 0) {
+          // Миграция с версии 0 на 1
+          return persistedState;
+        }
+        return persistedState as NavigationState;
+      },
     }
   )
 );

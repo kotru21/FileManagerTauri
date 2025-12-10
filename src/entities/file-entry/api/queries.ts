@@ -1,13 +1,7 @@
 import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
-import { commands, type Result } from "@/shared/api/tauri";
-
-// Хелпер для распаковки Result из tauri-specta
-function unwrapResult<T, E>(result: Result<T, E>): T {
-  if (result.status === "ok") {
-    return result.data;
-  }
-  throw new Error(String(result.error));
-}
+import { commands } from "@/shared/api/tauri";
+import { unwrapResult } from "@/shared/lib";
+import { CACHE_TIME } from "@/shared/config";
 
 export const fileKeys = {
   all: ["files"] as const,
@@ -20,7 +14,7 @@ export function useDirectoryContents(path: string | null) {
     queryKey: fileKeys.directory(path ?? ""),
     queryFn: async () => unwrapResult(await commands.readDirectory(path!)),
     enabled: !!path,
-    staleTime: 30_000,
+    staleTime: CACHE_TIME.DIRECTORY,
     refetchOnWindowFocus: false,
   });
 }
@@ -29,7 +23,7 @@ export function useDrives() {
   return useQuery({
     queryKey: fileKeys.drives(),
     queryFn: async () => unwrapResult(await commands.getDrives()),
-    staleTime: 60_000,
+    staleTime: CACHE_TIME.DRIVES,
   });
 }
 

@@ -5,7 +5,9 @@ use commands::{
     get_drives, get_file_content, get_file_preview, get_parent_path, move_entries, path_exists,
     read_directory, read_directory_stream, rename_entry, search_by_name, search_content,
     search_files, search_files_stream, unwatch_directory, watch_directory,
+    watcher::WatcherState,
 };
+use std::sync::Arc;
 use tauri_specta::{collect_commands, Builder};
 
 pub fn run() {
@@ -45,6 +47,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .manage(Arc::new(WatcherState::new()))
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);

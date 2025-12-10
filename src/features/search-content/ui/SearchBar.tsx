@@ -1,9 +1,10 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { Search, X, FileText, Loader2, StopCircle } from "lucide-react";
 import { Input, Button } from "@/shared/ui";
 import { cn } from "@/shared/lib";
 import { useSearchStore } from "../model/store";
 import { useSearchWithProgress } from "../hooks/useSearchWithProgress";
+import { SEARCH } from "@/shared/config";
 
 interface SearchBarProps {
   onSearch?: () => void;
@@ -11,40 +12,72 @@ interface SearchBarProps {
 }
 
 export function SearchBar({ onSearch, className }: SearchBarProps) {
-  const { query, searchContent, setQuery, setSearchContent, reset } =
+  const { query, searchContent, setQuery, setSearchContent, clearSearch } =
     useSearchStore();
 
   const { startSearch, cancelSearch, isSearching, progress } =
     useSearchWithProgress();
 
   const [input, setInput] = useState(query);
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  // Флаг для предотвращения автопоиска после очистки
+  const skipNextSearch = useRef(false);
+
+  // Синхронизируем input с query из store (когда query очищается извне)
+  useEffect(() => {
+    if (query === "" && input !== "") {
+      setInput("");
+      skipNextSearch.current = true;
+    }
+  }, [query, input]);
 
   // Debounce для автоматического поиска
   useEffect(() => {
-    if (input.length < 2) return;
+    // Очищаем предыдущий таймер
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
 
-    const timer = setTimeout(() => {
+    // Пропускаем поиск если установлен флаг
+    if (skipNextSearch.current) {
+      skipNextSearch.current = false;
+      return;
+    }
+
+    if (input.length < SEARCH.MIN_QUERY_LENGTH) return;
+
+    debounceRef.current = setTimeout(() => {
       setQuery(input);
       startSearch();
     }, 500);
 
-    return () => clearTimeout(timer);
+    return () => {
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current);
+      }
+    };
   }, [input, setQuery, startSearch]);
 
   const handleChange = useCallback(
     (value: string) => {
       setInput(value);
-      if (value.length < 2) {
-        reset();
+      if (value.length < SEARCH.MIN_QUERY_LENGTH) {
+        clearSearch();
       }
     },
-    [reset]
+    [clearSearch]
   );
 
   const handleSubmit = useCallback(
     (e: React.FormEvent) => {
       e.preventDefault();
-      if (input.length >= 2) {
+      if (input.length >= SEARCH.MIN_QUERY_LENGTH) {
+        // Отменяем debounce таймер
+        if (debounceRef.current) {
+          clearTimeout(debounceRef.current);
+          debounceRef.current = null;
+        }
         setQuery(input);
         startSearch();
         onSearch?.();
@@ -54,10 +87,16 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
   );
 
   const handleClear = useCallback(() => {
+    // Отменяем debounce таймер
+    if (debounceRef.current) {
+      clearTimeout(debounceRef.current);
+      debounceRef.current = null;
+    }
+    skipNextSearch.current = true;
     setInput("");
-    cancelSearch();
-    reset();
-  }, [reset, cancelSearch]);
+    cancelSearch(true); // Тихая отмена без toast
+    clearSearch();
+  }, [clearSearch, cancelSearch]);
 
   const handleCancel = useCallback(() => {
     cancelSearch();

@@ -8,3 +8,9 @@ export {
   joinPath,
   type FileType,
 } from "./file-utils";
+export { unwrapResult, unwrapResultOrNull, unwrapResultOr } from "./result";
+export {
+  useDialogState,
+  type DialogState,
+  type UseDialogStateReturn,
+} from "./useDialogState";

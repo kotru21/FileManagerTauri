@@ -3,6 +3,7 @@ import { listen } from "@tauri-apps/api/event";
 import { commands, type SearchOptions } from "@/shared/api/tauri";
 import { useSearchStore, type SearchProgress } from "../model/store";
 import { toast, useToastStore } from "@/shared/ui";
+import { SEARCH } from "@/shared/config";
 
 interface SearchProgressEvent {
   scanned: number;
@@ -61,9 +62,9 @@ export function useSearchWithProgress() {
       (event) => {
         if (abortRef.current) return;
 
-        // Throttle: обновляем UI максимум раз в 200ms
+        // Throttle: обновляем UI с заданным интервалом
         const now = Date.now();
-        if (now - lastUpdateRef.current < 200) return;
+        if (now - lastUpdateRef.current < SEARCH.PROGRESS_THROTTLE_MS) return;
         lastUpdateRef.current = now;
 
         const prog: SearchProgress = {
@@ -133,17 +134,23 @@ export function useSearchWithProgress() {
     setResults,
   ]);
 
-  const cancelSearch = useCallback(() => {
-    abortRef.current = true;
-    setIsSearching(false);
-    setProgress(null);
+  const cancelSearch = useCallback(
+    (silent = false) => {
+      abortRef.current = true;
+      setIsSearching(false);
+      setProgress(null);
 
-    if (searchingToastRef.current) {
-      useToastStore.getState().removeToast(searchingToastRef.current);
-      searchingToastRef.current = null;
-    }
-    toast.warning("Поиск отменён", 2000);
-  }, [setIsSearching, setProgress]);
+      if (searchingToastRef.current) {
+        useToastStore.getState().removeToast(searchingToastRef.current);
+        searchingToastRef.current = null;
+      }
+
+      if (!silent) {
+        toast.warning("Поиск отменён", 2000);
+      }
+    },
+    [setIsSearching, setProgress]
+  );
 
   return {
     startSearch,
