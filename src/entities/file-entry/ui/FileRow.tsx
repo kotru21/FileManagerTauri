@@ -124,7 +124,8 @@ export const FileRow = memo(
       prev.isSelected === next.isSelected &&
       prev.isFocused === next.isFocused &&
       prev.columnWidths?.size === next.columnWidths?.size &&
-      prev.columnWidths?.date === next.columnWidths?.date
+      prev.columnWidths?.date === next.columnWidths?.date &&
+      prev.columnWidths?.padding === next.columnWidths?.padding
     );
   }
 );
