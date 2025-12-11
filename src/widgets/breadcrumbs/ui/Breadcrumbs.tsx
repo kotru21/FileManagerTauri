@@ -31,7 +31,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
         className={cn("flex items-center gap-1 text-sm", className)}
         aria-label="Навигация по пути">
         <Home className="h-4 w-4" aria-hidden="true" />
-        <span className="text-muted-foreground">Выберите диск</span>
+        <span className="text-muted-foreground">Главная</span>
       </nav>
     );
   }

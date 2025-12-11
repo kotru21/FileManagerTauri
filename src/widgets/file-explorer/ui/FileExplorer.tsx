@@ -1,5 +1,7 @@
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { openPath } from "@tauri-apps/plugin-opener";
+import { useHomeStore } from "@/features/home";
+import { getBasename } from "@/shared/lib";
 
 import {
   useDirectoryContents,
@@ -16,6 +18,9 @@ import { useNavigationStore } from "@/features/navigation";
 import { useClipboardStore } from "@/features/clipboard";
 import { FileContextMenu } from "@/features/context-menu";
 import { VirtualFileList } from "./VirtualFileList";
+import { GridFileList } from "./GridFileList";
+import { VIEW_MODES } from "@/shared/config";
+import { useLayoutStore } from "@/features/layout";
 import { CopyProgressDialog } from "@/widgets/progress-dialog";
 import { cn } from "@/shared/lib";
 
@@ -91,6 +96,7 @@ export function FileExplorer({
 
   const handleOpen = useCallback(
     async (path: string, isDir: boolean) => {
+      useHomeStore.getState().trackOpen(path, isDir, getBasename(path));
       if (isDir) {
         clearSelection();
         navigate(path);
@@ -208,10 +214,13 @@ export function FileExplorer({
     return () => window.removeEventListener("keydown", handler);
   }, [handleCopy, handleCut, handlePaste, handleDelete, handleRename]);
 
+  const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list);
+
   return (
     <>
       <FileContextMenu
         selectedPaths={getSelectedPaths()}
+        selectedFiles={files.filter((f) => getSelectedPaths().includes(f.path))}
         onCopy={handleCopy}
         onCut={handleCut}
         onPaste={handlePaste}
@@ -221,14 +230,25 @@ export function FileExplorer({
         onNewFile={() => onNewFileRequest?.()}
         onRefresh={() => refetch()}
         canPaste={hasContent()}>
-        <VirtualFileList
-          files={files}
-          selectedPaths={selectedPaths}
-          onSelect={handleSelect}
-          onOpen={handleOpen}
-          className={cn("flex-1", className)}
-          onEmptyContextMenu={() => clearSelection()}
-        />
+        {viewMode === VIEW_MODES.grid ? (
+          <GridFileList
+            files={files}
+            selectedPaths={selectedPaths}
+            onSelect={handleSelect}
+            onOpen={handleOpen}
+            className={cn("flex-1", className)}
+            onEmptyContextMenu={() => clearSelection()}
+          />
+        ) : (
+          <VirtualFileList
+            files={files}
+            selectedPaths={selectedPaths}
+            onSelect={handleSelect}
+            onOpen={handleOpen}
+            className={cn("flex-1", className)}
+            onEmptyContextMenu={() => clearSelection()}
+          />
+        )}
       </FileContextMenu>
 
       {/* Диалог прогресса копирования */}

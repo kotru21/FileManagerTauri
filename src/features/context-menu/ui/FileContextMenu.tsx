@@ -12,14 +12,18 @@ import {
   Clipboard,
   Trash2,
   Pencil,
+  Pin,
   FolderPlus,
   FilePlus,
   RefreshCw,
 } from "lucide-react";
+import { useHomeStore } from "@/features/home";
+import type { FileEntry } from "@/shared/api/tauri";
 
 interface FileContextMenuProps {
   children: React.ReactNode;
   selectedPaths: string[];
+  selectedFiles?: FileEntry[];
   onCopy: () => void;
   onCut: () => void;
   onPaste: () => void;
@@ -34,6 +38,7 @@ interface FileContextMenuProps {
 export function FileContextMenu({
   children,
   selectedPaths,
+  selectedFiles,
   onCopy,
   onCut,
   onPaste,
@@ -46,6 +51,12 @@ export function FileContextMenu({
 }: FileContextMenuProps) {
   const hasSelection = selectedPaths.length > 0;
   const singleSelection = selectedPaths.length === 1;
+  const togglePin = useHomeStore((s) => s.togglePin);
+  const removeItem = useHomeStore((s) => s.removeItem);
+  const isSelectedPinned = useHomeStore((s) => {
+    if (!singleSelection) return false;
+    return s.items[selectedPaths[0]]?.pinned ?? false;
+  });
 
   return (
     <ContextMenu>
@@ -76,11 +87,25 @@ export function FileContextMenu({
         <ContextMenuSeparator />
 
         {singleSelection && (
-          <ContextMenuItem onClick={onRename}>
-            <Pencil className="mr-2 h-4 w-4" />
-            Переименовать
-            <ContextMenuShortcut>F2</ContextMenuShortcut>
-          </ContextMenuItem>
+          <>
+            <ContextMenuItem
+              onClick={() =>
+                togglePin(
+                  selectedPaths[0],
+                  selectedFiles?.find((f) => f.path === selectedPaths[0])
+                    ?.is_dir,
+                  selectedFiles?.find((f) => f.path === selectedPaths[0])?.name
+                )
+              }>
+              <Pin className="mr-2 h-4 w-4" />
+              {isSelectedPinned ? "Открепить" : "Закрепить"}
+            </ContextMenuItem>
+            <ContextMenuItem onClick={onRename}>
+              <Pencil className="mr-2 h-4 w-4" />
+              Переименовать
+              <ContextMenuShortcut>F2</ContextMenuShortcut>
+            </ContextMenuItem>
+          </>
         )}
 
         {hasSelection && (
@@ -88,6 +113,13 @@ export function FileContextMenu({
             <Trash2 className="mr-2 h-4 w-4" />
             Удалить
             <ContextMenuShortcut>Del</ContextMenuShortcut>
+          </ContextMenuItem>
+        )}
+
+        {singleSelection && (
+          <ContextMenuItem onClick={() => removeItem(selectedPaths[0])}>
+            <Trash2 className="mr-2 h-4 w-4" />
+            Удалить из истории
           </ContextMenuItem>
         )}
 

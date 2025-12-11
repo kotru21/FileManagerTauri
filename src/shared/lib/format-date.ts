@@ -30,3 +30,23 @@ export function formatRelativeDate(timestamp: number | null): string {
 
   return formatDate(timestamp);
 }
+
+export function formatRelativeShort(timestamp: number | null): string {
+  if (!timestamp) return "—";
+
+  const now = Date.now();
+  const date = timestamp * 1000;
+  const diff = now - date;
+
+  const minute = 60 * 1000;
+  const hour = 60 * minute;
+  const day = 24 * hour;
+  const week = 7 * day;
+
+  if (diff < minute) return "только что";
+  if (diff < hour) return `${Math.floor(diff / minute)}м`;
+  if (diff < day) return `${Math.floor(diff / hour)}ч`;
+  if (diff < week) return `${Math.floor(diff / day)}д`;
+
+  return formatDate(timestamp);
+}

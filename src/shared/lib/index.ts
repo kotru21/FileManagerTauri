@@ -1,6 +1,7 @@
 export { cn } from "./cn";
 export { formatBytes } from "./format-bytes";
 export { formatDate, formatRelativeDate } from "./format-date";
+export { formatRelativeShort } from "./format-date";
 export {
   getFileType,
   getExtension,

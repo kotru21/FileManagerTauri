@@ -1,6 +1,6 @@
 import { create } from "zustand";
 import { persist } from "zustand/middleware";
-import { STORAGE_VERSIONS } from "@/shared/config";
+import { STORAGE_VERSIONS, VIEW_MODES, type ViewMode } from "@/shared/config";
 
 export interface ColumnWidths {
   size: number;
@@ -15,11 +15,14 @@ export interface PanelLayout {
   showSidebar: boolean;
   showPreview: boolean;
   columnWidths: ColumnWidths;
+  viewMode?: ViewMode;
 }
 
 interface LayoutState {
   layout: PanelLayout;
   setLayout: (layout: Partial<PanelLayout>) => void;
+  setViewMode: (mode: ViewMode) => void;
+  toggleViewMode: () => void;
   setSidebarSize: (size: number) => void;
   setMainPanelSize: (size: number) => void;
   setPreviewPanelSize: (size: number) => void;
@@ -40,6 +43,7 @@ const defaultLayout: PanelLayout = {
     date: 140,
     padding: 12,
   },
+  viewMode: VIEW_MODES.list,
 };
 
 export const useLayoutStore = create<LayoutState>()(
@@ -48,9 +52,24 @@ export const useLayoutStore = create<LayoutState>()(
       layout: defaultLayout,
 
       setLayout: (newLayout) =>
-        set((state) => ({
-          layout: { ...state.layout, ...newLayout },
-        })),
+        set((state) => {
+          const merged = { ...state.layout, ...newLayout } as PanelLayout;
+
+          // Сравниваем поля, чтобы избежать обновления состояния, если ничего не изменилось
+          const equal =
+            merged.sidebarSize === state.layout.sidebarSize &&
+            merged.mainPanelSize === state.layout.mainPanelSize &&
+            merged.previewPanelSize === state.layout.previewPanelSize &&
+            merged.showSidebar === state.layout.showSidebar &&
+            merged.showPreview === state.layout.showPreview &&
+            merged.columnWidths.size === state.layout.columnWidths.size &&
+            merged.columnWidths.date === state.layout.columnWidths.date &&
+            merged.columnWidths.padding === state.layout.columnWidths.padding &&
+            merged.viewMode === state.layout.viewMode;
+
+          if (equal) return state;
+          return { layout: merged };
+        }),
 
       setSidebarSize: (size) =>
         set((state) => ({
@@ -83,6 +102,20 @@ export const useLayoutStore = create<LayoutState>()(
       togglePreview: () =>
         set((state) => ({
           layout: { ...state.layout, showPreview: !state.layout.showPreview },
+        })),
+
+      setViewMode: (mode: ViewMode) =>
+        set((state) => ({ layout: { ...state.layout, viewMode: mode } })),
+
+      toggleViewMode: () =>
+        set((state) => ({
+          layout: {
+            ...state.layout,
+            viewMode:
+              state.layout.viewMode === VIEW_MODES.grid
+                ? VIEW_MODES.list
+                : VIEW_MODES.grid,
+          },
         })),
 
       resetLayout: () => set({ layout: defaultLayout }),

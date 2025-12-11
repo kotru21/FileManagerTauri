@@ -2,12 +2,17 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Home,
   RefreshCw,
   FolderPlus,
   FilePlus,
   Search,
+  Grid,
+  List,
 } from "lucide-react";
 import { Button, Tooltip, TooltipTrigger, TooltipContent } from "@/shared/ui";
+import { useLayoutStore } from "@/features/layout";
+import { VIEW_MODES } from "@/shared/config";
 import { useNavigationStore } from "@/features/navigation";
 import { cn } from "@/shared/lib";
 
@@ -32,6 +37,9 @@ export function Toolbar({
   const canGoBack = useNavigationStore((s) => s.canGoBack());
   const canGoForward = useNavigationStore((s) => s.canGoForward());
   const currentPath = useNavigationStore((s) => s.currentPath);
+  const goHome = useNavigationStore((s) => s.goHome);
+  const viewMode = useLayoutStore((s) => s.layout.viewMode);
+  const toggleViewMode = useLayoutStore((s) => s.toggleViewMode);
 
   return (
     <div className={cn("flex items-center gap-1", className)}>
@@ -74,6 +82,19 @@ export function Toolbar({
         <TooltipContent>Вверх (Alt+↑)</TooltipContent>
       </Tooltip>
 
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={goHome}
+            aria-pressed={!currentPath}>
+            <Home className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Главная</TooltipContent>
+      </Tooltip>
+
       <div className="w-px h-6 bg-border mx-1" />
 
       <Tooltip>
@@ -114,6 +135,25 @@ export function Toolbar({
           </Button>
         </TooltipTrigger>
         <TooltipContent>Поиск (Ctrl+F)</TooltipContent>
+      </Tooltip>
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => toggleViewMode?.()}
+            aria-pressed={viewMode === VIEW_MODES.grid}>
+            {viewMode === VIEW_MODES.grid ? (
+              <Grid className="h-4 w-4" />
+            ) : (
+              <List className="h-4 w-4" />
+            )}
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>
+          Переключить вид отображения (Список/Клетки)
+        </TooltipContent>
       </Tooltip>
     </div>
   );

@@ -5,10 +5,11 @@ import { STORAGE_VERSIONS } from "@/shared/config";
 
 interface NavigationState {
   currentPath: string | null;
-  history: string[];
+  history: (string | null)[];
   historyIndex: number;
 
   navigate: (path: string) => void;
+  goHome: () => void;
   goBack: () => void;
   goForward: () => void;
   goUp: () => Promise<void>;
@@ -30,6 +31,16 @@ export const useNavigationStore = create<NavigationState>()(
 
         set({
           currentPath: path,
+          history: newHistory,
+          historyIndex: newHistory.length - 1,
+        });
+      },
+      goHome: () => {
+        const state = get();
+        const newHistory = state.history.slice(0, state.historyIndex + 1);
+        newHistory.push(null);
+        set({
+          currentPath: null,
           history: newHistory,
           historyIndex: newHistory.length - 1,
         });

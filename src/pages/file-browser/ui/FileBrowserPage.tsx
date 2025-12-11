@@ -6,6 +6,8 @@ import {
   Sidebar,
   StatusBar,
 } from "@/widgets";
+import { HomePage } from "@/pages/home";
+import { useHomeStore } from "@/features/home";
 import { SearchBar, useSearchStore } from "@/features/search-content";
 import { useNavigationStore } from "@/features/navigation";
 import { useLayoutStore } from "@/features/layout";
@@ -74,10 +76,13 @@ export function FileBrowserPage() {
   }, [currentPath, setSearchPath, clearSearch]);
 
   const handleResultSelect = useCallback(
-    async (path: string, isDir?: boolean) => {
+    async (path: string, isDir?: boolean, name?: string) => {
       // Сначала очищаем поиск и скрываем панель
       clearSearch();
       setShowSearch(false);
+
+      // Отслеживаем открытие в home store
+      useHomeStore.getState().trackOpen(path, !!isDir, name);
 
       // Затем выполняем навигацию или открытие файла
       if (isDir === true) {
@@ -154,7 +159,11 @@ export function FileBrowserPage() {
                       key={result.path}
                       result={result}
                       onSelect={() =>
-                        handleResultSelect(result.path, result.is_dir)
+                        handleResultSelect(
+                          result.path,
+                          result.is_dir,
+                          result.name
+                        )
                       }
                     />
                   ))}
@@ -168,10 +177,20 @@ export function FileBrowserPage() {
             className="h-full"
             onLayout={(sizes) => {
               if (sizes.length >= 2) {
-                useLayoutStore.getState().setLayout({
-                  sidebarSize: sizes[0],
-                  mainPanelSize: sizes[1],
-                });
+                // Guard to avoid unnecessary store updates which can cause
+                // re-render loops: only set layout when values actually changed
+                const current = useLayoutStore.getState().layout;
+                const newSidebar = sizes[0];
+                const newMain = sizes[1];
+                if (
+                  current.sidebarSize !== newSidebar ||
+                  current.mainPanelSize !== newMain
+                ) {
+                  useLayoutStore.getState().setLayout({
+                    sidebarSize: newSidebar,
+                    mainPanelSize: newMain,
+                  });
+                }
               }
             }}>
             <ResizablePanel
@@ -191,13 +210,17 @@ export function FileBrowserPage() {
                 className="flex-1 flex flex-col overflow-hidden h-full"
                 role="main"
                 aria-label="Содержимое директории">
-                <FileExplorer
-                  showHidden={false}
-                  onRenameRequest={handleRenameRequest}
-                  onNewFolderRequest={handleNewFolder}
-                  onNewFileRequest={handleNewFile}
-                  className="flex-1"
-                />
+                {currentPath === null ? (
+                  <HomePage />
+                ) : (
+                  <FileExplorer
+                    showHidden={false}
+                    onRenameRequest={handleRenameRequest}
+                    onNewFolderRequest={handleNewFolder}
+                    onNewFileRequest={handleNewFile}
+                    className="flex-1"
+                  />
+                )}
               </main>
             </ResizablePanel>
           </ResizablePanelGroup>

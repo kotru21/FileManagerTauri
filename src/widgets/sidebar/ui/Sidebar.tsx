@@ -1,6 +1,7 @@
 import { useDrives } from "@/entities/file-entry";
 import { DriveItem } from "@/entities/drive";
 import { useNavigationStore } from "@/features/navigation";
+import { useHomeStore } from "@/features/home";
 import { ScrollArea, Separator } from "@/shared/ui";
 import { cn } from "@/shared/lib";
 
@@ -12,6 +13,7 @@ export function Sidebar({ className }: SidebarProps) {
   const { data: drives = [] } = useDrives();
   const currentPath = useNavigationStore((s) => s.currentPath);
   const navigate = useNavigationStore((s) => s.navigate);
+  const trackOpen = useHomeStore((s) => s.trackOpen);
 
   return (
     <aside className={cn("flex flex-col border-r", className)}>
@@ -24,7 +26,10 @@ export function Sidebar({ className }: SidebarProps) {
               key={drive.path}
               drive={drive}
               isSelected={currentPath?.startsWith(drive.path) ?? false}
-              onSelect={() => navigate(drive.path)}
+              onSelect={() => {
+                trackOpen(drive.path, true, drive.name);
+                navigate(drive.path);
+              }}
             />
           ))}
         </div>

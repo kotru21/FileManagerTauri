@@ -60,6 +60,7 @@ export const STORAGE_VERSIONS = {
   NAVIGATION: 1,
   LAYOUT: 1,
   FILE_SELECTION: 1,
+  HOME: 1,
 } as const;
 
 // =====================================
@@ -110,6 +111,15 @@ export const VIEW_MODES = {
   list: "list",
   grid: "grid",
   details: "details",
+} as const;
+
+// =====================================
+// Настройки для домашней страницы
+// =====================================
+export const HOME = {
+  MAX_FREQUENT_ITEMS: 12,
+  MIN_OPEN_COUNT: 2, // минимум открытий для показа в Frequent
+  MAX_RECENT_ITEMS: 20,
 } as const;
 
 export type ViewMode = (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
