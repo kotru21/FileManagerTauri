@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useCallback, useMemo, useState, useEffect } from "react";
 import { openPath } from "@tauri-apps/plugin-opener";
 
 import {
@@ -169,6 +169,44 @@ export function FileExplorer({
       onRenameRequest?.(paths[0]);
     }
   }, [getSelectedPaths, onRenameRequest]);
+
+  // Глобальные горячие клавиши для операций с файлами
+  useEffect(() => {
+    const handler = (e: KeyboardEvent) => {
+      if (e.target instanceof HTMLInputElement) return;
+      if (e.target instanceof HTMLTextAreaElement) return;
+
+      const meta = e.ctrlKey || e.metaKey;
+
+      if (meta && (e.key === "c" || e.key === "C")) {
+        e.preventDefault();
+        handleCopy();
+      }
+
+      if (meta && (e.key === "x" || e.key === "X")) {
+        e.preventDefault();
+        handleCut();
+      }
+
+      if (meta && (e.key === "v" || e.key === "V")) {
+        e.preventDefault();
+        void handlePaste();
+      }
+
+      if (e.key === "Delete") {
+        e.preventDefault();
+        void handleDelete();
+      }
+
+      if (e.key === "F2") {
+        e.preventDefault();
+        handleRename();
+      }
+    };
+
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [handleCopy, handleCut, handlePaste, handleDelete, handleRename]);
 
   return (
     <>

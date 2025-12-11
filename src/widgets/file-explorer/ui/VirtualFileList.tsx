@@ -6,7 +6,8 @@ import { useLayoutStore } from "@/features/layout";
 import { VIRTUALIZATION } from "@/shared/config";
 import { cn } from "@/shared/lib";
 
-interface VirtualFileListProps {
+interface VirtualFileListProps
+  extends Omit<React.HTMLAttributes<HTMLDivElement>, "onSelect"> {
   files: FileEntry[];
   selectedPaths: Set<string>;
   onSelect: (path: string, e: React.MouseEvent) => void;
@@ -22,6 +23,7 @@ export function VirtualFileList({
   onSelect,
   onOpen,
   className,
+  ...rest
 }: VirtualFileListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
   const columnWidths =
@@ -77,7 +79,7 @@ export function VirtualFileList({
   }
 
   return (
-    <div className={cn("flex flex-col h-full", className)}>
+    <div className={cn("flex flex-col h-full", className)} {...rest}>
       <ColumnHeader
         columnWidths={columnWidths}
         onColumnResize={setColumnWidth}

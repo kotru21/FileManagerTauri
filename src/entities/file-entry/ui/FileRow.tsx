@@ -93,6 +93,12 @@ export const FileRow = memo(
           isDragOver && file.is_dir && "bg-blue-500/20 ring-2 ring-blue-500"
         )}
         onClick={onSelect}
+        onContextMenu={(e) => {
+          // Правый клик выделяет файл, если он ещё не был в выделении.
+          if (!isSelected) {
+            onSelect(e);
+          }
+        }}
         onDoubleClick={onOpen}>
         <FileIcon extension={file.extension} isDir={file.is_dir} size={18} />
 
