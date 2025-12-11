@@ -131,7 +131,7 @@ fn is_windows_reparse_point(meta: &fs::Metadata) -> bool {
     {
         use std::os::windows::fs::MetadataExt;
         const FILE_ATTRIBUTE_REPARSE_POINT: u32 = 0x400;
-        return (meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT) != 0;
+        (meta.file_attributes() & FILE_ATTRIBUTE_REPARSE_POINT) != 0
     }
     #[cfg(not(windows))]
     {
@@ -167,7 +167,6 @@ pub async fn read_directory(path: String) -> Result<Vec<FileEntry>, String> {
     spawn_blocking(move || read_directory_sync(path_clone))
         .await
     .map_err(|_| FsError::Internal.to_public_string())?
-    .map_err(|e| e)
 }
 
 fn read_directory_sync(path: String) -> Result<Vec<FileEntry>, String> {
@@ -539,8 +538,7 @@ pub async fn copy_entries_parallel(
     let parallelism = std::thread::available_parallelism()
         .map(|n| n.get())
         .unwrap_or(4)
-        .min(16)
-        .max(1);
+        .clamp(1, 16);
 
     let sem = Arc::new(tokio::sync::Semaphore::new(parallelism));
     let mut set = JoinSet::new();

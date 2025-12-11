@@ -109,13 +109,12 @@ pub async fn watch_directory(
             }
         }
 
-        if let Ok(mut flags) = state_clone.stop_flags.lock() {
-            if let Some(current) = flags.get(&path_for_cleanup) {
-                // Do not remove a newer watcher stop flag.
-                if Arc::ptr_eq(current, &stop_flag) {
-                    flags.remove(&path_for_cleanup);
-                }
-            }
+        if let Ok(mut flags) = state_clone.stop_flags.lock()
+            && let Some(current) = flags.get(&path_for_cleanup)
+            && Arc::ptr_eq(current, &stop_flag)
+        {
+            // Do not remove a newer watcher stop flag.
+            flags.remove(&path_for_cleanup);
         }
     });
 
