@@ -1,9 +1,15 @@
 const EXTENSION_MAP: Record<string, string[]> = {
-  image: ["jpg", "jpeg", "png", "gif", "bmp", "svg", "webp", "ico"],
+  pdf: ["pdf"],
+  spreadsheet: ["xls", "xlsx", "xlsm", "ods"],
+  presentation: ["ppt", "pptx", "key"],
+  image: ["jpg", "jpeg", "png", "gif", "bmp", "webp", "ico"],
+  vector: ["svg", "eps", "ai"],
   video: ["mp4", "avi", "mkv", "mov", "wmv", "webm"],
   audio: ["mp3", "wav", "ogg", "flac", "aac", "wma"],
-  document: ["pdf", "doc", "docx", "xls", "xlsx", "ppt", "pptx", "odt"],
+  document: ["doc", "docx", "odt"],
   text: ["txt", "md", "rtf", "csv", "log"],
+  ebook: ["epub", "mobi"],
+  font: ["ttf", "otf", "woff", "woff2"],
   code: [
     "js",
     "ts",
@@ -27,10 +33,22 @@ const EXTENSION_MAP: Record<string, string[]> = {
   ],
   archive: ["zip", "rar", "7z", "tar", "gz", "bz2"],
   executable: ["exe", "msi", "bat", "cmd", "sh"],
+  package: ["jar", "deb", "rpm", "apk", "dmg"],
+  database: ["sql", "db", "sqlite", "sqlite3"],
+  iso: ["iso", "img"],
+  cert: ["pem", "crt", "cer"],
+  binary: ["bin"],
+  shortcut: ["lnk"],
+  config: ["ini", "cfg", "conf", "env"],
 };
 
 export type FileType =
   | "folder"
+  | "pdf"
+  | "spreadsheet"
+  | "presentation"
+  | "ebook"
+  | "font"
   | "image"
   | "video"
   | "audio"
@@ -39,6 +57,13 @@ export type FileType =
   | "code"
   | "archive"
   | "executable"
+  | "package"
+  | "database"
+  | "iso"
+  | "cert"
+  | "binary"
+  | "shortcut"
+  | "config"
   | "unknown";
 
 export function getFileType(
