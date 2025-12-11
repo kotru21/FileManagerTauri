@@ -1,13 +1,16 @@
+use crate::commands::file_ops::validate_path;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{fs::File, io::{BufRead, BufReader}};
-use crate::commands::file_ops::validate_path;
-use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
+use std::{
+    fs::File,
+    io::{BufRead, BufReader},
+};
 use tauri::async_runtime::spawn_blocking;
 use tauri::{AppHandle, Emitter};
 use walkdir::WalkDir;
-use rayon::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SearchResult {
@@ -60,19 +63,22 @@ pub async fn search_files_stream(
     app: AppHandle,
 ) -> Result<Vec<SearchResult>, String> {
     let options_clone = options.clone();
-    
+
     spawn_blocking(move || search_files_with_progress(options_clone, app))
         .await
         .map_err(|e| e.to_string())
         .and_then(|r| r)
 }
 
-fn search_files_with_progress(options: SearchOptions, app: AppHandle) -> Result<Vec<SearchResult>, String> {
+fn search_files_with_progress(
+    options: SearchOptions,
+    app: AppHandle,
+) -> Result<Vec<SearchResult>, String> {
     let search_path = validate_path(&options.search_path)?;
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
-    
+
     let scanned = Arc::new(AtomicUsize::new(0));
     let found = Arc::new(AtomicUsize::new(0));
     let should_stop = Arc::new(AtomicBool::new(false));
@@ -86,13 +92,16 @@ fn search_files_with_progress(options: SearchOptions, app: AppHandle) -> Result<
         .collect();
 
     let total_entries = entries.len();
-    
+
     // Отправляем начальный прогресс
-    let _ = app.emit("search-progress", SearchProgress {
-        scanned: 0,
-        found: 0,
-        current_path: options.search_path.clone(),
-    });
+    let _ = app.emit(
+        "search-progress",
+        SearchProgress {
+            scanned: 0,
+            found: 0,
+            current_path: options.search_path.clone(),
+        },
+    );
 
     // Параллельная обработка с rayon
     let results: Vec<SearchResult> = entries
@@ -102,39 +111,45 @@ fn search_files_with_progress(options: SearchOptions, app: AppHandle) -> Result<
             if should_stop.load(Ordering::Relaxed) {
                 return None;
             }
-            
+
             let current_scanned = scanned.fetch_add(1, Ordering::Relaxed);
-            
+
             // Отправляем прогресс каждые 100 файлов
-            if current_scanned % 100 == 0 {
-                let _ = app.emit("search-progress", SearchProgress {
-                    scanned: current_scanned,
-                    found: found.load(Ordering::Relaxed),
-                    current_path: entry.path().to_string_lossy().to_string(),
-                });
+            if current_scanned.is_multiple_of(100) {
+                let _ = app.emit(
+                    "search-progress",
+                    SearchProgress {
+                        scanned: current_scanned,
+                        found: found.load(Ordering::Relaxed),
+                        current_path: entry.path().to_string_lossy().to_string(),
+                    },
+                );
             }
-            
+
             let result = process_search_entry(entry, &options);
-            
+
             if result.is_some() {
                 let current_found = found.fetch_add(1, Ordering::Relaxed);
                 if current_found >= max_results {
                     should_stop.store(true, Ordering::Relaxed);
                 }
             }
-            
+
             result
         })
         .take_any_while(|_| !should_stop.load(Ordering::Relaxed))
         .collect();
 
     // Отправляем финальный прогресс
-    let _ = app.emit("search-progress", SearchProgress {
-        scanned: total_entries,
-        found: results.len(),
-        current_path: "".to_string(),
-    });
-    
+    let _ = app.emit(
+        "search-progress",
+        SearchProgress {
+            scanned: total_entries,
+            found: results.len(),
+            current_path: "".to_string(),
+        },
+    );
+
     let _ = app.emit("search-complete", results.len());
 
     Ok(results.into_iter().take(max_results).collect())
@@ -145,7 +160,7 @@ fn search_files_sync(options: SearchOptions) -> Result<Vec<SearchResult>, String
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
-    
+
     let found_count = Arc::new(AtomicUsize::new(0));
     let should_stop = Arc::new(AtomicBool::new(false));
 
@@ -164,16 +179,16 @@ fn search_files_sync(options: SearchOptions) -> Result<Vec<SearchResult>, String
             if should_stop.load(Ordering::Relaxed) {
                 return None;
             }
-            
+
             let result = process_search_entry(entry, &options);
-            
+
             if result.is_some() {
                 let count = found_count.fetch_add(1, Ordering::Relaxed);
                 if count >= max_results {
                     should_stop.store(true, Ordering::Relaxed);
                 }
             }
-            
+
             result
         })
         .take_any_while(|_| !should_stop.load(Ordering::Relaxed))
@@ -183,11 +198,15 @@ fn search_files_sync(options: SearchOptions) -> Result<Vec<SearchResult>, String
 }
 
 /// Обрабатывает одну запись для поиска
-fn process_search_entry(entry: &walkdir::DirEntry, options: &SearchOptions) -> Option<SearchResult> {
+fn process_search_entry(
+    entry: &walkdir::DirEntry,
+    options: &SearchOptions,
+) -> Option<SearchResult> {
     let path = entry.path();
     let query_lower = options.query.to_lowercase();
 
-    let name = path.file_name()
+    let name = path
+        .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("")
         .to_string();
@@ -216,10 +235,10 @@ fn process_search_entry(entry: &walkdir::DirEntry, options: &SearchOptions) -> O
     if options.search_content && entry.file_type().is_file() {
         // Skip very large files to keep UX snappy (e.g., > 4 MB)
         const MAX_FILE_SIZE: u64 = 4 * 1024 * 1024;
-        if let Ok(meta) = entry.metadata() {
-            if meta.len() > MAX_FILE_SIZE {
-                return None;
-            }
+        if let Ok(meta) = entry.metadata()
+            && meta.len() > MAX_FILE_SIZE
+        {
+            return None;
         }
 
         if let Ok(file) = File::open(path) {
@@ -283,7 +302,8 @@ pub async fn search_by_name(
         case_sensitive: false,
         max_results,
         file_extensions: None,
-    }).await
+    })
+    .await
 }
 
 #[tauri::command]
@@ -301,5 +321,6 @@ pub async fn search_content(
         case_sensitive: false,
         max_results,
         file_extensions: extensions,
-    }).await
+    })
+    .await
 }

@@ -3,9 +3,9 @@ use specta::Type;
 use std::collections::VecDeque;
 use std::fs;
 use std::path::Path;
-use std::time::SystemTime;
 use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
+use std::time::SystemTime;
 use tauri::async_runtime::spawn_blocking;
 use tauri::{AppHandle, Emitter};
 use tokio::task::JoinSet;
@@ -59,16 +59,17 @@ fn system_time_to_timestamp(time: SystemTime) -> Option<i64> {
 /// Проверяет, что путь абсолютный и не содержит опасных компонентов
 pub fn validate_path(path: &str) -> Result<std::path::PathBuf, String> {
     let path_buf = Path::new(path);
-    
+
     // Путь должен быть абсолютным
     if !path_buf.is_absolute() {
         return Err(format!("Path must be absolute: {}", path));
     }
-    
+
     // Канонизация пути для разрешения .. и .
-    let canonical = path_buf.canonicalize()
+    let canonical = path_buf
+        .canonicalize()
         .map_err(|e| format!("Invalid path '{}': {}", path, e))?;
-    
+
     // Проверка, что путь не пытается выйти за пределы корня
     // На Windows, что это валидный путь диска
     #[cfg(windows)]
@@ -77,15 +78,13 @@ pub fn validate_path(path: &str) -> Result<std::path::PathBuf, String> {
             return Err("Path is too short".to_string());
         }
     }
-    
+
     Ok(canonical)
 }
 
 /// Проверяет множество путей
 pub fn validate_paths(paths: &[String]) -> Result<Vec<std::path::PathBuf>, String> {
-    paths.iter()
-        .map(|p| validate_path(p))
-        .collect()
+    paths.iter().map(|p| validate_path(p)).collect()
 }
 
 fn is_hidden(path: &Path) -> bool {
@@ -118,9 +117,9 @@ fn read_directory_sync(path: String) -> Result<Vec<FileEntry>, String> {
     let dir_path = validate_path(&path)?;
 
     let mut entries = Vec::new();
-    
-    let read_dir = fs::read_dir(dir_path)
-        .map_err(|e| format!("Failed to read directory: {}", e))?;
+
+    let read_dir =
+        fs::read_dir(dir_path).map_err(|e| format!("Failed to read directory: {}", e))?;
 
     for entry in read_dir.flatten() {
         let entry_path = entry.path();
@@ -145,19 +144,21 @@ fn read_directory_sync(path: String) -> Result<Vec<FileEntry>, String> {
             path: entry_path.to_string_lossy().to_string(),
             is_dir: metadata.is_dir(),
             is_hidden: is_hidden(&entry_path),
-            size: if metadata.is_file() { metadata.len() } else { 0 },
+            size: if metadata.is_file() {
+                metadata.len()
+            } else {
+                0
+            },
             modified: metadata.modified().ok().and_then(system_time_to_timestamp),
             created: metadata.created().ok().and_then(system_time_to_timestamp),
             extension,
         });
     }
 
-    entries.sort_by(|a, b| {
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+    entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
 
     Ok(entries)
@@ -183,7 +184,7 @@ pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
         }
         Ok(drives)
     }
-    
+
     #[cfg(not(windows))]
     {
         Ok(vec![DriveInfo {
@@ -200,11 +201,19 @@ pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
 #[specta::specta]
 pub async fn create_directory(path: String) -> Result<(), String> {
     println!("Creating directory: {}", path);
-    
+
+    spawn_blocking(move || create_directory_sync(path))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    Ok(())
+}
+
+fn create_directory_sync(path: String) -> Result<(), String> {
     if path.is_empty() {
         return Err("Path is empty".to_string());
     }
-    
+
     let p = Path::new(&path);
     let parent = p.parent().ok_or("Invalid path")?;
     // validate the parent directory to ensure we don't write outside allowed locations
@@ -219,24 +228,36 @@ pub async fn create_directory(path: String) -> Result<(), String> {
 #[specta::specta]
 pub async fn create_file(path: String) -> Result<(), String> {
     println!("Creating file: {}", path);
-    
+
+    spawn_blocking(move || create_file_sync(path))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    Ok(())
+}
+
+fn create_file_sync(path: String) -> Result<(), String> {
     if path.is_empty() {
         return Err("Path is empty".to_string());
     }
-    
+
     let file_path = Path::new(&path);
     let parent = file_path.parent().ok_or("Invalid path")?;
     // validate parent
     let validated_parent = validate_path(&parent.to_string_lossy())?;
     let file_name = file_path.file_name().ok_or("Invalid file name")?;
     let new_file_path = validated_parent.join(file_name);
-    if let Some(parent) = new_file_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create parent directory: {} (path: {:?})", e, parent))?;
-        }
+    if let Some(parent) = new_file_path.parent()
+        && !parent.exists()
+    {
+        fs::create_dir_all(parent).map_err(|e| {
+            format!(
+                "Failed to create parent directory: {} (path: {:?})",
+                e, parent
+            )
+        })?;
     }
-    
+
     fs::File::create(&new_file_path)
         .map_err(|e| format!("Failed to create file: {} (path: {})", e, path))?;
     Ok(())
@@ -245,9 +266,18 @@ pub async fn create_file(path: String) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), String> {
+    // NOTE: This can be heavy IO (recursive deletes), keep it off the async runtime.
+    spawn_blocking(move || delete_entries_sync(paths, permanent))
+        .await
+        .map_err(|e| e.to_string())??;
+
+    Ok(())
+}
+
+fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> Result<(), String> {
     // Валидация всех путей перед выполнением операции
     let validated_paths = validate_paths(&paths)?;
-    
+
     for entry_path in validated_paths {
         if !entry_path.exists() {
             continue;
@@ -262,16 +292,12 @@ pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), S
                     .map_err(|e| format!("Failed to delete file {:?}: {}", entry_path, e))?;
             }
         } else {
-            // TODO: Move to trash using system API (trash crate)
-            if entry_path.is_dir() {
-                fs::remove_dir_all(&entry_path)
-                    .map_err(|e| format!("Failed to delete directory {:?}: {}", entry_path, e))?;
-            } else {
-                fs::remove_file(&entry_path)
-                    .map_err(|e| format!("Failed to delete file {:?}: {}", entry_path, e))?;
-            }
+            // Move to OS trash / recycle bin.
+            trash::delete(&entry_path)
+                .map_err(|e| format!("Failed to move to trash {:?}: {}", entry_path, e))?;
         }
     }
+
     Ok(())
 }
 
@@ -288,24 +314,29 @@ pub async fn rename_entry(old_path: String, new_name: String) -> Result<String, 
     // Do not allow moving to parents outside the validated parent
     // Validate parent of new path to ensure it's within allowed paths
     let _ = validate_path(&parent.to_string_lossy())?;
-    fs::rename(&validated_old, &new_path)
-        .map_err(|e| format!("Failed to rename: {}", e))?;
-    
+    fs::rename(&validated_old, &new_path).map_err(|e| format!("Failed to rename: {}", e))?;
+
     Ok(new_path.to_string_lossy().to_string())
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn copy_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
+    spawn_blocking(move || copy_entries_sync(sources, destination))
+        .await
+        .map_err(|e| e.to_string())??;
+    Ok(())
+}
+
+fn copy_entries_sync(sources: Vec<String>, destination: String) -> Result<(), String> {
     // Валидация путей
     let validated_sources = validate_paths(&sources)?;
     let dest_path = validate_path(&destination)?;
-    
+
     for src_path in validated_sources {
-        let file_name = src_path.file_name()
-            .ok_or("Invalid source path")?;
+        let file_name = src_path.file_name().ok_or("Invalid source path")?;
         let target = dest_path.join(file_name);
-        
+
         if src_path.is_dir() {
             copy_dir_iterative(&src_path, &target)?;
         } else {
@@ -320,23 +351,26 @@ pub async fn copy_entries(sources: Vec<String>, destination: String) -> Result<(
 fn copy_dir_iterative(src: &Path, dst: &Path) -> Result<(), String> {
     let mut queue: VecDeque<(std::path::PathBuf, std::path::PathBuf)> = VecDeque::new();
     queue.push_back((src.to_path_buf(), dst.to_path_buf()));
-    
+
     let mut depth = 0;
-    
+
     while let Some((current_src, current_dst)) = queue.pop_front() {
         // Защита от слишком глубокой вложенности
         if depth > MAX_DIRECTORY_DEPTH {
-            return Err(format!("Directory depth exceeds maximum allowed ({})", MAX_DIRECTORY_DEPTH));
+            return Err(format!(
+                "Directory depth exceeds maximum allowed ({})",
+                MAX_DIRECTORY_DEPTH
+            ));
         }
-        
+
         fs::create_dir_all(&current_dst)
             .map_err(|e| format!("Failed to create directory {:?}: {}", current_dst, e))?;
-        
+
         for entry in fs::read_dir(&current_src).map_err(|e| e.to_string())? {
             let entry = entry.map_err(|e| e.to_string())?;
             let src_path = entry.path();
             let dst_path = current_dst.join(entry.file_name());
-            
+
             if src_path.is_dir() {
                 queue.push_back((src_path, dst_path));
                 depth += 1;
@@ -352,15 +386,21 @@ fn copy_dir_iterative(src: &Path, dst: &Path) -> Result<(), String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn move_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
+    spawn_blocking(move || move_entries_sync(sources, destination))
+        .await
+        .map_err(|e| e.to_string())??;
+    Ok(())
+}
+
+fn move_entries_sync(sources: Vec<String>, destination: String) -> Result<(), String> {
     // Валидация путей
     let validated_sources = validate_paths(&sources)?;
     let dest_path = validate_path(&destination)?;
-    
+
     for src_path in validated_sources {
-        let file_name = src_path.file_name()
-            .ok_or("Invalid source path")?;
+        let file_name = src_path.file_name().ok_or("Invalid source path")?;
         let target = dest_path.join(file_name);
-        
+
         fs::rename(&src_path, &target)
             .map_err(|e| format!("Failed to move {:?}: {}", src_path, e))?;
     }
@@ -370,9 +410,15 @@ pub async fn move_entries(sources: Vec<String>, destination: String) -> Result<(
 #[tauri::command]
 #[specta::specta]
 pub async fn get_file_content(path: String) -> Result<String, String> {
+    let content = spawn_blocking(move || get_file_content_sync(path))
+        .await
+        .map_err(|e| e.to_string())??;
+    Ok(content)
+}
+
+fn get_file_content_sync(path: String) -> Result<String, String> {
     let validated_path = validate_path(&path)?;
-    fs::read_to_string(&validated_path)
-        .map_err(|e| format!("Failed to read file: {}", e))
+    fs::read_to_string(&validated_path).map_err(|e| format!("Failed to read file: {}", e))
 }
 
 #[tauri::command]
@@ -400,48 +446,50 @@ pub async fn copy_entries_parallel(
     // Валидация путей
     let validated_sources = validate_paths(&sources)?;
     let validated_dest = validate_path(&destination)?;
-    
+
     let total = validated_sources.len();
     let mut set = JoinSet::new();
     let counter = Arc::new(AtomicUsize::new(0));
-    
+
     for src_path in validated_sources {
         let dest = validated_dest.clone();
         let app = app.clone();
         let counter = counter.clone();
         let source_str = src_path.to_string_lossy().to_string();
-        
+
         set.spawn(async move {
             let result = copy_single_entry(&src_path, &dest).await;
             let current = counter.fetch_add(1, Ordering::SeqCst);
-            
+
             // Отправляем прогресс
-            let _ = app.emit("copy-progress", CopyProgress {
-                current: current + 1,
-                total,
-                file: source_str,
-            });
-            
+            let _ = app.emit(
+                "copy-progress",
+                CopyProgress {
+                    current: current + 1,
+                    total,
+                    file: source_str,
+                },
+            );
+
             result
         });
     }
-    
+
     while let Some(result) = set.join_next().await {
         result.map_err(|e| e.to_string())??;
     }
-    
+
     Ok(())
 }
 
 async fn copy_single_entry(src_path: &Path, dest_path: &Path) -> Result<(), String> {
     let file_name = src_path.file_name().ok_or("Invalid source path")?;
     let target = dest_path.join(file_name);
-    
+
     if src_path.is_dir() {
         copy_dir_iterative(src_path, &target)?;
     } else {
-        fs::copy(src_path, &target)
-            .map_err(|e| format!("Failed to copy {:?}: {}", src_path, e))?;
+        fs::copy(src_path, &target).map_err(|e| format!("Failed to copy {:?}: {}", src_path, e))?;
     }
     Ok(())
 }
@@ -449,24 +497,21 @@ async fn copy_single_entry(src_path: &Path, dest_path: &Path) -> Result<(), Stri
 /// Стриминг директории пакетами для больших директорий
 #[tauri::command]
 #[specta::specta]
-pub async fn read_directory_stream(
-    path: String,
-    app: AppHandle,
-) -> Result<(), String> {
+pub async fn read_directory_stream(path: String, app: AppHandle) -> Result<(), String> {
     let path_clone = path.clone();
     // Validate incoming path
     let validated_path = validate_path(&path_clone)?;
-    
+
     spawn_blocking(move || {
         let dir_path = validated_path.as_path();
         let read_dir = fs::read_dir(dir_path).map_err(|e| e.to_string())?;
-        
+
         let mut batch = Vec::with_capacity(100);
-        
+
         for entry in read_dir.flatten() {
             if let Some(file_entry) = entry_to_file_entry(&entry) {
                 batch.push(file_entry);
-                
+
                 // Отправляем пакетами по 100
                 if batch.len() >= 100 {
                     let _ = app.emit("directory-batch", &batch);
@@ -474,40 +519,46 @@ pub async fn read_directory_stream(
                 }
             }
         }
-        
+
         // Остаток
         if !batch.is_empty() {
             let _ = app.emit("directory-batch", &batch);
         }
-        
+
         let _ = app.emit("directory-complete", &path_clone);
         Ok::<_, String>(())
-    }).await.map_err(|e| e.to_string())??;
-    
+    })
+    .await
+    .map_err(|e| e.to_string())??;
+
     Ok(())
 }
 
 fn entry_to_file_entry(entry: &fs::DirEntry) -> Option<FileEntry> {
     let entry_path = entry.path();
     let metadata = entry.metadata().ok()?;
-    
+
     let name = entry_path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("")
         .to_string();
-    
+
     let extension = entry_path
         .extension()
         .and_then(|e| e.to_str())
         .map(|s| s.to_lowercase());
-    
+
     Some(FileEntry {
         name,
         path: entry_path.to_string_lossy().to_string(),
         is_dir: metadata.is_dir(),
         is_hidden: is_hidden(&entry_path),
-        size: if metadata.is_file() { metadata.len() } else { 0 },
+        size: if metadata.is_file() {
+            metadata.len()
+        } else {
+            0
+        },
         modified: metadata.modified().ok().and_then(system_time_to_timestamp),
         created: metadata.created().ok().and_then(system_time_to_timestamp),
         extension,

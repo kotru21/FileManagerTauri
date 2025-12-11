@@ -1,10 +1,10 @@
-use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
+use crate::commands::file_ops::validate_path;
+use notify::{Event, RecursiveMode, Watcher, recommended_watcher};
 use serde::Serialize;
 use specta::Type;
 use std::collections::HashMap;
-use crate::commands::file_ops::validate_path;
-use std::sync::{mpsc, Arc, Mutex};
 use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{Arc, Mutex, mpsc};
 use tauri::{AppHandle, Emitter, State};
 
 #[derive(Debug, Clone, Serialize, Type)]
@@ -47,7 +47,8 @@ pub async fn watch_directory(
     // Сначала останавливается предыдущий watcher для этого пути, если есть
     {
         let flags = state.stop_flags.lock().map_err(|e| e.to_string())?;
-        if let Some(flag) = flags.get(&path) {
+        // We store stop flags by canonical (validated) path key.
+        if let Some(flag) = flags.get(&canonical_key) {
             flag.store(true, Ordering::SeqCst);
         }
     }
@@ -87,7 +88,11 @@ pub async fn watch_directory(
                         "fs-change",
                         FsChangeEvent {
                             kind: format!("{:?}", e.kind),
-                            paths: e.paths.iter().map(|p| p.to_string_lossy().to_string()).collect(),
+                            paths: e
+                                .paths
+                                .iter()
+                                .map(|p| p.to_string_lossy().to_string())
+                                .collect(),
                         },
                     );
                 }
@@ -104,7 +109,6 @@ pub async fn watch_directory(
             }
         }
 
-           
         if let Ok(mut flags) = state_clone.stop_flags.lock() {
             flags.remove(&path_for_cleanup);
         }

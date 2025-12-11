@@ -1,8 +1,8 @@
-use base64::{engine::general_purpose::STANDARD, Engine};
+use crate::commands::file_ops::validate_path;
+use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Serialize;
 use specta::Type;
 use std::fs;
-use crate::commands::file_ops::validate_path;
 
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type")]
@@ -25,9 +25,9 @@ pub async fn get_file_preview(path: String) -> Result<FilePreview, String> {
 
     match extension.as_str() {
         "txt" | "md" | "json" | "js" | "ts" | "tsx" | "jsx" | "rs" | "toml" | "yaml" | "yml"
-        | "html" | "css" | "scss" | "less" | "xml" | "svg" | "sh" | "bat" | "ps1" | "py"
-        | "rb" | "go" | "java" | "c" | "cpp" | "h" | "hpp" | "cs" | "php" | "sql" | "vue"
-        | "svelte" | "astro" | "lock" | "gitignore" | "env" | "dockerfile" | "makefile" => {
+        | "html" | "css" | "scss" | "less" | "xml" | "svg" | "sh" | "bat" | "ps1" | "py" | "rb"
+        | "go" | "java" | "c" | "cpp" | "h" | "hpp" | "cs" | "php" | "sql" | "vue" | "svelte"
+        | "astro" | "lock" | "gitignore" | "env" | "dockerfile" | "makefile" => {
             let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
             let truncated = content.len() > 10000;
             Ok(FilePreview::Text {

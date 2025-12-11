@@ -14,6 +14,7 @@ interface FsChangeEvent {
 export function useFileWatcher(currentPath: string | null) {
   const queryClient = useQueryClient();
   const watchedPath = useRef<string | null>(null);
+  const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   useEffect(() => {
     if (!currentPath) return;
@@ -25,9 +26,16 @@ export function useFileWatcher(currentPath: string | null) {
         const localUnlisten = await listen<FsChangeEvent>("fs-change", () => {
           // Only perform invalidation if not cancelled
           if (cancelled) return;
-          queryClient.invalidateQueries({
-            queryKey: fileKeys.directory(currentPath),
-          });
+
+          // Debounce invalidations to avoid refetch storms on bursty events
+          if (debounceTimer.current) return;
+          debounceTimer.current = setTimeout(() => {
+            debounceTimer.current = null;
+            if (cancelled) return;
+            queryClient.invalidateQueries({
+              queryKey: fileKeys.directory(currentPath),
+            });
+          }, 200);
         });
         if (cancelled) {
           // Component unmounted before listener was attached — cleanup
@@ -60,6 +68,12 @@ export function useFileWatcher(currentPath: string | null) {
     return () => {
       cancelled = true;
       unlistenFn?.();
+
+      if (debounceTimer.current) {
+        clearTimeout(debounceTimer.current);
+        debounceTimer.current = null;
+      }
+
       if (watchedPath.current) {
         commands.unwatchDirectory(watchedPath.current).catch(() => {});
         watchedPath.current = null;

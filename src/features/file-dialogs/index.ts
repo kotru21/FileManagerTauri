@@ -1,2 +1,7 @@
-export { NewFolderDialog, NewFileDialog, RenameDialog } from "./ui";
+export {
+  NewFolderDialog,
+  NewFileDialog,
+  RenameDialog,
+  DeleteConfirmDialog,
+} from "./ui";
 export { useFileOperations } from "./hooks";

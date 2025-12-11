@@ -17,12 +17,14 @@ import { useSelectionStore } from "@/features/file-selection";
 import { useNavigationStore } from "@/features/navigation";
 import { useClipboardStore } from "@/features/clipboard";
 import { FileContextMenu } from "@/features/context-menu";
+import { DeleteConfirmDialog } from "@/features/file-dialogs";
 import { VirtualFileList } from "./VirtualFileList";
 import { GridFileList } from "./GridFileList";
 import { VIEW_MODES } from "@/shared/config";
 import { useLayoutStore } from "@/features/layout";
 import { CopyProgressDialog } from "@/widgets/progress-dialog";
 import { cn } from "@/shared/lib";
+import { toast } from "@/shared/ui";
 
 interface FileExplorerProps {
   showHidden?: boolean;
@@ -71,6 +73,12 @@ export function FileExplorer({
 
   // Состояние для диалога прогресса
   const [showCopyProgress, setShowCopyProgress] = useState(false);
+
+  const [deleteDialog, setDeleteDialog] = useState<{
+    open: boolean;
+    paths: string[];
+    permanent: boolean;
+  }>({ open: false, paths: [], permanent: false });
 
   const files = useMemo(() => {
     const filtered = filterEntries(rawFiles, { showHidden });
@@ -157,17 +165,33 @@ export function FileExplorer({
     clearClipboard,
   ]);
 
-  const handleDelete = useCallback(async () => {
-    const paths = getSelectedPaths();
-    if (paths.length === 0) return;
+  const requestDelete = useCallback(
+    (initialPermanent: boolean) => {
+      const paths = getSelectedPaths();
+      if (paths.length === 0) return;
+      setDeleteDialog({ open: true, paths, permanent: initialPermanent });
+    },
+    [getSelectedPaths]
+  );
 
-    try {
-      await deleteMutation.mutateAsync({ paths, permanent: false });
-      clearSelection();
-    } catch (error) {
-      console.error("Delete failed:", error);
-    }
-  }, [deleteMutation, getSelectedPaths, clearSelection]);
+  const handleDeleteConfirm = useCallback(
+    async ({ paths, permanent }: { paths: string[]; permanent: boolean }) => {
+      try {
+        await deleteMutation.mutateAsync({ paths, permanent });
+        setDeleteDialog({ open: false, paths: [], permanent: false });
+        clearSelection();
+        toast.success(
+          permanent ? "Удаление выполнено" : "Перемещено в корзину",
+          2000
+        );
+      } catch (error) {
+        console.error("Delete failed:", error);
+        const message = error instanceof Error ? error.message : String(error);
+        toast.error(`Не удалось удалить: ${message}`, 4000);
+      }
+    },
+    [deleteMutation, clearSelection]
+  );
 
   const handleRename = useCallback(() => {
     const paths = getSelectedPaths();
@@ -201,7 +225,7 @@ export function FileExplorer({
 
       if (e.key === "Delete") {
         e.preventDefault();
-        void handleDelete();
+        requestDelete(e.shiftKey);
       }
 
       if (e.key === "F2") {
@@ -212,7 +236,7 @@ export function FileExplorer({
 
     window.addEventListener("keydown", handler);
     return () => window.removeEventListener("keydown", handler);
-  }, [handleCopy, handleCut, handlePaste, handleDelete, handleRename]);
+  }, [handleCopy, handleCut, handlePaste, requestDelete, handleRename]);
 
   const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list);
 
@@ -233,7 +257,7 @@ export function FileExplorer({
         onCopy={handleCopy}
         onCut={handleCut}
         onPaste={handlePaste}
-        onDelete={handleDelete}
+        onDelete={() => requestDelete(false)}
         onRename={handleRename}
         onNewFolder={() => onNewFolderRequest?.()}
         onNewFile={() => onNewFileRequest?.()}
@@ -262,6 +286,24 @@ export function FileExplorer({
           />
         )}
       </FileContextMenu>
+
+      <DeleteConfirmDialog
+        isOpen={deleteDialog.open}
+        paths={deleteDialog.paths}
+        permanent={deleteDialog.permanent}
+        onPermanentChange={(permanent) =>
+          setDeleteDialog((prev) => ({ ...prev, permanent }))
+        }
+        isLoading={deleteMutation.isPending}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDeleteDialog({ open: false, paths: [], permanent: false });
+          } else {
+            setDeleteDialog((prev) => ({ ...prev, open: true }));
+          }
+        }}
+        onConfirm={handleDeleteConfirm}
+      />
 
       {/* Диалог прогресса копирования */}
       <CopyProgressDialog
