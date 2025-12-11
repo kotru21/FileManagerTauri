@@ -15,21 +15,40 @@ export function useFileWatcher(currentPath: string | null) {
 
   useEffect(() => {
     if (!currentPath) return;
+    let cancelled = false;
+    let unlistenFn: (() => void) | null = null;
 
-    const unlisten = listen<FsChangeEvent>("fs-change", () => {
-      queryClient.invalidateQueries({
-        queryKey: fileKeys.directory(currentPath),
+    const setup = async () => {
+      unlistenFn = await listen<FsChangeEvent>("fs-change", () => {
+        queryClient.invalidateQueries({
+          queryKey: fileKeys.directory(currentPath),
+        });
       });
-    });
 
-    // Начинаем отслеживать, если путь изменился
-    if (watchedPath.current !== currentPath) {
-      watchedPath.current = currentPath;
-      commands.watchDirectory(currentPath);
-    }
+      if (watchedPath.current && watchedPath.current !== currentPath) {
+        try {
+          await commands.unwatchDirectory(watchedPath.current);
+        } catch {
+          // ignore, best effort
+        }
+        watchedPath.current = null;
+      }
+
+      if (watchedPath.current !== currentPath && !cancelled) {
+        watchedPath.current = currentPath;
+        await commands.watchDirectory(currentPath);
+      }
+    };
+
+    setup();
 
     return () => {
-      unlisten.then((fn) => fn());
+      cancelled = true;
+      unlistenFn?.();
+      if (watchedPath.current) {
+        commands.unwatchDirectory(watchedPath.current).catch(() => {});
+        watchedPath.current = null;
+      }
     };
   }, [currentPath, queryClient]);
 }

@@ -22,8 +22,6 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
     case "START_LOADING":
       return { entries: [], isLoading: true };
     case "ADD_BATCH":
-      // Мутируем массив напрямую и возвращаем новый объект состояния
-      // Это эффективнее чем spread operator для больших массивов
       return {
         entries: [...state.entries, ...action.payload],
         isLoading: true,
@@ -45,10 +43,10 @@ export function useStreamingDirectory(path: string | null) {
   const [triggerRefresh, setTriggerRefresh] = useState(0);
   const previousPath = useRef<string | null>(null);
   const isInitialMount = useRef(true);
-  // Используем ref для накопления batch'ей перед dispatch
+  // ref для накопления batch'ей перед dispatch
   const batchBuffer = useRef<FileEntry[]>([]);
 
-  // Сбрасываем состояние при изменении пути
+  // Сбрасывание состояние при изменении пути
   const shouldReset = path !== previousPath.current;
   if (shouldReset && path) {
     previousPath.current = path;
@@ -57,7 +55,6 @@ export function useStreamingDirectory(path: string | null) {
   useEffect(() => {
     if (!path) return;
 
-    // При первом монтировании или изменении пути
     if (isInitialMount.current || shouldReset) {
       isInitialMount.current = false;
     }
@@ -65,26 +62,35 @@ export function useStreamingDirectory(path: string | null) {
     let cancelled = false;
     batchBuffer.current = [];
 
-    // Начинаем загрузку
     dispatch({ type: "START_LOADING" });
 
-    const unlistenBatch = listen<FileEntry[]>("directory-batch", (event) => {
-      if (cancelled) return;
-      // Добавляем batch напрямую через dispatch
-      dispatch({ type: "ADD_BATCH", payload: event.payload });
-    });
+    // Keep a reference to unlisten functions so can remove listeners reliably
+    let unlistenBatchFn: (() => void) | null = null;
+    let unlistenCompleteFn: (() => void) | null = null;
 
-    const unlistenComplete = listen<string>("directory-complete", () => {
-      if (cancelled) return;
-      dispatch({ type: "COMPLETE" });
-    });
+    const setup = async () => {
+      const ub = await listen<FileEntry[]>("directory-batch", (event) => {
+        if (cancelled) return;
+        dispatch({ type: "ADD_BATCH", payload: event.payload });
+      });
+      unlistenBatchFn = ub;
 
-    commands.readDirectoryStream(path);
+      const uc = await listen<string>("directory-complete", () => {
+        if (cancelled) return;
+        dispatch({ type: "COMPLETE" });
+      });
+      unlistenCompleteFn = uc;
+
+      // Fire the stream command after listeners are registered
+      await commands.readDirectoryStream(path);
+    };
+
+    setup();
 
     return () => {
       cancelled = true;
-      unlistenBatch.then((fn) => fn());
-      unlistenComplete.then((fn) => fn());
+      unlistenBatchFn?.();
+      unlistenCompleteFn?.();
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, triggerRefresh]);

@@ -970,7 +970,7 @@ dependencies = [
 
 [[package]]
 name = "file-manager-tauri"
-version = "0.3.1"
+version = "0.3.5"
 dependencies = [
  "base64 0.22.1",
  "chrono",
@@ -987,6 +987,7 @@ dependencies = [
  "tauri-build",
  "tauri-plugin-opener",
  "tauri-specta",
+ "tempfile",
  "tokio",
  "walkdir",
 ]

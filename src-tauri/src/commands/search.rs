@@ -1,6 +1,7 @@
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::{fs::File, io::{BufRead, BufReader}, path::Path};
+use std::{fs::File, io::{BufRead, BufReader}};
+use crate::commands::file_ops::validate_path;
 use std::sync::atomic::{AtomicUsize, AtomicBool, Ordering};
 use std::sync::Arc;
 use tauri::async_runtime::spawn_blocking;
@@ -67,11 +68,7 @@ pub async fn search_files_stream(
 }
 
 fn search_files_with_progress(options: SearchOptions, app: AppHandle) -> Result<Vec<SearchResult>, String> {
-    let search_path = Path::new(&options.search_path);
-    
-    if !search_path.exists() {
-        return Err("Search path does not exist".to_string());
-    }
+    let search_path = validate_path(&options.search_path)?;
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
@@ -144,11 +141,7 @@ fn search_files_with_progress(options: SearchOptions, app: AppHandle) -> Result<
 }
 
 fn search_files_sync(options: SearchOptions) -> Result<Vec<SearchResult>, String> {
-    let search_path = Path::new(&options.search_path);
-    
-    if !search_path.exists() {
-        return Err("Search path does not exist".to_string());
-    }
+    let search_path = validate_path(&options.search_path)?;
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска

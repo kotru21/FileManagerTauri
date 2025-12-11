@@ -2,7 +2,7 @@ use base64::{engine::general_purpose::STANDARD, Engine};
 use serde::Serialize;
 use specta::Type;
 use std::fs;
-use std::path::Path;
+use crate::commands::file_ops::validate_path;
 
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type")]
@@ -15,7 +15,8 @@ pub enum FilePreview {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_file_preview(path: String) -> Result<FilePreview, String> {
-    let path = Path::new(&path);
+    let validated = validate_path(&path)?;
+    let path = validated.as_path();
     let extension = path
         .extension()
         .and_then(|e| e.to_str())
@@ -37,7 +38,7 @@ pub async fn get_file_preview(path: String) -> Result<FilePreview, String> {
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "ico" => {
             let bytes = fs::read(path).map_err(|e| e.to_string())?;
 
-            // Ограничиваем размер для превью (5 MB)
+            // размер для превью (5 MB)
             if bytes.len() > 5_000_000 {
                 return Ok(FilePreview::Unsupported {
                     mime: format!("image/{} (too large)", extension),

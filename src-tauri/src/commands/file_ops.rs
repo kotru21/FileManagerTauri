@@ -57,7 +57,7 @@ fn system_time_to_timestamp(time: SystemTime) -> Option<i64> {
 
 /// Валидация пути для предотвращения атак path traversal
 /// Проверяет, что путь абсолютный и не содержит опасных компонентов
-fn validate_path(path: &str) -> Result<std::path::PathBuf, String> {
+pub fn validate_path(path: &str) -> Result<std::path::PathBuf, String> {
     let path_buf = Path::new(path);
     
     // Путь должен быть абсолютным
@@ -82,7 +82,7 @@ fn validate_path(path: &str) -> Result<std::path::PathBuf, String> {
 }
 
 /// Проверяет множество путей
-fn validate_paths(paths: &[String]) -> Result<Vec<std::path::PathBuf>, String> {
+pub fn validate_paths(paths: &[String]) -> Result<Vec<std::path::PathBuf>, String> {
     paths.iter()
         .map(|p| validate_path(p))
         .collect()
@@ -114,15 +114,8 @@ pub async fn read_directory(path: String) -> Result<Vec<FileEntry>, String> {
 }
 
 fn read_directory_sync(path: String) -> Result<Vec<FileEntry>, String> {
-    let dir_path = Path::new(&path);
-    
-    if !dir_path.exists() {
-        return Err(format!("Directory does not exist: {}", path));
-    }
-    
-    if !dir_path.is_dir() {
-        return Err(format!("Path is not a directory: {}", path));
-    }
+    // validate path for reading
+    let dir_path = validate_path(&path)?;
 
     let mut entries = Vec::new();
     
@@ -212,14 +205,13 @@ pub async fn create_directory(path: String) -> Result<(), String> {
         return Err("Path is empty".to_string());
     }
     
-    let dir_path = Path::new(&path);
-    
-    // Проверяем, что путь абсолютный
-    if !dir_path.is_absolute() {
-        return Err(format!("Path must be absolute: {}", path));
-    }
-    
-    fs::create_dir_all(&path)
+    let p = Path::new(&path);
+    let parent = p.parent().ok_or("Invalid path")?;
+    // validate the parent directory to ensure we don't write outside allowed locations
+    let validated_parent = validate_path(&parent.to_string_lossy())?;
+    let name = p.file_name().ok_or("Invalid directory name")?;
+    let new_path = validated_parent.join(name);
+    fs::create_dir_all(new_path)
         .map_err(|e| format!("Failed to create directory: {} (path: {})", e, path))
 }
 
@@ -233,20 +225,19 @@ pub async fn create_file(path: String) -> Result<(), String> {
     }
     
     let file_path = Path::new(&path);
-    
-    // Проверяем, что путь абсолютный
-    if !file_path.is_absolute() {
-        return Err(format!("Path must be absolute: {}", path));
-    }
-    
-    if let Some(parent) = file_path.parent() {
+    let parent = file_path.parent().ok_or("Invalid path")?;
+    // validate parent
+    let validated_parent = validate_path(&parent.to_string_lossy())?;
+    let file_name = file_path.file_name().ok_or("Invalid file name")?;
+    let new_file_path = validated_parent.join(file_name);
+    if let Some(parent) = new_file_path.parent() {
         if !parent.exists() {
             fs::create_dir_all(parent)
                 .map_err(|e| format!("Failed to create parent directory: {} (path: {:?})", e, parent))?;
         }
     }
     
-    fs::File::create(&path)
+    fs::File::create(&new_file_path)
         .map_err(|e| format!("Failed to create file: {} (path: {})", e, path))?;
     Ok(())
 }
@@ -287,12 +278,17 @@ pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), S
 #[tauri::command]
 #[specta::specta]
 pub async fn rename_entry(old_path: String, new_name: String) -> Result<String, String> {
-    let old = Path::new(&old_path);
-    let new_path = old.parent()
-        .ok_or("Invalid path")?
-        .join(&new_name);
-    
-    fs::rename(&old_path, &new_path)
+    let validated_old = validate_path(&old_path)?;
+    // Prevent directory traversal via name
+    if new_name.contains('/') || new_name.contains('\\') || new_name.contains("..") {
+        return Err("Invalid file name: contains path separators".to_string());
+    }
+    let parent = validated_old.parent().ok_or("Invalid path")?;
+    let new_path = parent.join(&new_name);
+    // Do not allow moving to parents outside the validated parent
+    // Validate parent of new path to ensure it's within allowed paths
+    let _ = validate_path(&parent.to_string_lossy())?;
+    fs::rename(&validated_old, &new_path)
         .map_err(|e| format!("Failed to rename: {}", e))?;
     
     Ok(new_path.to_string_lossy().to_string())
@@ -382,14 +378,15 @@ pub async fn get_file_content(path: String) -> Result<String, String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_parent_path(path: String) -> Result<Option<String>, String> {
-    let p = Path::new(&path);
-    Ok(p.parent().map(|p| p.to_string_lossy().to_string()))
+    let validated = validate_path(&path)?;
+    Ok(validated.parent().map(|p| p.to_string_lossy().to_string()))
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn path_exists(path: String) -> Result<bool, String> {
-    Ok(Path::new(&path).exists())
+    let validated = validate_path(&path)?;
+    Ok(validated.exists())
 }
 
 /// Параллельное копирование файлов с прогрессом
@@ -457,9 +454,11 @@ pub async fn read_directory_stream(
     app: AppHandle,
 ) -> Result<(), String> {
     let path_clone = path.clone();
+    // Validate incoming path
+    let validated_path = validate_path(&path_clone)?;
     
     spawn_blocking(move || {
-        let dir_path = Path::new(&path_clone);
+        let dir_path = validated_path.as_path();
         let read_dir = fs::read_dir(dir_path).map_err(|e| e.to_string())?;
         
         let mut batch = Vec::with_capacity(100);
@@ -513,4 +512,27 @@ fn entry_to_file_entry(entry: &fs::DirEntry) -> Option<FileEntry> {
         created: metadata.created().ok().and_then(system_time_to_timestamp),
         extension,
     })
+}
+
+// Unit tests for file_ops security helpers
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn validate_path_accepts_absolute_existing_path() {
+        let dir = tempdir().unwrap();
+        let p = dir.path().to_string_lossy().to_string();
+        let res = validate_path(&p);
+        assert!(res.is_ok());
+        let canonical = res.unwrap();
+        assert!(canonical.exists());
+    }
+
+    #[test]
+    fn validate_path_rejects_relative_path() {
+        let res = validate_path("./some/relative/path");
+        assert!(res.is_err());
+    }
 }
