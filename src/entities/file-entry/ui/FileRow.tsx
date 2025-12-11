@@ -80,6 +80,7 @@ export const FileRow = memo(
 
     return (
       <div
+        data-file-row="true"
         draggable
         onDragStart={handleDragStart}
         onDrop={handleDrop}

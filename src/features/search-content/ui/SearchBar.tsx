@@ -23,23 +23,28 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
   // Флаг для предотвращения автопоиска после очистки
   const skipNextSearch = useRef(false);
 
-  // Синхронизируем input с query из store (когда query очищается извне)
+  // синхронизация input с query из store (когда query очищается извне)
   useEffect(() => {
     if (query === "" && input !== "") {
-      setInput("");
-      skipNextSearch.current = true;
+      // Schedule the input reset to avoid synchronous setState in effect
+      const id = setTimeout(() => {
+        setInput("");
+        skipNextSearch.current = true;
+      }, 0);
+      return () => clearTimeout(id);
     }
+    return;
   }, [query, input]);
 
   // Debounce для автоматического поиска
   useEffect(() => {
-    // Очищаем предыдущий таймер
+    // Очистка предыдущего таймера
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
 
-    // Пропускаем поиск если установлен флаг
+    // Пропуск поиска если установлен флаг
     if (skipNextSearch.current) {
       skipNextSearch.current = false;
       return;
@@ -73,7 +78,7 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
     (e: React.FormEvent) => {
       e.preventDefault();
       if (input.length >= SEARCH.MIN_QUERY_LENGTH) {
-        // Отменяем debounce таймер
+        // Отмена debounce таймера
         if (debounceRef.current) {
           clearTimeout(debounceRef.current);
           debounceRef.current = null;
@@ -87,7 +92,7 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
   );
 
   const handleClear = useCallback(() => {
-    // Отменяем debounce таймер
+    // Отмена debounce таймера
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
@@ -102,7 +107,7 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
     cancelSearch();
   }, [cancelSearch]);
 
-  // Сокращаем путь для отображения
+  // Сокращение пути для отображения
   const shortPath = progress?.currentPath
     ? progress.currentPath.length > 50
       ? "..." + progress.currentPath.slice(-47)

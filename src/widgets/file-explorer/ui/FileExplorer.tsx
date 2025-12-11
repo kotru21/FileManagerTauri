@@ -227,6 +227,7 @@ export function FileExplorer({
           onSelect={handleSelect}
           onOpen={handleOpen}
           className={cn("flex-1", className)}
+          onEmptyContextMenu={() => clearSelection()}
         />
       </FileContextMenu>
 

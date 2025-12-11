@@ -12,6 +12,7 @@ interface VirtualFileListProps
   selectedPaths: Set<string>;
   onSelect: (path: string, e: React.MouseEvent) => void;
   onOpen: (path: string, isDir: boolean) => void;
+  onEmptyContextMenu?: () => void;
   className?: string;
 }
 
@@ -22,6 +23,7 @@ export function VirtualFileList({
   selectedPaths,
   onSelect,
   onOpen,
+  onEmptyContextMenu,
   className,
   ...rest
 }: VirtualFileListProps) {
@@ -72,11 +74,21 @@ export function VirtualFileList({
         className={cn(
           "flex items-center justify-center h-full text-muted-foreground",
           className
-        )}>
+        )}
+        onContextMenu={() => onEmptyContextMenu?.()}>
         Папка пуста
       </div>
     );
   }
+
+  const handleContextMenu = (e: React.MouseEvent) => {
+    const tgt = e.target as HTMLElement | null;
+    // Если ближайший элемент с data-file-row не найден, это пустая область
+    const row = tgt?.closest("[data-file-row]");
+    if (!row) {
+      onEmptyContextMenu?.();
+    }
+  };
 
   return (
     <div className={cn("flex flex-col h-full", className)} {...rest}>
@@ -87,6 +99,7 @@ export function VirtualFileList({
       <div
         ref={parentRef}
         className="flex-1 overflow-auto focus:outline-none"
+        onContextMenu={handleContextMenu}
         tabIndex={0}
         onKeyDown={handleKeyDown}>
         <div
