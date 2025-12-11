@@ -16,7 +16,7 @@ permissions:
 
 jobs:
   lint:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
@@ -30,6 +30,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+
       - name: Lint & Typecheck
         run: |
           npm run lint
@@ -37,7 +40,7 @@ jobs:
           cd src-tauri && cargo clippy -- -D warnings
 
   test-rust:
-    runs-on: ubuntu-latest
+    runs-on: windows-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v4
