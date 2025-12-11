@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { renderHook } from "@testing-library/react-hooks";
+import { renderHook } from "@testing-library/react";
 import { useTauriEvent } from "@/shared/lib/useTauriEvent";
 import { listen } from "@tauri-apps/api/event";
 

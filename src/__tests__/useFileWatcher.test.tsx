@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { renderHook } from "@testing-library/react-hooks";
+import { renderHook, waitFor } from "@testing-library/react";
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { useFileWatcher } from "@/entities/file-entry/api/useFileWatcher";
 import { listen } from "@tauri-apps/api/event";
@@ -26,7 +26,7 @@ describe("useFileWatcher", () => {
   });
 
   it("registers listener and calls unlisten on unmount", async () => {
-    const { unmount, waitFor } = renderHook(() => useFileWatcher("/tmp"), {
+    const { unmount } = renderHook(() => useFileWatcher("/tmp"), {
       wrapper,
     });
     await waitFor(() => expect(listen).toHaveBeenCalled());
