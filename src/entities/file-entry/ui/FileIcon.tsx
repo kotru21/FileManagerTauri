@@ -9,7 +9,6 @@ import {
   Archive,
   FileQuestion,
   FileSpreadsheet,
-  FileLock,
   Database,
   FileChartLine,
   Type,

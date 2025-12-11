@@ -50,6 +50,7 @@ export type FileType =
   | "ebook"
   | "font"
   | "image"
+  | "vector"
   | "video"
   | "audio"
   | "document"
