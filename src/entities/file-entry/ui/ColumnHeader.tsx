@@ -88,14 +88,23 @@ function ResizeHandle({ onResize }: ResizeHandleProps) {
       e.stopPropagation();
       startXRef.current = e.clientX;
 
+      let rafId: number | null = null;
       const handleMove = (moveEvent: MouseEvent) => {
-        const delta = moveEvent.clientX - startXRef.current;
-        onResize(delta);
+        if (rafId !== null) return;
+        rafId = requestAnimationFrame(() => {
+          rafId = null;
+          const delta = moveEvent.clientX - startXRef.current;
+          onResize(delta);
+        });
       };
 
       const handleUp = () => {
         document.removeEventListener("mousemove", handleMove);
         document.removeEventListener("mouseup", handleUp);
+        if (rafId !== null) {
+          cancelAnimationFrame(rafId);
+          rafId = null;
+        }
       };
 
       document.addEventListener("mousemove", handleMove);

@@ -1,5 +1,5 @@
 import { memo, useState, useCallback } from "react";
-import type { FileEntry } from "@/shared/api/tauri";
+import type { FileEntry } from "@/entities/file-entry";
 import { formatBytes, formatDate, cn } from "@/shared/lib";
 import { FileIcon } from "./FileIcon";
 

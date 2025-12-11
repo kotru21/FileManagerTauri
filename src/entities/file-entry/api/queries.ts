@@ -30,11 +30,17 @@ export function useDrives() {
 export function useCreateDirectory() {
   const queryClient = useQueryClient();
 
+  const getParent = (p: string) => {
+    const i = Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
+    return i < 0 ? p : p.slice(0, i);
+  };
+
   return useMutation({
     mutationFn: async (path: string) =>
       unwrapResult(await commands.createDirectory(path)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: fileKeys.all });
+    onSuccess: (_data, path) => {
+      const parent = getParent(path);
+      queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
     },
   });
 }
@@ -45,8 +51,10 @@ export function useCreateFile() {
   return useMutation({
     mutationFn: async (path: string) =>
       unwrapResult(await commands.createFile(path)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: fileKeys.all });
+    onSuccess: (_data, path) => {
+      const i = Math.max(path.lastIndexOf("\\"), path.lastIndexOf("/"));
+      const parent = i < 0 ? path : path.slice(0, i);
+      queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
     },
   });
 }
@@ -62,8 +70,18 @@ export function useDeleteEntries() {
       paths: string[];
       permanent: boolean;
     }) => unwrapResult(await commands.deleteEntries(paths, permanent)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: fileKeys.all });
+    onSuccess: (_data, { paths }) => {
+      const parents = Array.from(
+        new Set(
+          paths.map((p) => {
+            const i = Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
+            return i < 0 ? p : p.slice(0, i);
+          })
+        )
+      );
+      parents.forEach((parent) => {
+        queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
+      });
     },
   });
 }
@@ -79,8 +97,10 @@ export function useRenameEntry() {
       oldPath: string;
       newName: string;
     }) => unwrapResult(await commands.renameEntry(oldPath, newName)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: fileKeys.all });
+    onSuccess: (_data, { oldPath }) => {
+      const i = Math.max(oldPath.lastIndexOf("\\"), oldPath.lastIndexOf("/"));
+      const parent = i < 0 ? oldPath : oldPath.slice(0, i);
+      queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
     },
   });
 }
@@ -96,8 +116,19 @@ export function useCopyEntries() {
       sources: string[];
       destination: string;
     }) => unwrapResult(await commands.copyEntries(sources, destination)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: fileKeys.all });
+    onSuccess: (_data, { sources, destination }) => {
+      const parents = Array.from(
+        new Set(
+          sources.map((p) => {
+            const i = Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
+            return i < 0 ? p : p.slice(0, i);
+          })
+        )
+      );
+      parents.push(destination);
+      parents.forEach((parent) => {
+        queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
+      });
     },
   });
 }
@@ -135,8 +166,19 @@ export function useMoveEntries() {
       sources: string[];
       destination: string;
     }) => unwrapResult(await commands.moveEntries(sources, destination)),
-    onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: fileKeys.all });
+    onSuccess: (_data, { sources, destination }) => {
+      const parents = Array.from(
+        new Set(
+          sources.map((p) => {
+            const i = Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
+            return i < 0 ? p : p.slice(0, i);
+          })
+        )
+      );
+      parents.push(destination);
+      parents.forEach((parent) => {
+        queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
+      });
     },
   });
 }

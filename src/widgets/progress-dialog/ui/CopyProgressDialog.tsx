@@ -1,5 +1,5 @@
-import { useEffect, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { useState } from "react";
+import { useTauriEvent } from "@/shared/lib/useTauriEvent";
 import {
   Dialog,
   DialogContent,
@@ -28,23 +28,21 @@ export function CopyProgressDialog({
 }: CopyProgressDialogProps) {
   const [progress, setProgress] = useState<CopyProgress | null>(null);
 
-  useEffect(() => {
-    if (!open) return;
-
-    const unlisten = listen<CopyProgress>("copy-progress", (e) => {
-      setProgress(e.payload);
-      if (e.payload.current === e.payload.total) {
+  // Listen for copy-progress only when dialog is open
+  useTauriEvent<CopyProgress>(
+    "copy-progress",
+    (payload) => {
+      setProgress(payload);
+      if (payload.current === payload.total) {
         setTimeout(() => {
           onComplete?.();
           setProgress(null);
         }, 500);
       }
-    });
-
-    return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [open, onComplete]);
+    },
+    [onComplete],
+    open
+  );
 
   if (!open || !progress) return null;
 

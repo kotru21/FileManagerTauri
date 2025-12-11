@@ -2,13 +2,16 @@ import { HomeItem } from "./HomeItem";
 import { useMemo } from "react";
 import { cn } from "@/shared/lib";
 import { useHomeStore } from "@/features/home";
-import { useNavigationStore } from "@/features/navigation";
 import { HOME } from "@/shared/config";
 import { Star } from "lucide-react";
 import { VIEW_MODES } from "@/shared/config";
-import { useLayoutStore } from "@/features/layout";
 
-export function FrequentSection() {
+interface FrequentSectionProps {
+  viewMode?: (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
+  onOpenDir?: (path: string) => void;
+}
+
+export function FrequentSection({ viewMode, onOpenDir }: FrequentSectionProps) {
   const items = useHomeStore((s) => s.items);
   const frequent = useMemo(
     () =>
@@ -18,11 +21,9 @@ export function FrequentSection() {
         .slice(0, HOME.MAX_FREQUENT_ITEMS),
     [items]
   );
-  const navigate = useNavigationStore((s) => s.navigate);
+  const handleOpen = (path: string) => onOpenDir?.(path);
 
-  const handleOpen = (path: string) => navigate(path);
-
-  const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list);
+  const mode = viewMode ?? VIEW_MODES.list;
 
   if (frequent.length === 0) return null;
 
@@ -35,12 +36,15 @@ export function FrequentSection() {
       <div
         className={cn(
           "px-3 py-2",
-          viewMode === VIEW_MODES.grid
-            ? "grid grid-cols-6 gap-2"
-            : "flex flex-col"
+          mode === VIEW_MODES.grid ? "grid grid-cols-6 gap-2" : "flex flex-col"
         )}>
         {frequent.map((item) => (
-          <HomeItem key={item.path} item={item} onOpenDir={handleOpen} />
+          <HomeItem
+            key={item.path}
+            item={item}
+            onOpenDir={handleOpen}
+            viewMode={mode}
+          />
         ))}
       </div>
     </section>

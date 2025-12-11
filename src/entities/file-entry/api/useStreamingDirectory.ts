@@ -1,6 +1,6 @@
 import { listen } from "@tauri-apps/api/event";
 import { useState, useEffect, useCallback, useRef, useReducer } from "react";
-import type { FileEntry } from "@/shared/api/tauri";
+import type { FileEntry } from "@/entities/file-entry";
 import { commands } from "@/shared/api/tauri";
 
 // Состояние стриминга
@@ -35,6 +35,18 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
   }
 }
 
+function isFileEntryArray(v: unknown): v is FileEntry[] {
+  if (!Array.isArray(v)) return false;
+  return v.every((it) => {
+    return (
+      it &&
+      typeof (it as any).name === "string" &&
+      typeof (it as any).path === "string" &&
+      typeof (it as any).is_dir === "boolean"
+    );
+  });
+}
+
 export function useStreamingDirectory(path: string | null) {
   const [state, dispatch] = useReducer(streamReducer, {
     entries: [],
@@ -46,16 +58,21 @@ export function useStreamingDirectory(path: string | null) {
   // ref для накопления batch'ей перед dispatch
   const batchBuffer = useRef<FileEntry[]>([]);
 
-  // Сбрасывание состояние при изменении пути
-  const shouldReset = path !== previousPath.current;
-  if (shouldReset && path) {
-    previousPath.current = path;
-  }
+  // Keep track of previous path and reset when it changes
+  useEffect(() => {
+    if (!path) return;
+    if (previousPath.current !== path) {
+      previousPath.current = path;
+      isInitialMount.current = true;
+      batchBuffer.current = [];
+      dispatch({ type: "RESET" });
+    }
+  }, [path]);
 
   useEffect(() => {
     if (!path) return;
 
-    if (isInitialMount.current || shouldReset) {
+    if (isInitialMount.current || triggerRefresh !== 0) {
       isInitialMount.current = false;
     }
 
@@ -71,7 +88,12 @@ export function useStreamingDirectory(path: string | null) {
     const setup = async () => {
       const ub = await listen<FileEntry[]>("directory-batch", (event) => {
         if (cancelled) return;
-        dispatch({ type: "ADD_BATCH", payload: event.payload });
+        const payload = event.payload;
+        if (!isFileEntryArray(payload)) {
+          console.warn("Invalid directory-batch payload", payload);
+          return;
+        }
+        dispatch({ type: "ADD_BATCH", payload });
       });
       unlistenBatchFn = ub;
 
@@ -92,7 +114,6 @@ export function useStreamingDirectory(path: string | null) {
       unlistenBatchFn?.();
       unlistenCompleteFn?.();
     };
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [path, triggerRefresh]);
 
   const refresh = useCallback(() => {

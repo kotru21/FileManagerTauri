@@ -1,4 +1,4 @@
-import type { FileEntry } from "@/shared/api/tauri";
+import type { FileEntry } from "@/entities/file-entry";
 import { cn } from "@/shared/lib";
 import { FileIcon } from "./FileIcon";
 

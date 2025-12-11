@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react";
-import { listen } from "@tauri-apps/api/event";
+import { useTauriEvent } from "@/shared/lib/useTauriEvent";
 import { commands, type SearchOptions } from "@/shared/api/tauri";
 import { useSearchStore, type SearchProgress } from "../model/store";
 import { toast, useToastStore } from "@/shared/ui";
@@ -26,17 +26,14 @@ export function useSearchWithProgress() {
   } = useSearchStore();
 
   const abortRef = useRef(false);
-  const unlistenRef = useRef<(() => void) | null>(null);
+  const isMountedRef = useRef(true);
   const lastUpdateRef = useRef(0);
   const searchingToastRef = useRef<string | null>(null);
 
-  // Очистка слушателя при размонтировании
   useEffect(() => {
+    isMountedRef.current = true;
     return () => {
-      if (unlistenRef.current) {
-        unlistenRef.current();
-        unlistenRef.current = null;
-      }
+      isMountedRef.current = false;
     };
   }, []);
 
@@ -48,33 +45,10 @@ export function useSearchWithProgress() {
     setProgress({ scanned: 0, found: 0, currentPath: "" });
     setResults([]);
 
-    // Показываем toast о начале поиска
+    // toast о начале поиска
     searchingToastRef.current = toast.info(`Поиск "${query}"...`, 0);
 
-    // Удаляем предыдущий слушатель
-    if (unlistenRef.current) {
-      unlistenRef.current();
-    }
-
-    // Подписываемся на события прогресса с throttle
-    unlistenRef.current = await listen<SearchProgressEvent>(
-      "search-progress",
-      (event) => {
-        if (abortRef.current) return;
-
-        // Throttle: обновляем UI с заданным интервалом
-        const now = Date.now();
-        if (now - lastUpdateRef.current < SEARCH.PROGRESS_THROTTLE_MS) return;
-        lastUpdateRef.current = now;
-
-        const prog: SearchProgress = {
-          scanned: event.payload.scanned,
-          found: event.payload.found,
-          currentPath: event.payload.current_path,
-        };
-        setProgress(prog);
-      }
-    );
+    // Remove previous listener if any — managed by useTauriEvent
 
     try {
       const options: SearchOptions = {
@@ -88,7 +62,7 @@ export function useSearchWithProgress() {
 
       const result = await commands.searchFilesStream(options);
 
-      // Удаляем toast о поиске
+      // Удаление toast о поиске
       if (searchingToastRef.current) {
         useToastStore.getState().removeToast(searchingToastRef.current);
         searchingToastRef.current = null;
@@ -97,7 +71,7 @@ export function useSearchWithProgress() {
       if (result.status === "ok" && !abortRef.current) {
         setResults(result.data);
 
-        // Показываем toast с результатом
+        // toast с результатом
         if (result.data.length === 0) {
           toast.info("Ничего не найдено", 3000);
         } else {
@@ -119,10 +93,7 @@ export function useSearchWithProgress() {
       setIsSearching(false);
       setProgress(null);
 
-      if (unlistenRef.current) {
-        unlistenRef.current();
-        unlistenRef.current = null;
-      }
+      // Unlisten handled by useTauriEvent
     }
   }, [
     searchPath,
@@ -150,6 +121,25 @@ export function useSearchWithProgress() {
       }
     },
     [setIsSearching, setProgress]
+  );
+
+  // Register Tauri event listener for search-progress while searching
+  useTauriEvent<SearchProgressEvent>(
+    "search-progress",
+    (payload) => {
+      if (abortRef.current) return;
+      const now = Date.now();
+      if (now - lastUpdateRef.current < SEARCH.PROGRESS_THROTTLE_MS) return;
+      lastUpdateRef.current = now;
+      const prog: SearchProgress = {
+        scanned: payload.scanned,
+        found: payload.found,
+        currentPath: payload.current_path,
+      };
+      setProgress(prog);
+    },
+    [setProgress],
+    isSearching
   );
 
   return {

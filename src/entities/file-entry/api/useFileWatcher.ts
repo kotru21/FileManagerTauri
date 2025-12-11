@@ -4,8 +4,10 @@ import { useQueryClient } from "@tanstack/react-query";
 import { commands } from "@/shared/api/tauri";
 import { fileKeys } from "./queries";
 
+type FsChangeKind = "Create" | "Modify" | "Remove" | "Rename" | "Other";
+
 interface FsChangeEvent {
-  kind: string;
+  kind: FsChangeKind;
   paths: string[];
 }
 
@@ -19,24 +21,37 @@ export function useFileWatcher(currentPath: string | null) {
     let unlistenFn: (() => void) | null = null;
 
     const setup = async () => {
-      unlistenFn = await listen<FsChangeEvent>("fs-change", () => {
-        queryClient.invalidateQueries({
-          queryKey: fileKeys.directory(currentPath),
+      try {
+        const localUnlisten = await listen<FsChangeEvent>("fs-change", () => {
+          // Only perform invalidation if not cancelled
+          if (cancelled) return;
+          queryClient.invalidateQueries({
+            queryKey: fileKeys.directory(currentPath),
+          });
         });
-      });
-
-      if (watchedPath.current && watchedPath.current !== currentPath) {
-        try {
-          await commands.unwatchDirectory(watchedPath.current);
-        } catch {
-          // ignore, best effort
+        if (cancelled) {
+          // Component unmounted before listener was attached — cleanup
+          localUnlisten();
+          return;
         }
-        watchedPath.current = null;
-      }
+        unlistenFn = localUnlisten;
 
-      if (watchedPath.current !== currentPath && !cancelled) {
-        watchedPath.current = currentPath;
-        await commands.watchDirectory(currentPath);
+        if (watchedPath.current && watchedPath.current !== currentPath) {
+          try {
+            await commands.unwatchDirectory(watchedPath.current);
+          } catch {
+            // ignore, best effort
+          }
+          watchedPath.current = null;
+        }
+
+        if (watchedPath.current !== currentPath && !cancelled) {
+          watchedPath.current = currentPath;
+          await commands.watchDirectory(currentPath);
+        }
+      } catch (e) {
+        // Log and ignore, don't crash the hook
+        console.error("File watcher setup failed:", e);
       }
     };
 

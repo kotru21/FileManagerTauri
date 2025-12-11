@@ -125,6 +125,8 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
             placeholder={
               searchContent ? "Поиск по содержимому..." : "Поиск файлов..."
             }
+            aria-label="Поиск файлов"
+            aria-describedby={isSearching ? "search-progress" : undefined}
             className="pl-9 pr-8"
             disabled={isSearching}
           />
@@ -176,7 +178,12 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
             </span>
           </div>
           {shortPath && (
-            <div className="truncate opacity-70" title={progress.currentPath}>
+            <div
+              id="search-progress"
+              role="status"
+              aria-live="polite"
+              className="truncate opacity-70"
+              title={progress.currentPath}>
               {shortPath}
             </div>
           )}

@@ -17,8 +17,7 @@ import {
   FilePlus,
   RefreshCw,
 } from "lucide-react";
-import { useHomeStore } from "@/features/home";
-import type { FileEntry } from "@/shared/api/tauri";
+import type { FileEntry } from "@/entities/file-entry";
 
 interface FileContextMenuProps {
   children: React.ReactNode;
@@ -33,6 +32,10 @@ interface FileContextMenuProps {
   onNewFile: () => void;
   onRefresh: () => void;
   canPaste: boolean;
+  // callbacks from parent components (avoid cross-import between features)
+  togglePin?: (path: string, isDir?: boolean, name?: string) => void;
+  removeItem?: (path: string) => void;
+  isSelectedPinned?: boolean;
 }
 
 export function FileContextMenu({
@@ -48,15 +51,12 @@ export function FileContextMenu({
   onNewFile,
   onRefresh,
   canPaste,
+  togglePin,
+  removeItem,
+  isSelectedPinned,
 }: FileContextMenuProps) {
   const hasSelection = selectedPaths.length > 0;
   const singleSelection = selectedPaths.length === 1;
-  const togglePin = useHomeStore((s) => s.togglePin);
-  const removeItem = useHomeStore((s) => s.removeItem);
-  const isSelectedPinned = useHomeStore((s) => {
-    if (!singleSelection) return false;
-    return s.items[selectedPaths[0]]?.pinned ?? false;
-  });
 
   return (
     <ContextMenu>
@@ -90,7 +90,7 @@ export function FileContextMenu({
           <>
             <ContextMenuItem
               onClick={() =>
-                togglePin(
+                togglePin?.(
                   selectedPaths[0],
                   selectedFiles?.find((f) => f.path === selectedPaths[0])
                     ?.is_dir,
@@ -117,7 +117,7 @@ export function FileContextMenu({
         )}
 
         {singleSelection && (
-          <ContextMenuItem onClick={() => removeItem(selectedPaths[0])}>
+          <ContextMenuItem onClick={() => removeItem?.(selectedPaths[0])}>
             <Trash2 className="mr-2 h-4 w-4" />
             Удалить из истории
           </ContextMenuItem>

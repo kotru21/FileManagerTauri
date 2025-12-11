@@ -1,6 +1,6 @@
 import { useRef, useCallback } from "react";
 import { useVirtualizer } from "@tanstack/react-virtual";
-import type { FileEntry } from "@/shared/api/tauri";
+import type { FileEntry } from "@/entities/file-entry";
 import { FileRow, ColumnHeader } from "@/entities/file-entry";
 import { useLayoutStore } from "@/features/layout";
 import { VIRTUALIZATION } from "@/shared/config";
@@ -98,6 +98,9 @@ export function VirtualFileList({
       />
       <div
         ref={parentRef}
+        role="listbox"
+        aria-label="Список файлов"
+        aria-multiselectable="true"
         className="flex-1 overflow-auto focus:outline-none"
         onContextMenu={handleContextMenu}
         tabIndex={0}

@@ -9,15 +9,15 @@ import {
 } from "@/shared/ui";
 import { useHomeStore } from "@/features/home";
 import { Pin, Trash2 } from "lucide-react";
-import { useLayoutStore } from "@/features/layout";
 import { VIEW_MODES } from "@/shared/config";
 
 interface HomeItemProps {
   item: import("../model/store").HomeItem;
   onOpenDir?: (path: string) => void;
+  viewMode?: (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
 }
 
-export function HomeItem({ item, onOpenDir }: HomeItemProps) {
+export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
   const togglePin = useHomeStore((s) => s.togglePin);
   const removeItem = useHomeStore((s) => s.removeItem);
   const isPinned = useHomeStore((s) => s.items[item.path]?.pinned);
@@ -37,9 +37,10 @@ export function HomeItem({ item, onOpenDir }: HomeItemProps) {
 
   const extension = getExtension(item.name);
 
-  const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list);
+  // viewMode should be provided by parent to avoid cross-feature import
+  const mode = viewMode ?? VIEW_MODES.list;
 
-  if (viewMode === VIEW_MODES.grid) {
+  if (mode === VIEW_MODES.grid) {
     return (
       <ContextMenu>
         <ContextMenuTrigger asChild>

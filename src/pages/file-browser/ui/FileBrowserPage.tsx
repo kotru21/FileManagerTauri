@@ -6,7 +6,7 @@ import {
   Sidebar,
   StatusBar,
 } from "@/widgets";
-import { HomePage } from "@/pages/home";
+import { HomePanel } from "@/widgets/home";
 import { useHomeStore } from "@/features/home";
 import { SearchBar, useSearchStore } from "@/features/search-content";
 import { useNavigationStore } from "@/features/navigation";
@@ -211,7 +211,7 @@ export function FileBrowserPage() {
                 role="main"
                 aria-label="Содержимое директории">
                 {currentPath === null ? (
-                  <HomePage />
+                  <HomePanel />
                 ) : (
                   <FileExplorer
                     showHidden={false}

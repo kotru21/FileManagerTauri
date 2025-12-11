@@ -2,6 +2,9 @@
 export { FileIcon, FileRow, FileCard } from "./ui";
 export { ColumnHeader } from "./ui/ColumnHeader";
 
+// Types
+export type { FileEntry } from "@/shared/api/tauri";
+
 // Model
 export {
   sortEntries,

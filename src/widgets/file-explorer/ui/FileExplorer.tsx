@@ -216,6 +216,15 @@ export function FileExplorer({
 
   const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list);
 
+  // Home store functions
+  const togglePin = useHomeStore((s) => s.togglePin);
+  const removeHomeItem = useHomeStore((s) => s.removeItem);
+  const isSelectedPinned = ((): boolean => {
+    const sel = getSelectedPaths();
+    if (sel.length !== 1) return false;
+    return useHomeStore.getState().items[sel[0]]?.pinned ?? false;
+  })();
+
   return (
     <>
       <FileContextMenu
@@ -229,7 +238,10 @@ export function FileExplorer({
         onNewFolder={() => onNewFolderRequest?.()}
         onNewFile={() => onNewFileRequest?.()}
         onRefresh={() => refetch()}
-        canPaste={hasContent()}>
+        canPaste={hasContent()}
+        togglePin={togglePin}
+        removeItem={removeHomeItem}
+        isSelectedPinned={isSelectedPinned}>
         {viewMode === VIEW_MODES.grid ? (
           <GridFileList
             files={files}

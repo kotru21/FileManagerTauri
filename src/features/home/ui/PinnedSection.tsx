@@ -1,13 +1,16 @@
 import { HomeItem } from "./HomeItem";
-import { useLayoutStore } from "@/features/layout";
 import { VIEW_MODES } from "@/shared/config";
 import { useMemo } from "react";
 import { cn } from "@/shared/lib";
 import { useHomeStore } from "@/features/home";
 import { Pin } from "lucide-react";
-import { useNavigationStore } from "@/features/navigation";
 
-export function PinnedSection() {
+interface PinnedSectionProps {
+  viewMode?: (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
+  onOpenDir?: (path: string) => void;
+}
+
+export function PinnedSection({ viewMode, onOpenDir }: PinnedSectionProps) {
   const items = useHomeStore((s) => s.items);
   const pinned = useMemo(
     () =>
@@ -16,11 +19,10 @@ export function PinnedSection() {
         .sort((a, b) => b.lastOpened - a.lastOpened),
     [items]
   );
-  const navigate = useNavigationStore((s) => s.navigate);
 
-  const handleOpen = (path: string) => navigate(path);
+  const handleOpen = (path: string) => onOpenDir?.(path);
 
-  const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list);
+  const mode = viewMode ?? VIEW_MODES.list;
 
   return (
     <section>
@@ -36,12 +38,17 @@ export function PinnedSection() {
         <div
           className={cn(
             "px-3 py-2",
-            viewMode === VIEW_MODES.grid
+            mode === VIEW_MODES.grid
               ? "grid grid-cols-6 gap-2"
               : "flex flex-col"
           )}>
           {pinned.map((item) => (
-            <HomeItem key={item.path} item={item} onOpenDir={handleOpen} />
+            <HomeItem
+              key={item.path}
+              item={item}
+              onOpenDir={handleOpen}
+              viewMode={mode}
+            />
           ))}
         </div>
       )}
