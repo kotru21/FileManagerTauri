@@ -988,6 +988,7 @@ dependencies = [
  "tauri-plugin-opener",
  "tauri-specta",
  "tempfile",
+ "thiserror 2.0.17",
  "tokio",
  "trash",
  "walkdir",

@@ -41,7 +41,7 @@ pub async fn watch_directory(
     state: State<'_, Arc<WatcherState>>,
 ) -> Result<(), String> {
     // Validate path
-    let validated_path = validate_path(&path)?;
+    let validated_path = validate_path(&path).map_err(|e| e.to_public_string())?;
     let canonical_key = validated_path.to_string_lossy().to_string();
 
     // Сначала останавливается предыдущий watcher для этого пути, если есть
@@ -110,7 +110,12 @@ pub async fn watch_directory(
         }
 
         if let Ok(mut flags) = state_clone.stop_flags.lock() {
-            flags.remove(&path_for_cleanup);
+            if let Some(current) = flags.get(&path_for_cleanup) {
+                // Do not remove a newer watcher stop flag.
+                if Arc::ptr_eq(current, &stop_flag) {
+                    flags.remove(&path_for_cleanup);
+                }
+            }
         }
     });
 
@@ -124,7 +129,7 @@ pub async fn unwatch_directory(
     state: State<'_, Arc<WatcherState>>,
 ) -> Result<(), String> {
     // Validate path and use canonical form to lookup
-    let validated = validate_path(&path)?;
+    let validated = validate_path(&path).map_err(|e| e.to_public_string())?;
     let key = validated.to_string_lossy().to_string();
 
     let flags = state.stop_flags.lock().map_err(|e| e.to_string())?;

@@ -1,6 +1,6 @@
 #[cfg(test)]
 mod tests {
-    use super::*;
+    use crate::commands::file_ops::validate_path;
     use tempfile::tempdir;
 
     #[test]

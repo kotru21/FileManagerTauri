@@ -1,5 +1,6 @@
 use crate::commands::file_ops::validate_path;
 use rayon::prelude::*;
+use rayon::iter::ParallelBridge;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::sync::Arc;
@@ -74,24 +75,16 @@ fn search_files_with_progress(
     options: SearchOptions,
     app: AppHandle,
 ) -> Result<Vec<SearchResult>, String> {
-    let search_path = validate_path(&options.search_path)?;
+    let search_path = validate_path(&options.search_path).map_err(|e| e.to_public_string())?;
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
+    // Hard cap to avoid OOM when walking huge directory trees.
+    const MAX_WALK_ENTRIES: usize = 200_000;
 
     let scanned = Arc::new(AtomicUsize::new(0));
     let found = Arc::new(AtomicUsize::new(0));
     let should_stop = Arc::new(AtomicBool::new(false));
-
-    // Собираем записи с ограничением глубины
-    let entries: Vec<_> = WalkDir::new(search_path)
-        .max_depth(max_depth)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .collect();
-
-    let total_entries = entries.len();
 
     // Отправляем начальный прогресс
     let _ = app.emit(
@@ -103,16 +96,20 @@ fn search_files_with_progress(
         },
     );
 
-    // Параллельная обработка с rayon
-    let results: Vec<SearchResult> = entries
-        .par_iter()
+    // Parallel streaming walk to avoid allocating a huge Vec of entries.
+    let results: Vec<SearchResult> = WalkDir::new(search_path)
+        .max_depth(max_depth)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok())
+        .take(MAX_WALK_ENTRIES)
+        .par_bridge()
         .filter_map(|entry| {
-            // Проверяем, не пора ли остановиться
             if should_stop.load(Ordering::Relaxed) {
                 return None;
             }
 
-            let current_scanned = scanned.fetch_add(1, Ordering::Relaxed);
+            let current_scanned = scanned.fetch_add(1, Ordering::Relaxed) + 1;
 
             // Отправляем прогресс каждые 100 файлов
             if current_scanned.is_multiple_of(100) {
@@ -126,10 +123,10 @@ fn search_files_with_progress(
                 );
             }
 
-            let result = process_search_entry(entry, &options);
+            let result = process_search_entry(&entry, &options);
 
             if result.is_some() {
-                let current_found = found.fetch_add(1, Ordering::Relaxed);
+                let current_found = found.fetch_add(1, Ordering::Relaxed) + 1;
                 if current_found >= max_results {
                     should_stop.store(true, Ordering::Relaxed);
                 }
@@ -141,10 +138,11 @@ fn search_files_with_progress(
         .collect();
 
     // Отправляем финальный прогресс
+    let scanned_final = scanned.load(Ordering::Relaxed);
     let _ = app.emit(
         "search-progress",
         SearchProgress {
-            scanned: total_entries,
+            scanned: scanned_final,
             found: results.len(),
             current_path: "".to_string(),
         },
@@ -156,34 +154,33 @@ fn search_files_with_progress(
 }
 
 fn search_files_sync(options: SearchOptions) -> Result<Vec<SearchResult>, String> {
-    let search_path = validate_path(&options.search_path)?;
+    let search_path = validate_path(&options.search_path).map_err(|e| e.to_public_string())?;
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
+    // Hard cap to avoid OOM when walking huge directory trees.
+    const MAX_WALK_ENTRIES: usize = 200_000;
 
     let found_count = Arc::new(AtomicUsize::new(0));
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    // Собираем записи с ограничением глубины
-    let entries: Vec<_> = WalkDir::new(search_path)
+    // Parallel streaming walk.
+    let results: Vec<SearchResult> = WalkDir::new(search_path)
         .max_depth(max_depth)
         .follow_links(false)
         .into_iter()
         .filter_map(|e| e.ok())
-        .collect();
-
-    // Параллельная обработка с rayon и ранним выходом
-    let results: Vec<SearchResult> = entries
-        .par_iter()
+        .take(MAX_WALK_ENTRIES)
+        .par_bridge()
         .filter_map(|entry| {
             if should_stop.load(Ordering::Relaxed) {
                 return None;
             }
 
-            let result = process_search_entry(entry, &options);
+            let result = process_search_entry(&entry, &options);
 
             if result.is_some() {
-                let count = found_count.fetch_add(1, Ordering::Relaxed);
+                let count = found_count.fetch_add(1, Ordering::Relaxed) + 1;
                 if count >= max_results {
                     should_stop.store(true, Ordering::Relaxed);
                 }

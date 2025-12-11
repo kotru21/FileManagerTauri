@@ -3,6 +3,8 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Serialize;
 use specta::Type;
 use std::fs;
+use std::io::{Read, BufRead, BufReader};
+use tauri::async_runtime::spawn_blocking;
 
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type")]
@@ -15,7 +17,13 @@ pub enum FilePreview {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_file_preview(path: String) -> Result<FilePreview, String> {
-    let validated = validate_path(&path)?;
+    spawn_blocking(move || get_file_preview_sync(path))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+fn get_file_preview_sync(path: String) -> Result<FilePreview, String> {
+    let validated = validate_path(&path).map_err(|e| e.to_public_string())?;
     let path = validated.as_path();
     let extension = path
         .extension()
@@ -28,22 +36,46 @@ pub async fn get_file_preview(path: String) -> Result<FilePreview, String> {
         | "html" | "css" | "scss" | "less" | "xml" | "svg" | "sh" | "bat" | "ps1" | "py" | "rb"
         | "go" | "java" | "c" | "cpp" | "h" | "hpp" | "cs" | "php" | "sql" | "vue" | "svelte"
         | "astro" | "lock" | "gitignore" | "env" | "dockerfile" | "makefile" => {
-            let content = fs::read_to_string(path).map_err(|e| e.to_string())?;
-            let truncated = content.len() > 10000;
+            // Read at most 10k chars to avoid OOM on huge text files.
+            const MAX_CHARS: usize = 10_000;
+            let file = fs::File::open(path).map_err(|e| e.to_string())?;
+            let mut reader = BufReader::new(file);
+
+            let mut buf = String::new();
+            // Read some bytes, then truncate by char count.
+            // (line-based reading keeps memory bounded and is UTF-8 friendly)
+            while buf.chars().count() < MAX_CHARS {
+                let mut line = String::new();
+                let read = reader.read_line(&mut line).map_err(|e| e.to_string())?;
+                if read == 0 {
+                    break;
+                }
+                buf.push_str(&line);
+                if buf.len() > MAX_CHARS * 4 {
+                    // bail out if pathological; we'll truncate anyway
+                    break;
+                }
+            }
+
+            let truncated = buf.chars().count() > MAX_CHARS;
             Ok(FilePreview::Text {
-                content: content.chars().take(10000).collect(),
+                content: buf.chars().take(MAX_CHARS).collect(),
                 truncated,
             })
         }
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "ico" => {
-            let bytes = fs::read(path).map_err(|e| e.to_string())?;
-
-            // размер для превью (5 MB)
-            if bytes.len() > 5_000_000 {
+            // size check before reading
+            const MAX_IMAGE_BYTES: u64 = 5_000_000;
+            let meta = fs::metadata(path).map_err(|e| e.to_string())?;
+            if meta.len() > MAX_IMAGE_BYTES {
                 return Ok(FilePreview::Unsupported {
                     mime: format!("image/{} (too large)", extension),
                 });
             }
+
+            let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+            let mut bytes = Vec::with_capacity(meta.len() as usize);
+            file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
 
             let mime_type = match extension.as_str() {
                 "jpg" | "jpeg" => "image/jpeg",
