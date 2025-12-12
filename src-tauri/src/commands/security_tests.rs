@@ -8,6 +8,8 @@ mod tests {
     use tempfile::tempdir;
     use std::fs;
     use std::io::Write;
+    use crate::commands::file_ops::validate_paths_sandboxed;
+    use crate::commands::config::{override_security_config, get_security_config, SecurityConfig};
 
     #[test]
     fn validate_path_accepts_absolute_existing_path() {
@@ -123,5 +125,72 @@ mod tests {
         assert!(res.is_err());
         let err = res.err().unwrap();
         assert!(err.contains("File too large"));
+    }
+
+    #[test]
+    fn override_security_config_changes_global_config() {
+        let orig = get_security_config();
+        let dir = tempdir().unwrap();
+        let cfg = SecurityConfig {
+            allowed_roots: vec![dir.path().to_path_buf()],
+            denied_patterns: vec!["**/secret/**".to_string()],
+        };
+        override_security_config(cfg.clone());
+        let got = get_security_config();
+        assert_eq!(got.allowed_roots, cfg.allowed_roots);
+        assert_eq!(got.denied_patterns, cfg.denied_patterns);
+        // restore original
+        override_security_config(orig);
+    }
+
+    #[test]
+    fn validate_paths_sandboxed_accepts_allowed_root() {
+        let orig = get_security_config();
+        let dir = tempdir().unwrap();
+        // Override allowed roots to include our temp dir (canonicalized)
+        let mut allowed_root = dir.path().canonicalize().unwrap();
+        // Normalize Windows long path prefix removal to match validate_path's behavior
+        #[cfg(windows)]
+        {
+            let mut s = allowed_root.to_string_lossy().to_string();
+            if s.starts_with("\\\\?\\") {
+                s = s[4..].to_string();
+                allowed_root = std::path::PathBuf::from(s);
+            }
+        }
+        let cfg = SecurityConfig {
+            allowed_roots: vec![allowed_root],
+            denied_patterns: vec![],
+        };
+        override_security_config(cfg);
+        let paths = vec![dir.path().to_string_lossy().to_string()];
+        let res = validate_paths_sandboxed(&paths);
+        assert!(res.is_ok());
+        override_security_config(orig);
+    }
+
+    #[test]
+    fn validate_paths_sandboxed_denies_outside_root() {
+        let orig = get_security_config();
+        let allowed = tempdir().unwrap();
+        let outside = tempdir().unwrap();
+        let mut allowed_root = allowed.path().canonicalize().unwrap();
+        #[cfg(windows)]
+        {
+            let mut s = allowed_root.to_string_lossy().to_string();
+            if s.starts_with("\\\\?\\") {
+                s = s[4..].to_string();
+                allowed_root = std::path::PathBuf::from(s);
+            }
+        }
+        let cfg = SecurityConfig {
+            allowed_roots: vec![allowed_root],
+            denied_patterns: vec![],
+        };
+        override_security_config(cfg);
+        let paths = vec![outside.path().to_string_lossy().to_string()];
+        let res = validate_paths_sandboxed(&paths);
+        assert!(res.is_err());
+        override_security_config(orig);
     }
 }

@@ -1,5 +1,6 @@
 use crate::commands::file_ops::{validate_path, run_blocking_fs};
 use crate::commands::error::FsError;
+use crate::commands::config::limits as limits;
 type FsResult<T> = Result<T, FsError>;
 use rayon::prelude::*;
 use rayon::iter::ParallelBridge;
@@ -76,7 +77,7 @@ fn search_files_with_progress(
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
     // Hard cap to avoid OOM when walking huge directory trees.
-    const MAX_WALK_ENTRIES: usize = 200_000;
+    const MAX_WALK_ENTRIES: usize = limits::MAX_WALK_ENTRIES;
 
     let scanned = Arc::new(AtomicUsize::new(0));
     let found = Arc::new(AtomicUsize::new(0));
@@ -108,7 +109,7 @@ fn search_files_with_progress(
             let current_scanned = scanned.fetch_add(1, Ordering::Relaxed) + 1;
 
             // Отправляем прогресс каждые 100 файлов
-            if current_scanned.is_multiple_of(100) {
+            if current_scanned.is_multiple_of(limits::SEARCH_PROGRESS_INTERVAL) {
                 let _ = app.emit(
                     "search-progress",
                     SearchProgress {
@@ -155,7 +156,7 @@ fn search_files_sync(options: SearchOptions) -> FsResult<Vec<SearchResult>> {
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
     // Hard cap to avoid OOM when walking huge directory trees.
-    const MAX_WALK_ENTRIES: usize = 200_000;
+    const MAX_WALK_ENTRIES: usize = limits::MAX_WALK_ENTRIES;
 
     let found_count = Arc::new(AtomicUsize::new(0));
     let should_stop = Arc::new(AtomicBool::new(false));
@@ -226,8 +227,8 @@ fn process_search_entry(
 
     // Search content if enabled and it's a file
     if options.search_content && entry.file_type().is_file() {
-        // Skip very large files to keep UX snappy (e.g., > 4 MB)
-        const MAX_FILE_SIZE: u64 = 4 * 1024 * 1024;
+        // Skip very large files to keep UX snappy (use config constant)
+        const MAX_FILE_SIZE: u64 = limits::MAX_SEARCH_FILE_SIZE;
         if let Ok(meta) = entry.metadata()
             && meta.len() > MAX_FILE_SIZE
         {

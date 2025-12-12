@@ -1,4 +1,5 @@
 use crate::commands::file_ops::validate_path;
+use crate::commands::error::FsError;
 use notify::{Event, RecursiveMode, Watcher, recommended_watcher};
 use serde::Serialize;
 use specta::Type;
@@ -46,7 +47,7 @@ pub async fn watch_directory(
 
     // Сначала останавливается предыдущий watcher для этого пути, если есть
     {
-        let flags = state.stop_flags.lock().map_err(|e| e.to_string())?;
+        let flags = state.stop_flags.lock().map_err(|_| FsError::Internal.to_public_string())?;
         // We store stop flags by canonical (validated) path key.
         if let Some(flag) = flags.get(&canonical_key) {
             flag.store(true, Ordering::SeqCst);
@@ -56,15 +57,15 @@ pub async fn watch_directory(
     let (tx, rx) = mpsc::channel::<Result<Event, notify::Error>>();
     let stop_flag = Arc::new(AtomicBool::new(false));
 
-    let mut watcher = recommended_watcher(tx).map_err(|e| e.to_string())?;
+    let mut watcher = recommended_watcher(tx).map_err(|_| FsError::Internal.to_public_string())?;
 
     watcher
         .watch(validated_path.as_path(), RecursiveMode::NonRecursive)
-        .map_err(|e| e.to_string())?;
+        .map_err(|_| FsError::Io.to_public_string())?;
 
     //  флаг для остановки
     {
-        let mut flags = state.stop_flags.lock().map_err(|e| e.to_string())?;
+        let mut flags = state.stop_flags.lock().map_err(|_| FsError::Internal.to_public_string())?;
         flags.insert(canonical_key.clone(), stop_flag.clone());
     }
 

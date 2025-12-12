@@ -12,19 +12,22 @@ use tauri::{AppHandle, Emitter};
 use tokio::task::JoinSet;
 
 use crate::commands::error::FsError;
+use crate::commands::config::limits as limits;
+use crate::commands::config::get_security_config;
 
-/// Максимальная глубина рекурсии для операций с директориями
-const MAX_DIRECTORY_DEPTH: usize = 100;
+// Максимальная глубина рекурсии для операций с директориями
+// using config::limits::MAX_DIRECTORY_DEPTH
 
 /// Максимальный размер файла для чтения целиком (10MB)
-const MAX_CONTENT_SIZE: u64 = 10 * 1024 * 1024;
+// Replace with constant from config.
+const MAX_CONTENT_SIZE: u64 = limits::MAX_CONTENT_FILE_SIZE;
 
 type FsResult<T> = Result<T, FsError>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileEntry {
-    pub name: String,
-    pub path: String,
+    pub name: Box<str>,
+    pub path: Box<str>,
     pub is_dir: bool,
     pub is_hidden: bool,
     pub size: u64,
@@ -42,21 +45,14 @@ pub struct DriveInfo {
     pub drive_type: String,
 }
 
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct OperationProgress {
-    pub current: u64,
-    pub total: u64,
-    pub current_file: String,
-}
-
+// OperationProgress previously used for streaming long operations—removed as unused
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CopyProgress {
     pub current: usize,
     pub total: usize,
     pub file: String,
 }
-
+ 
 fn system_time_to_timestamp(time: SystemTime) -> Option<i64> {
     time.duration_since(SystemTime::UNIX_EPOCH)
         .ok()
@@ -161,14 +157,54 @@ fn is_windows_reparse_point(meta: &fs::Metadata) -> bool {
     }
 }
 
-/// Проверяет множество путей
-pub fn validate_paths(paths: &[String]) -> FsResult<Vec<std::path::PathBuf>> {
-    paths.iter().map(|p| validate_path(p)).collect()
+// validate_paths removed—use individual validate_path or validate_paths_sandboxed instead
+/// Validate a set of paths with sandbox rules
+#[cfg(test)]
+pub fn validate_paths_sandboxed(paths: &[String]) -> FsResult<Vec<std::path::PathBuf>> {
+    paths.iter().map(|p| validate_path_sandboxed(p)).collect()
 }
 
-/// Validate paths without following symlinks (useful for operations that should act on the symlink itself).
-pub fn validate_paths_no_follow(paths: &[String]) -> FsResult<Vec<std::path::PathBuf>> {
-    paths.iter().map(|p| validate_path_no_follow(p)).collect()
+/// Validate a set of paths without following symlinks and sandbox them
+pub fn validate_paths_no_follow_sandboxed(paths: &[String]) -> FsResult<Vec<std::path::PathBuf>> {
+    paths.iter().map(|p| validate_path_no_follow_sandboxed(p)).collect()
+}
+
+pub fn validate_path_sandboxed(path: &str) -> FsResult<std::path::PathBuf> {
+    use glob::Pattern;
+    // First canonicalize with regular validate_path
+    let canonical = validate_path(path)?;
+    let cfg = get_security_config();
+    // Ensure canonical path sits under one of the allowed roots
+    let in_allowed = cfg.allowed_roots.iter().any(|root| canonical.starts_with(root));
+    if !in_allowed {
+        return Err(FsError::AccessDenied);
+    }
+    // Check denied patterns
+    for pattern in &cfg.denied_patterns {
+        if let Ok(pat) = Pattern::new(pattern) && pat.matches(canonical.to_string_lossy().as_ref()) {
+            return Err(FsError::AccessDenied);
+        }
+    }
+    Ok(canonical)
+}
+
+// validate_paths_no_follow removed—use validate_paths_no_follow_sandboxed or validate_path_no_follow
+/// Validate a path without following symlinks and ensure sandbox rules (allowed_roots/denied_patterns)
+pub fn validate_path_no_follow_sandboxed(path: &str) -> FsResult<std::path::PathBuf> {
+    let canonical = validate_path_no_follow(path)?;
+    let cfg = get_security_config();
+    // Ensure canonical path sits under one of the allowed roots
+    let in_allowed = cfg.allowed_roots.iter().any(|root| canonical.starts_with(root));
+    if !in_allowed {
+        return Err(FsError::AccessDenied);
+    }
+    // Check denied patterns
+    for pattern in &cfg.denied_patterns {
+        if let Ok(pat) = glob::Pattern::new(pattern) && pat.matches(canonical.to_string_lossy().as_ref()) {
+            return Err(FsError::AccessDenied);
+        }
+    }
+    Ok(canonical)
 }
 
 pub fn validate_path_no_follow(path: &str) -> FsResult<std::path::PathBuf> {
@@ -206,7 +242,7 @@ where
     F: FnOnce() -> FsResult<T> + Send + 'static,
     T: Send + 'static,
 {
-    let inner = spawn_blocking(move || f()).await.map_err(|_| FsError::Internal.to_public_string())?;
+    let inner = spawn_blocking(f).await.map_err(|_| FsError::Internal.to_public_string())?;
     inner.map_err(|e| e.to_public_string())
 }
 
@@ -236,7 +272,7 @@ fn read_directory_sync(path: String) -> FsResult<Vec<FileEntry>> {
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
-            .to_string();
+            .to_string().into_boxed_str();
 
         let extension = entry_path
             .extension()
@@ -245,7 +281,7 @@ fn read_directory_sync(path: String) -> FsResult<Vec<FileEntry>> {
 
         entries.push(FileEntry {
             name,
-            path: entry_path.to_string_lossy().to_string(),
+            path: entry_path.to_string_lossy().to_string().into_boxed_str(),
             is_dir: metadata.is_dir(),
             is_hidden: is_hidden(&entry_path),
             size: if metadata.is_file() {
@@ -357,7 +393,8 @@ pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), S
 
 fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> FsResult<()> {
     // Валидация всех путей без следования за symlink - операция должна действовать на сам symlink
-    let validated_paths = validate_paths_no_follow(&paths)?;
+    // Validate against sandbox rules as we are performing a mutating operation
+    let validated_paths: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&paths)?;
 
     for entry_path in validated_paths {
         if !entry_path.exists() {
@@ -406,8 +443,8 @@ fn rename_entry_sync(old_path: String, new_name: String) -> FsResult<String> {
     let parent = validated_old.parent().ok_or(FsError::InvalidPath)?;
     let new_path = parent.join(&new_name);
     // Do not allow moving to parents outside the validated parent
-    // Validate parent of new path to ensure it's within allowed paths
-    let _ = validate_path(&parent.to_string_lossy())?;
+    // Validate parent of new path to ensure it's within allowed paths (sandboxed)
+    let _ = validate_path_sandboxed(&parent.to_string_lossy())?;
     fs::rename(&validated_old, &new_path).map_err(|_| FsError::Io)?;
 
     Ok(new_path.to_string_lossy().to_string())
@@ -421,15 +458,17 @@ pub async fn copy_entries(sources: Vec<String>, destination: String) -> Result<(
 
 fn copy_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> {
     // Валидация путей без следования за symlinks — агрессивно пропускаем симлинки при копировании
-    let validated_sources = validate_paths_no_follow(&sources)?;
-    let dest_path = validate_path(&destination)?;
+    // Validate sources without following and sandbox them
+    let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&sources)?;
+    // Destination must be sandboxed for write operations
+    let dest_path = validate_path_sandboxed(&destination)?;
 
     for src_path in validated_sources {
         let file_name = src_path.file_name().ok_or(FsError::InvalidPath)?;
         let target = dest_path.join(file_name);
 
         // Use symlink_metadata so we can detect symlinks without following them
-        let meta = fs::symlink_metadata(&src_path)?;
+        let meta = fs::symlink_metadata(&src_path).map_err(|_| FsError::Io)?;
         if meta.file_type().is_symlink() {
             // Skip symlinks by default to avoid copying outside the tree
             continue;
@@ -450,7 +489,7 @@ fn copy_dir_iterative(src: &Path, dst: &Path) -> FsResult<()> {
 
     while let Some((current_src, current_dst, depth)) = queue.pop_front() {
         // Защита от слишком глубокой вложенности
-        if depth > MAX_DIRECTORY_DEPTH {
+        if depth > limits::MAX_DIRECTORY_DEPTH {
             return Err(FsError::DirectoryTooDeep);
         }
 
@@ -492,8 +531,8 @@ pub async fn move_entries(sources: Vec<String>, destination: String) -> Result<(
 
 fn move_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> {
     // Валидация путей без следования за symlinks — перемещение должно действовать на сам объект
-    let validated_sources = validate_paths_no_follow(&sources)?;
-    let dest_path = validate_path(&destination)?;
+    let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&sources)?;
+    let dest_path = validate_path_sandboxed(&destination)?;
 
     for src_path in validated_sources {
         let file_name = src_path.file_name().ok_or(FsError::InvalidPath)?;
@@ -512,7 +551,7 @@ pub async fn get_file_content(path: String) -> Result<String, String> {
 }
 
 fn get_file_content_sync(path: String) -> FsResult<String> {
-    let validated_path = validate_path(&path)?;
+    let validated_path = validate_path_sandboxed(&path)?;
     let meta = fs::metadata(&validated_path).map_err(|_| FsError::Io)?;
     if meta.len() > MAX_CONTENT_SIZE {
         return Err(FsError::FileTooLarge);
@@ -548,9 +587,9 @@ pub async fn copy_entries_parallel(
     destination: String,
     app: AppHandle,
 ) -> Result<(), String> {
-    // Валидация путей
-    let validated_sources = validate_paths(&sources).map_err(|e| e.to_public_string())?;
-    let validated_dest = validate_path(&destination).map_err(|e| e.to_public_string())?;
+    // Валидация путей: use sandboxed validation (no follow for sources)
+    let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&sources).map_err(|e| e.to_public_string())?;
+    let validated_dest = validate_path_sandboxed(&destination).map_err(|e| e.to_public_string())?;
 
     let total = validated_sources.len();
     if total == 0 {
@@ -637,14 +676,14 @@ pub async fn read_directory_stream(path: String, app: AppHandle) -> Result<(), S
         let dir_path = validated_path.as_path();
         let read_dir = fs::read_dir(dir_path).map_err(|_| FsError::ReadDirectoryFailed)?;
 
-        let mut batch = Vec::with_capacity(100);
+        let mut batch = Vec::with_capacity(limits::STREAM_BATCH_SIZE);
 
         for entry in read_dir.flatten() {
             if let Some(file_entry) = entry_to_file_entry(&entry) {
                 batch.push(file_entry);
 
-                // Отправляем пакетами по 100
-                if batch.len() >= 100 {
+                // Отправляем пакетами
+                if batch.len() >= limits::STREAM_BATCH_SIZE {
                     let _ = app.emit("directory-batch", &batch);
                     batch.clear();
                 }
@@ -671,7 +710,7 @@ fn entry_to_file_entry(entry: &fs::DirEntry) -> Option<FileEntry> {
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("")
-        .to_string();
+        .to_string().into_boxed_str();
 
     let extension = entry_path
         .extension()
@@ -680,7 +719,7 @@ fn entry_to_file_entry(entry: &fs::DirEntry) -> Option<FileEntry> {
 
     Some(FileEntry {
         name,
-        path: entry_path.to_string_lossy().to_string(),
+        path: entry_path.to_string_lossy().to_string().into_boxed_str(),
         is_dir: metadata.is_dir(),
         is_hidden: is_hidden(&entry_path),
         size: if metadata.is_file() {

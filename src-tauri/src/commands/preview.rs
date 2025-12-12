@@ -1,5 +1,6 @@
 use crate::commands::file_ops::{validate_path, run_blocking_fs};
 use crate::commands::error::FsError;
+use crate::commands::config::limits as limits;
 type FsResult<T> = Result<T, FsError>;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Serialize;
@@ -37,7 +38,7 @@ fn get_file_preview_sync(path: String) -> FsResult<FilePreview> {
         | "go" | "java" | "c" | "cpp" | "h" | "hpp" | "cs" | "php" | "sql" | "vue" | "svelte"
         | "astro" | "lock" | "gitignore" | "env" | "dockerfile" | "makefile" => {
             // Read at most 10k chars to avoid OOM on huge text files.
-            const MAX_CHARS: usize = 10_000;
+            const MAX_CHARS: usize = limits::MAX_PREVIEW_CHARS;
             let file = fs::File::open(path).map_err(|_| FsError::Io)?;
             let mut reader = BufReader::new(file);
 
@@ -65,7 +66,7 @@ fn get_file_preview_sync(path: String) -> FsResult<FilePreview> {
         }
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "ico" => {
             // size check before reading
-            const MAX_IMAGE_BYTES: u64 = 5_000_000;
+            const MAX_IMAGE_BYTES: u64 = limits::MAX_PREVIEW_IMAGE_BYTES;
             let meta = fs::metadata(path).map_err(|_| FsError::Io)?;
             if meta.len() > MAX_IMAGE_BYTES {
                 return Ok(FilePreview::Unsupported {

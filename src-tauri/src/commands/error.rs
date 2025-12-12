@@ -24,6 +24,8 @@ pub enum FsError {
 
     #[error("I/O error")]
     Io,
+    #[error("Access denied")]
+    AccessDenied,
 
     #[error("Read directory failed")]
     ReadDirectoryFailed,

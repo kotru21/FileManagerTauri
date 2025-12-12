@@ -1,4 +1,5 @@
 pub mod error;
+pub mod config;
 pub mod file_ops;
 pub mod preview;
 pub mod search;
