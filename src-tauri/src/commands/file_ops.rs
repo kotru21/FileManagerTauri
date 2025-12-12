@@ -16,6 +16,9 @@ use crate::commands::error::FsError;
 /// Максимальная глубина рекурсии для операций с директориями
 const MAX_DIRECTORY_DEPTH: usize = 100;
 
+/// Максимальный размер файла для чтения целиком (10MB)
+const MAX_CONTENT_SIZE: u64 = 10 * 1024 * 1024;
+
 type FsResult<T> = Result<T, FsError>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -118,10 +121,16 @@ pub(crate) fn validate_child_name(name: &std::ffi::OsStr) -> FsResult<()> {
         return Err(FsError::InvalidName);
     }
 
+    // Reject alternate data streams on Windows (ADS). Colon is reserved for ADS
+    if s.contains(':') {
+        return Err(FsError::InvalidName);
+    }
+
     // Windows device names and trailing dots/spaces can cause surprising behavior.
     #[cfg(windows)]
     {
-        let upper = s.trim_end_matches([' ', '.']).to_ascii_uppercase();
+        let base_name = s.split('.').next().unwrap_or(&s);
+        let upper = base_name.trim_end_matches([' ', '.']).to_ascii_uppercase();
         const RESERVED: [&str; 22] = [
             "CON", "PRN", "AUX", "NUL",
             "COM1", "COM2", "COM3", "COM4", "COM5", "COM6", "COM7", "COM8", "COM9",
@@ -157,6 +166,25 @@ pub fn validate_paths(paths: &[String]) -> FsResult<Vec<std::path::PathBuf>> {
     paths.iter().map(|p| validate_path(p)).collect()
 }
 
+/// Validate paths without following symlinks (useful for operations that should act on the symlink itself).
+pub fn validate_paths_no_follow(paths: &[String]) -> FsResult<Vec<std::path::PathBuf>> {
+    paths.iter().map(|p| validate_path_no_follow(p)).collect()
+}
+
+pub fn validate_path_no_follow(path: &str) -> FsResult<std::path::PathBuf> {
+    let path_buf = std::path::PathBuf::from(path);
+    if !path_buf.is_absolute() {
+        return Err(FsError::PathNotAbsolute);
+    }
+    // Ensure the path exists and we can lstat it (symlink_metadata) without following symlinks
+    std::fs::symlink_metadata(&path_buf).map_err(|_| FsError::InvalidPath)?;
+
+    #[cfg(windows)]
+    let path_buf = strip_windows_prefix(path_buf);
+
+    Ok(path_buf)
+}
+
 fn is_hidden(path: &Path) -> bool {
     #[cfg(windows)]
     {
@@ -172,23 +200,30 @@ fn is_hidden(path: &Path) -> bool {
         .unwrap_or(false)
 }
 
+/// Helper: run a blocking FS closure and convert FsError into a public String
+pub(crate) async fn run_blocking_fs<T, F>(f: F) -> Result<T, String>
+where
+    F: FnOnce() -> FsResult<T> + Send + 'static,
+    T: Send + 'static,
+{
+    let inner = spawn_blocking(move || f()).await.map_err(|_| FsError::Internal.to_public_string())?;
+    inner.map_err(|e| e.to_public_string())
+}
+
 #[tauri::command]
 #[specta::specta]
 pub async fn read_directory(path: String) -> Result<Vec<FileEntry>, String> {
-    let path_clone = path.clone();
-    spawn_blocking(move || read_directory_sync(path_clone))
-        .await
-    .map_err(|_| FsError::Internal.to_public_string())?
+    let v = run_blocking_fs(move || read_directory_sync(path)).await?;
+    Ok(v)
 }
 
-fn read_directory_sync(path: String) -> Result<Vec<FileEntry>, String> {
+fn read_directory_sync(path: String) -> FsResult<Vec<FileEntry>> {
     // validate path for reading
-    let dir_path = validate_path(&path).map_err(|e| e.to_public_string())?;
+    let dir_path = validate_path(&path)?;
 
     let mut entries = Vec::new();
 
-    let read_dir =
-        fs::read_dir(dir_path).map_err(|e| format!("Failed to read directory: {}", e))?;
+    let read_dir = fs::read_dir(dir_path).map_err(|_| FsError::ReadDirectoryFailed)?;
 
     for entry in read_dir.flatten() {
         let entry_path = entry.path();
@@ -269,66 +304,47 @@ pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn create_directory(path: String) -> Result<(), String> {
-    spawn_blocking(move || create_directory_sync(path))
-        .await
-        .map_err(|_| FsError::Internal.to_public_string())??;
-
-    Ok(())
+    run_blocking_fs(move || create_directory_sync(path)).await
 }
 
-fn create_directory_sync(path: String) -> Result<(), String> {
+fn create_directory_sync(path: String) -> FsResult<()> {
     if path.is_empty() {
-        return Err("Path is empty".to_string());
+        return Err(FsError::InvalidPath);
     }
 
     let p = Path::new(&path);
-    let parent = p.parent().ok_or("Invalid path")?;
+    let parent = p.parent().ok_or(FsError::InvalidPath)?;
     // validate the parent directory to ensure we don't write outside allowed locations
-    let validated_parent =
-        validate_path(&parent.to_string_lossy()).map_err(|e| e.to_public_string())?;
-    let name = p.file_name().ok_or("Invalid directory name")?;
-    validate_child_name(name).map_err(|e| e.to_public_string())?;
+    let validated_parent = validate_path(&parent.to_string_lossy())?;
+    let name = p.file_name().ok_or(FsError::InvalidName)?;
+    validate_child_name(name)?;
     let new_path = validated_parent.join(name);
-    fs::create_dir_all(new_path)
-        .map_err(|e| format!("Failed to create directory: {} (path: {})", e, path))
+    fs::create_dir_all(new_path).map_err(|_| FsError::Io)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn create_file(path: String) -> Result<(), String> {
-    spawn_blocking(move || create_file_sync(path))
-        .await
-        .map_err(|_| FsError::Internal.to_public_string())??;
-
-    Ok(())
+    run_blocking_fs(move || create_file_sync(path)).await
 }
 
-fn create_file_sync(path: String) -> Result<(), String> {
+fn create_file_sync(path: String) -> FsResult<()> {
     if path.is_empty() {
-        return Err("Path is empty".to_string());
+        return Err(FsError::InvalidPath);
     }
 
     let file_path = Path::new(&path);
-    let parent = file_path.parent().ok_or("Invalid path")?;
+    let parent = file_path.parent().ok_or(FsError::InvalidPath)?;
     // validate parent
-    let validated_parent =
-        validate_path(&parent.to_string_lossy()).map_err(|e| e.to_public_string())?;
-    let file_name = file_path.file_name().ok_or("Invalid file name")?;
-    validate_child_name(file_name).map_err(|e| e.to_public_string())?;
+    let validated_parent = validate_path(&parent.to_string_lossy())?;
+    let file_name = file_path.file_name().ok_or(FsError::InvalidName)?;
+    validate_child_name(file_name)?;
     let new_file_path = validated_parent.join(file_name);
-    if let Some(parent) = new_file_path.parent()
-        && !parent.exists()
-    {
-        fs::create_dir_all(parent).map_err(|e| {
-            format!(
-                "Failed to create parent directory: {} (path: {:?})",
-                e, parent
-            )
-        })?;
+    if let Some(parent) = new_file_path.parent() && !parent.exists() {
+        fs::create_dir_all(parent).map_err(|_| FsError::Io)?;
     }
 
-    fs::File::create(&new_file_path)
-        .map_err(|e| format!("Failed to create file: {} (path: {})", e, path))?;
+    fs::File::create(&new_file_path).map_err(|_| FsError::Io)?;
     Ok(())
 }
 
@@ -336,16 +352,12 @@ fn create_file_sync(path: String) -> Result<(), String> {
 #[specta::specta]
 pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), String> {
     // NOTE: This can be heavy IO (recursive deletes), keep it off the async runtime.
-    spawn_blocking(move || delete_entries_sync(paths, permanent))
-        .await
-        .map_err(|e| e.to_string())??;
-
-    Ok(())
+    run_blocking_fs(move || delete_entries_sync(paths, permanent)).await
 }
 
-fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> Result<(), String> {
-    // Валидация всех путей перед выполнением операции
-    let validated_paths = validate_paths(&paths).map_err(|e| e.to_public_string())?;
+fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> FsResult<()> {
+    // Валидация всех путей без следования за symlink - операция должна действовать на сам symlink
+    let validated_paths = validate_paths_no_follow(&paths)?;
 
     for entry_path in validated_paths {
         if !entry_path.exists() {
@@ -354,31 +366,25 @@ fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> Result<(), String
 
         if permanent {
             // Use symlink_metadata to avoid following symlinks / reparse points.
-            let meta = fs::symlink_metadata(&entry_path)
-                .map_err(|e| format!("Failed to stat {:?}: {}", entry_path, e))?;
+            let meta = fs::symlink_metadata(&entry_path).map_err(|_| FsError::Io)?;
 
             // On Windows, treat reparse points as non-directories to avoid deleting the target.
             if is_windows_reparse_point(&meta) {
-                fs::remove_file(&entry_path)
-                    .map_err(|e| format!("Failed to delete reparse point {:?}: {}", entry_path, e))?;
+                fs::remove_file(&entry_path).map_err(|_| FsError::Io)?;
                 continue;
             }
 
             let ft = meta.file_type();
             if ft.is_symlink() {
-                fs::remove_file(&entry_path)
-                    .map_err(|e| format!("Failed to delete symlink {:?}: {}", entry_path, e))?;
+                fs::remove_file(&entry_path).map_err(|_| FsError::Io)?;
             } else if ft.is_dir() {
-                fs::remove_dir_all(&entry_path)
-                    .map_err(|e| format!("Failed to delete directory {:?}: {}", entry_path, e))?;
+                fs::remove_dir_all(&entry_path).map_err(|_| FsError::Io)?;
             } else {
-                fs::remove_file(&entry_path)
-                    .map_err(|e| format!("Failed to delete file {:?}: {}", entry_path, e))?;
+                fs::remove_file(&entry_path).map_err(|_| FsError::Io)?;
             }
         } else {
             // Move to OS trash / recycle bin.
-            trash::delete(&entry_path)
-                .map_err(|e| format!("Failed to move to trash {:?}: {}", entry_path, e))?;
+            trash::delete(&entry_path).map_err(|_| FsError::Io)?;
         }
     }
 
@@ -388,15 +394,21 @@ fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> Result<(), String
 #[tauri::command]
 #[specta::specta]
 pub async fn rename_entry(old_path: String, new_name: String) -> Result<String, String> {
-    let validated_old = validate_path(&old_path).map_err(|e| e.to_public_string())?;
+    // Perform blocking IO through helper
+    run_blocking_fs(move || rename_entry_sync(old_path, new_name)).await
+}
+
+fn rename_entry_sync(old_path: String, new_name: String) -> FsResult<String> {
+    // Validate source without following symlinks — rename should operate on the entry itself
+        let validated_old = validate_path_no_follow(&old_path)?;
     // Prevent directory traversal via name
-    validate_child_name(std::ffi::OsStr::new(&new_name)).map_err(|e| e.to_public_string())?;
-    let parent = validated_old.parent().ok_or("Invalid path")?;
+        validate_child_name(std::ffi::OsStr::new(&new_name))?;
+    let parent = validated_old.parent().ok_or(FsError::InvalidPath)?;
     let new_path = parent.join(&new_name);
     // Do not allow moving to parents outside the validated parent
     // Validate parent of new path to ensure it's within allowed paths
-    let _ = validate_path(&parent.to_string_lossy()).map_err(|e| e.to_public_string())?;
-    fs::rename(&validated_old, &new_path).map_err(|e| format!("Failed to rename: {}", e))?;
+    let _ = validate_path(&parent.to_string_lossy())?;
+    fs::rename(&validated_old, &new_path).map_err(|_| FsError::Io)?;
 
     Ok(new_path.to_string_lossy().to_string())
 }
@@ -404,26 +416,28 @@ pub async fn rename_entry(old_path: String, new_name: String) -> Result<String, 
 #[tauri::command]
 #[specta::specta]
 pub async fn copy_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
-    spawn_blocking(move || copy_entries_sync(sources, destination))
-        .await
-        .map_err(|e| e.to_string())??;
-    Ok(())
+    run_blocking_fs(move || copy_entries_sync(sources, destination)).await
 }
 
-fn copy_entries_sync(sources: Vec<String>, destination: String) -> Result<(), String> {
-    // Валидация путей
-    let validated_sources = validate_paths(&sources).map_err(|e| e.to_public_string())?;
-    let dest_path = validate_path(&destination).map_err(|e| e.to_public_string())?;
+fn copy_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> {
+    // Валидация путей без следования за symlinks — агрессивно пропускаем симлинки при копировании
+    let validated_sources = validate_paths_no_follow(&sources)?;
+    let dest_path = validate_path(&destination)?;
 
     for src_path in validated_sources {
-        let file_name = src_path.file_name().ok_or("Invalid source path")?;
+        let file_name = src_path.file_name().ok_or(FsError::InvalidPath)?;
         let target = dest_path.join(file_name);
 
-        if src_path.is_dir() {
-            copy_dir_iterative(&src_path, &target).map_err(|e| e.to_public_string())?;
+        // Use symlink_metadata so we can detect symlinks without following them
+        let meta = fs::symlink_metadata(&src_path)?;
+        if meta.file_type().is_symlink() {
+            // Skip symlinks by default to avoid copying outside the tree
+            continue;
+        }
+        if meta.is_dir() {
+            copy_dir_iterative(&src_path, &target)?;
         } else {
-            fs::copy(&src_path, &target)
-                .map_err(|e| format!("Failed to copy {:?}: {}", src_path, e))?;
+            fs::copy(&src_path, &target).map_err(|_| FsError::Io)?;
         }
     }
     Ok(())
@@ -473,23 +487,19 @@ fn copy_dir_iterative(src: &Path, dst: &Path) -> FsResult<()> {
 #[tauri::command]
 #[specta::specta]
 pub async fn move_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
-    spawn_blocking(move || move_entries_sync(sources, destination))
-        .await
-        .map_err(|e| e.to_string())??;
-    Ok(())
+    run_blocking_fs(move || move_entries_sync(sources, destination)).await
 }
 
-fn move_entries_sync(sources: Vec<String>, destination: String) -> Result<(), String> {
-    // Валидация путей
-    let validated_sources = validate_paths(&sources).map_err(|e| e.to_public_string())?;
-    let dest_path = validate_path(&destination).map_err(|e| e.to_public_string())?;
+fn move_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> {
+    // Валидация путей без следования за symlinks — перемещение должно действовать на сам объект
+    let validated_sources = validate_paths_no_follow(&sources)?;
+    let dest_path = validate_path(&destination)?;
 
     for src_path in validated_sources {
-        let file_name = src_path.file_name().ok_or("Invalid source path")?;
+        let file_name = src_path.file_name().ok_or(FsError::InvalidPath)?;
         let target = dest_path.join(file_name);
 
-        fs::rename(&src_path, &target)
-            .map_err(|e| format!("Failed to move {:?}: {}", src_path, e))?;
+        fs::rename(&src_path, &target).map_err(|_| FsError::Io)?;
     }
     Ok(())
 }
@@ -497,37 +507,37 @@ fn move_entries_sync(sources: Vec<String>, destination: String) -> Result<(), St
 #[tauri::command]
 #[specta::specta]
 pub async fn get_file_content(path: String) -> Result<String, String> {
-    let content = spawn_blocking(move || get_file_content_sync(path))
-        .await
-        .map_err(|e| e.to_string())??;
+    let content = run_blocking_fs(move || get_file_content_sync(path)).await?;
     Ok(content)
 }
 
-fn get_file_content_sync(path: String) -> Result<String, String> {
-    let validated_path = validate_path(&path).map_err(|e| e.to_public_string())?;
-    fs::read_to_string(&validated_path).map_err(|e| format!("Failed to read file: {}", e))
+fn get_file_content_sync(path: String) -> FsResult<String> {
+    let validated_path = validate_path(&path)?;
+    let meta = fs::metadata(&validated_path).map_err(|_| FsError::Io)?;
+    if meta.len() > MAX_CONTENT_SIZE {
+        return Err(FsError::FileTooLarge);
+    }
+    fs::read_to_string(&validated_path).map_err(|_| FsError::Io)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn get_parent_path(path: String) -> Result<Option<String>, String> {
-    spawn_blocking(move || {
-        let validated = validate_path(&path).map_err(|e| e.to_public_string())?;
-        Ok::<_, String>(validated.parent().map(|p| p.to_string_lossy().to_string()))
-    })
-    .await
-    .map_err(|_| FsError::Internal.to_public_string())?
+    let r = run_blocking_fs(move || {
+        let validated = validate_path(&path)?;
+        Ok::<_, FsError>(validated.parent().map(|p| p.to_string_lossy().to_string()))
+    }).await?;
+    Ok(r)
 }
 
 #[tauri::command]
 #[specta::specta]
 pub async fn path_exists(path: String) -> Result<bool, String> {
-    spawn_blocking(move || {
-        let validated = validate_path(&path).map_err(|e| e.to_public_string())?;
-        Ok::<_, String>(validated.exists())
-    })
-    .await
-    .map_err(|_| FsError::Internal.to_public_string())?
+    let r = run_blocking_fs(move || {
+        let validated = validate_path(&path)?;
+        Ok::<_, FsError>(validated.exists())
+    }).await?;
+    Ok(r)
 }
 
 /// Параллельное копирование файлов с прогрессом
@@ -621,11 +631,11 @@ fn copy_single_entry_sync(src_path: &Path, dest_path: &Path) -> FsResult<()> {
 pub async fn read_directory_stream(path: String, app: AppHandle) -> Result<(), String> {
     let path_clone = path.clone();
 
-    spawn_blocking(move || {
+    run_blocking_fs(move || {
         // Validate incoming path inside blocking context (canonicalize can hit disk).
-        let validated_path = validate_path(&path_clone).map_err(|e| e.to_public_string())?;
+        let validated_path = validate_path(&path_clone)?;
         let dir_path = validated_path.as_path();
-        let read_dir = fs::read_dir(dir_path).map_err(|e| e.to_string())?;
+        let read_dir = fs::read_dir(dir_path).map_err(|_| FsError::ReadDirectoryFailed)?;
 
         let mut batch = Vec::with_capacity(100);
 
@@ -647,10 +657,8 @@ pub async fn read_directory_stream(path: String, app: AppHandle) -> Result<(), S
         }
 
         let _ = app.emit("directory-complete", &path_clone);
-        Ok::<_, String>(())
-    })
-    .await
-    .map_err(|_| FsError::Internal.to_public_string())??;
+        Ok::<_, FsError>(())
+    }).await?;
 
     Ok(())
 }

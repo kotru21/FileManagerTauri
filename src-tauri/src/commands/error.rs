@@ -18,11 +18,18 @@ pub enum FsError {
     #[error("Invalid name")]
     InvalidName,
 
+
     #[error("Directory depth exceeds maximum allowed")]
     DirectoryTooDeep,
 
     #[error("I/O error")]
     Io,
+
+    #[error("Read directory failed")]
+    ReadDirectoryFailed,
+
+    #[error("File too large")]
+    FileTooLarge,
 
     #[error("Internal error")]
     Internal,

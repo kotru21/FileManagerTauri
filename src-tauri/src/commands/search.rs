@@ -1,4 +1,6 @@
-use crate::commands::file_ops::validate_path;
+use crate::commands::file_ops::{validate_path, run_blocking_fs};
+use crate::commands::error::FsError;
+type FsResult<T> = Result<T, FsError>;
 use rayon::prelude::*;
 use rayon::iter::ParallelBridge;
 use serde::{Deserialize, Serialize};
@@ -9,7 +11,7 @@ use std::{
     fs::File,
     io::{BufRead, BufReader},
 };
-use tauri::async_runtime::spawn_blocking;
+// spawn_blocking replaced by centralized run_blocking_fs in file_ops
 use tauri::{AppHandle, Emitter};
 use walkdir::WalkDir;
 
@@ -50,10 +52,7 @@ pub struct SearchProgress {
 #[specta::specta]
 pub async fn search_files(options: SearchOptions) -> Result<Vec<SearchResult>, String> {
     // Heavy IO, run on a blocking thread to keep async runtime responsive.
-    spawn_blocking(move || search_files_sync(options))
-        .await
-        .map_err(|e| e.to_string())
-        .and_then(|r| r)
+    run_blocking_fs(move || search_files_sync(options)).await
 }
 
 /// Стриминг поиска с прогрессом
@@ -65,17 +64,14 @@ pub async fn search_files_stream(
 ) -> Result<Vec<SearchResult>, String> {
     let options_clone = options.clone();
 
-    spawn_blocking(move || search_files_with_progress(options_clone, app))
-        .await
-        .map_err(|e| e.to_string())
-        .and_then(|r| r)
+    run_blocking_fs(move || search_files_with_progress(options_clone, app)).await
 }
 
 fn search_files_with_progress(
     options: SearchOptions,
     app: AppHandle,
-) -> Result<Vec<SearchResult>, String> {
-    let search_path = validate_path(&options.search_path).map_err(|e| e.to_public_string())?;
+ ) -> FsResult<Vec<SearchResult>> {
+    let search_path = validate_path(&options.search_path)?;
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
@@ -153,8 +149,8 @@ fn search_files_with_progress(
     Ok(results.into_iter().take(max_results).collect())
 }
 
-fn search_files_sync(options: SearchOptions) -> Result<Vec<SearchResult>, String> {
-    let search_path = validate_path(&options.search_path).map_err(|e| e.to_public_string())?;
+fn search_files_sync(options: SearchOptions) -> FsResult<Vec<SearchResult>> {
+    let search_path = validate_path(&options.search_path)?;
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска

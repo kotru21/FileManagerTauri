@@ -1,10 +1,12 @@
-use crate::commands::file_ops::validate_path;
+use crate::commands::file_ops::{validate_path, run_blocking_fs};
+use crate::commands::error::FsError;
+type FsResult<T> = Result<T, FsError>;
 use base64::{Engine, engine::general_purpose::STANDARD};
 use serde::Serialize;
 use specta::Type;
 use std::fs;
 use std::io::{Read, BufRead, BufReader};
-use tauri::async_runtime::spawn_blocking;
+// spawn_blocking replaced by centralized run_blocking_fs in file_ops
 
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type")]
@@ -17,13 +19,11 @@ pub enum FilePreview {
 #[tauri::command]
 #[specta::specta]
 pub async fn get_file_preview(path: String) -> Result<FilePreview, String> {
-    spawn_blocking(move || get_file_preview_sync(path))
-        .await
-        .map_err(|e| e.to_string())?
+    run_blocking_fs(move || get_file_preview_sync(path)).await
 }
 
-fn get_file_preview_sync(path: String) -> Result<FilePreview, String> {
-    let validated = validate_path(&path).map_err(|e| e.to_public_string())?;
+fn get_file_preview_sync(path: String) -> FsResult<FilePreview> {
+    let validated = validate_path(&path)?;
     let path = validated.as_path();
     let extension = path
         .extension()
@@ -38,7 +38,7 @@ fn get_file_preview_sync(path: String) -> Result<FilePreview, String> {
         | "astro" | "lock" | "gitignore" | "env" | "dockerfile" | "makefile" => {
             // Read at most 10k chars to avoid OOM on huge text files.
             const MAX_CHARS: usize = 10_000;
-            let file = fs::File::open(path).map_err(|e| e.to_string())?;
+            let file = fs::File::open(path).map_err(|_| FsError::Io)?;
             let mut reader = BufReader::new(file);
 
             let mut buf = String::new();
@@ -46,7 +46,7 @@ fn get_file_preview_sync(path: String) -> Result<FilePreview, String> {
             // (line-based reading keeps memory bounded and is UTF-8 friendly)
             while buf.chars().count() < MAX_CHARS {
                 let mut line = String::new();
-                let read = reader.read_line(&mut line).map_err(|e| e.to_string())?;
+                let read = reader.read_line(&mut line).map_err(|_| FsError::Io)?;
                 if read == 0 {
                     break;
                 }
@@ -66,16 +66,16 @@ fn get_file_preview_sync(path: String) -> Result<FilePreview, String> {
         "png" | "jpg" | "jpeg" | "gif" | "webp" | "bmp" | "ico" => {
             // size check before reading
             const MAX_IMAGE_BYTES: u64 = 5_000_000;
-            let meta = fs::metadata(path).map_err(|e| e.to_string())?;
+            let meta = fs::metadata(path).map_err(|_| FsError::Io)?;
             if meta.len() > MAX_IMAGE_BYTES {
                 return Ok(FilePreview::Unsupported {
                     mime: format!("image/{} (too large)", extension),
                 });
             }
 
-            let mut file = fs::File::open(path).map_err(|e| e.to_string())?;
+            let mut file = fs::File::open(path).map_err(|_| FsError::Io)?;
             let mut bytes = Vec::with_capacity(meta.len() as usize);
-            file.read_to_end(&mut bytes).map_err(|e| e.to_string())?;
+            file.read_to_end(&mut bytes).map_err(|_| FsError::Io)?;
 
             let mime_type = match extension.as_str() {
                 "jpg" | "jpeg" => "image/jpeg",
