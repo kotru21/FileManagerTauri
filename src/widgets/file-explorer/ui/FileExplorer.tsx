@@ -256,7 +256,9 @@ export function FileExplorer({
             break;
           case "a":
             e.preventDefault();
-            processedFiles.forEach((f) => selectFile(f.path, true));
+            processedFiles.forEach((f) => {
+              selectFile(f.path, true);
+            });
             break;
         }
       } else if (e.key === "Delete") {

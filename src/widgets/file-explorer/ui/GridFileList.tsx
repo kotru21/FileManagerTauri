@@ -1,5 +1,5 @@
 // src/widgets/file-explorer/ui/GridFileList.tsx
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useRef } from "react";
 import type { FileEntry } from "@/entities/file-entry";
 import { FileCard } from "@/entities/file-entry";
 import { cn } from "@/shared/lib";
