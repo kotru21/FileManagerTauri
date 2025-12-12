@@ -1,7 +1,8 @@
 # File Manager Tauri
 
 <!-- markdownlint-disable MD033 -->
-<img width="1502" height="895" alt="File manager screenshot" src="https://github.com/user-attachments/assets/cba0e896-82f7-4d77-8273-ca0f68403e09" />
+<img width="1502" height="882" alt="File manager screenshot" src="https://github.com/user-attachments/assets/1fd59b76-9f9e-4535-bc36-b357526d13d6" />
+
 <!-- markdownlint-enable MD033 -->
 
 Десктопный файловый менеджер на **Tauri 2.x + React 19 + TypeScript 5.9**, построенный по архитектуре **Feature-Sliced Design (FSD)**.
@@ -119,6 +120,7 @@ npm run lint
 - [Tailwind CSS IntelliSense](https://marketplace.visualstudio.com/items?itemName=bradlc.vscode-tailwindcss)
 
 ## Горячие клавиши
+<img width="609" alt="menu" src="https://github.com/user-attachments/assets/8d62c326-e675-4a6e-b6b8-2b27a58a6729" />
 
 | Клавиша        | Действие      |
 | -------------- | ------------- |
