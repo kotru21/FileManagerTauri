@@ -1,5 +1,5 @@
-import type { DriveInfo } from "@/shared/api/tauri";
 import { HardDrive } from "lucide-react";
+import type { DriveInfo } from "@/shared/api/tauri";
 import { cn } from "@/shared/lib";
 
 interface DriveItemProps {
@@ -11,6 +11,7 @@ interface DriveItemProps {
 export function DriveItem({ drive, isSelected, onSelect }: DriveItemProps) {
   return (
     <button
+      type="button"
       onClick={onSelect}
       className={cn(
         "flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md",

@@ -1,15 +1,15 @@
-import { cn } from "@/shared/lib";
+import { cn } from "@/shared/lib"
 
 interface SkeletonProps {
-  className?: string;
+  className?: string
 }
 
 export function Skeleton({ className }: SkeletonProps) {
-  return <div className={cn("bg-muted animate-pulse rounded", className)} />;
+  return <div className={cn("bg-muted animate-pulse rounded", className)} />
 }
 
 interface FileListSkeletonProps {
-  count?: number;
+  count?: number
 }
 
 export function FileListSkeleton({ count = 20 }: FileListSkeletonProps) {
@@ -24,5 +24,5 @@ export function FileListSkeleton({ count = 20 }: FileListSkeletonProps) {
         </div>
       ))}
     </div>
-  );
+  )
 }

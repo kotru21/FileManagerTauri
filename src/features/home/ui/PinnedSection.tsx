@@ -1,28 +1,28 @@
-import { HomeItem } from "./HomeItem";
-import { VIEW_MODES } from "@/shared/config";
-import { useMemo } from "react";
-import { cn } from "@/shared/lib";
-import { useHomeStore } from "@/features/home";
-import { Pin } from "lucide-react";
+import { Pin } from "lucide-react"
+import { useMemo } from "react"
+import { useHomeStore } from "@/features/home"
+import { VIEW_MODES } from "@/shared/config"
+import { cn } from "@/shared/lib"
+import { HomeItem } from "./HomeItem"
 
 interface PinnedSectionProps {
-  viewMode?: (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
-  onOpenDir?: (path: string) => void;
+  viewMode?: (typeof VIEW_MODES)[keyof typeof VIEW_MODES]
+  onOpenDir?: (path: string) => void
 }
 
 export function PinnedSection({ viewMode, onOpenDir }: PinnedSectionProps) {
-  const items = useHomeStore((s) => s.items);
+  const items = useHomeStore((s) => s.items)
   const pinned = useMemo(
     () =>
       Object.values(items)
         .filter((i) => i.pinned)
         .sort((a, b) => b.lastOpened - a.lastOpened),
-    [items]
-  );
+    [items],
+  )
 
-  const handleOpen = (path: string) => onOpenDir?.(path);
+  const handleOpen = (path: string) => onOpenDir?.(path)
 
-  const mode = viewMode ?? VIEW_MODES.list;
+  const mode = viewMode ?? VIEW_MODES.list
 
   return (
     <section>
@@ -38,22 +38,16 @@ export function PinnedSection({ viewMode, onOpenDir }: PinnedSectionProps) {
         <div
           className={cn(
             "px-3 py-2",
-            mode === VIEW_MODES.grid
-              ? "grid grid-cols-6 gap-2"
-              : "flex flex-col"
-          )}>
+            mode === VIEW_MODES.grid ? "grid grid-cols-6 gap-2" : "flex flex-col",
+          )}
+        >
           {pinned.map((item) => (
-            <HomeItem
-              key={item.path}
-              item={item}
-              onOpenDir={handleOpen}
-              viewMode={mode}
-            />
+            <HomeItem key={item.path} item={item} onOpenDir={handleOpen} viewMode={mode} />
           ))}
         </div>
       )}
     </section>
-  );
+  )
 }
 
-export default PinnedSection;
+export default PinnedSection

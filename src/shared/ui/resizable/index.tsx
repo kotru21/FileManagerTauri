@@ -1,4 +1,4 @@
-import { ComponentProps } from "react";
+import type { ComponentProps } from "react";
 import * as ResizablePrimitive from "react-resizable-panels";
 import { cn } from "@/shared/lib";
 
@@ -56,6 +56,7 @@ function GripVerticalIcon({ className }: { className?: string }) {
       strokeLinecap="round"
       strokeLinejoin="round"
       className={className}>
+      <title>Ручка изменения размера</title>
       <circle cx="9" cy="12" r="1" />
       <circle cx="9" cy="5" r="1" />
       <circle cx="9" cy="19" r="1" />

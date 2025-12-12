@@ -1,5 +1,5 @@
 import { listen } from "@tauri-apps/api/event";
-import { useState, useEffect, useCallback, useRef, useReducer } from "react";
+import { useCallback, useEffect, useReducer, useRef, useState } from "react";
 import type { FileEntry } from "@/entities/file-entry";
 import { commands } from "@/shared/api/tauri";
 
@@ -38,11 +38,12 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
 function isFileEntryArray(v: unknown): v is FileEntry[] {
   if (!Array.isArray(v)) return false;
   return v.every((it) => {
+    if (typeof it !== "object" || it === null) return false;
+    const obj = it as Record<string, unknown>;
     return (
-      it &&
-      typeof (it as any).name === "string" &&
-      typeof (it as any).path === "string" &&
-      typeof (it as any).is_dir === "boolean"
+      typeof obj.name === "string" &&
+      typeof obj.path === "string" &&
+      typeof obj.is_dir === "boolean"
     );
   });
 }

@@ -1,25 +1,25 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { STORAGE_VERSIONS, HOME as HOME_CONST } from "@/shared/config";
-import { getBasename } from "@/shared/lib";
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
+import { HOME as HOME_CONST, STORAGE_VERSIONS } from "@/shared/config"
+import { getBasename } from "@/shared/lib"
 
 export interface HomeItem {
-  path: string;
-  name: string;
-  isDir: boolean;
-  pinned: boolean;
-  openCount: number;
-  lastOpened: number; // timestamp
+  path: string
+  name: string
+  isDir: boolean
+  pinned: boolean
+  openCount: number
+  lastOpened: number // timestamp
 }
 
 interface HomeState {
-  items: Record<string, HomeItem>;
-  trackOpen: (path: string, isDir: boolean, name?: string) => void;
-  togglePin: (path: string, isDir?: boolean, name?: string) => void;
-  removeItem: (path: string) => void;
-  getPinned: () => HomeItem[];
-  getFrequent: (limit?: number) => HomeItem[];
-  getRecent: (limit?: number) => HomeItem[];
+  items: Record<string, HomeItem>
+  trackOpen: (path: string, isDir: boolean, name?: string) => void
+  togglePin: (path: string, isDir?: boolean, name?: string) => void
+  removeItem: (path: string) => void
+  getPinned: () => HomeItem[]
+  getFrequent: (limit?: number) => HomeItem[]
+  getRecent: (limit?: number) => HomeItem[]
 }
 
 export const useHomeStore = create<HomeState>()(
@@ -28,9 +28,9 @@ export const useHomeStore = create<HomeState>()(
       items: {},
 
       trackOpen: (path, isDir, name) => {
-        const state = get();
-        const now = Date.now();
-        const item = state.items[path];
+        const state = get()
+        const now = Date.now()
+        const item = state.items[path]
         if (item) {
           set({
             items: {
@@ -41,7 +41,7 @@ export const useHomeStore = create<HomeState>()(
                 lastOpened: now,
               },
             },
-          });
+          })
         } else {
           const newItem: HomeItem = {
             path,
@@ -50,15 +50,15 @@ export const useHomeStore = create<HomeState>()(
             pinned: false,
             openCount: 1,
             lastOpened: now,
-          };
-          set({ items: { ...state.items, [path]: newItem } });
+          }
+          set({ items: { ...state.items, [path]: newItem } })
         }
       },
 
       togglePin: (path, isDir, name) => {
-        console.debug("home: togglePin", { path, isDir, name });
-        const state = get();
-        const item = state.items[path];
+        console.debug("home: togglePin", { path, isDir, name })
+        const state = get()
+        const item = state.items[path]
         if (!item) {
           const newItem: HomeItem = {
             path,
@@ -67,24 +67,24 @@ export const useHomeStore = create<HomeState>()(
             pinned: true,
             openCount: 0,
             lastOpened: Date.now(),
-          };
-          set({ items: { ...state.items, [path]: newItem } });
-          return;
+          }
+          set({ items: { ...state.items, [path]: newItem } })
+          return
         }
         set({
           items: {
             ...state.items,
             [path]: { ...item, pinned: !item.pinned },
           },
-        });
+        })
       },
 
       removeItem: (path) => {
-        console.debug("home: removeItem", { path });
-        const state = get();
-        const newItems = { ...state.items };
-        delete newItems[path];
-        set({ items: newItems });
+        console.debug("home: removeItem", { path })
+        const state = get()
+        const newItems = { ...state.items }
+        delete newItems[path]
+        set({ items: newItems })
       },
 
       getPinned: () =>
@@ -108,8 +108,8 @@ export const useHomeStore = create<HomeState>()(
       version: STORAGE_VERSIONS.HOME,
       partialize: (state) => ({ items: state.items }),
       migrate: (persistedState) => persistedState as HomeState,
-    }
-  )
-);
+    },
+  ),
+)
 
-export default useHomeStore;
+export default useHomeStore

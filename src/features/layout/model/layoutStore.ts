@@ -2,6 +2,13 @@ import { create } from "zustand";
 import { persist } from "zustand/middleware";
 import { STORAGE_VERSIONS, VIEW_MODES, type ViewMode } from "@/shared/config";
 
+function isValidViewMode(value: unknown): value is ViewMode {
+  return (
+    typeof value === "string" &&
+    (Object.values(VIEW_MODES) as string[]).includes(value)
+  );
+}
+
 export interface ColumnWidths {
   size: number;
   date: number;
@@ -112,7 +119,7 @@ export const useLayoutStore = create<LayoutState>()(
           layout: {
             ...state.layout,
             viewMode:
-              state.layout.viewMode === VIEW_MODES.grid
+              (state.layout.viewMode ?? VIEW_MODES.list) === VIEW_MODES.grid
                 ? VIEW_MODES.list
                 : VIEW_MODES.grid,
           },
@@ -125,6 +132,12 @@ export const useLayoutStore = create<LayoutState>()(
       version: STORAGE_VERSIONS.LAYOUT,
       merge: (persistedState, currentState) => {
         const persisted = persistedState as Partial<LayoutState> | undefined;
+
+        const persistedViewMode = persisted?.layout?.viewMode;
+        const safeViewMode = isValidViewMode(persistedViewMode)
+          ? persistedViewMode
+          : defaultLayout.viewMode;
+
         return {
           ...currentState,
           layout: {
@@ -134,6 +147,7 @@ export const useLayoutStore = create<LayoutState>()(
               ...defaultLayout.columnWidths,
               ...persisted?.layout?.columnWidths,
             },
+            viewMode: safeViewMode,
           },
         };
       },
@@ -142,7 +156,15 @@ export const useLayoutStore = create<LayoutState>()(
         if (version === 0) {
           return persistedState;
         }
-        return persistedState as LayoutState;
+        // Защита от некорректных значений в storage
+        const state = persistedState as LayoutState;
+        if (!isValidViewMode(state?.layout?.viewMode)) {
+          return {
+            ...state,
+            layout: { ...state.layout, viewMode: defaultLayout.viewMode },
+          };
+        }
+        return state;
       },
     }
   )

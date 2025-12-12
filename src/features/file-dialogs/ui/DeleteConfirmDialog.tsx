@@ -1,23 +1,23 @@
-import { useMemo } from "react";
+import { useMemo } from "react"
+import { getBasename } from "@/shared/lib"
 import {
+  Button,
   Dialog,
   DialogContent,
-  DialogHeader,
-  DialogTitle,
   DialogDescription,
   DialogFooter,
-  Button,
-} from "@/shared/ui";
-import { getBasename } from "@/shared/lib";
+  DialogHeader,
+  DialogTitle,
+} from "@/shared/ui"
 
 interface DeleteConfirmDialogProps {
-  isOpen: boolean;
-  paths: string[];
-  permanent: boolean;
-  onPermanentChange: (permanent: boolean) => void;
-  onOpenChange: (open: boolean) => void;
-  onConfirm: (opts: { paths: string[]; permanent: boolean }) => void;
-  isLoading?: boolean;
+  isOpen: boolean
+  paths: string[]
+  permanent: boolean
+  onPermanentChange: (permanent: boolean) => void
+  onOpenChange: (open: boolean) => void
+  onConfirm: (opts: { paths: string[]; permanent: boolean }) => void
+  isLoading?: boolean
 }
 
 export function DeleteConfirmDialog({
@@ -30,24 +30,24 @@ export function DeleteConfirmDialog({
   isLoading,
 }: DeleteConfirmDialogProps) {
   const title = useMemo(() => {
-    if (paths.length === 1) return "Удалить элемент";
-    return `Удалить элементы (${paths.length})`;
-  }, [paths.length]);
+    if (paths.length === 1) return "Удалить элемент"
+    return `Удалить элементы (${paths.length})`
+  }, [paths.length])
 
   const previewNames = useMemo(() => {
-    const names = paths.map(getBasename);
-    return names.slice(0, 3);
-  }, [paths]);
+    const names = paths.map(getBasename)
+    return names.slice(0, 3)
+  }, [paths])
 
   const description = useMemo(() => {
-    if (paths.length === 0) return "Нечего удалять.";
+    if (paths.length === 0) return "Нечего удалять."
 
     if (permanent) {
-      return "Элементы будут удалены навсегда (минуя корзину). Действие нельзя отменить.";
+      return "Элементы будут удалены навсегда (минуя корзину). Действие нельзя отменить."
     }
 
-    return "Элементы будут перемещены в корзину. При необходимости их можно восстановить.";
-  }, [paths.length, permanent]);
+    return "Элементы будут перемещены в корзину. При необходимости их можно восстановить."
+  }, [paths.length, permanent])
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
@@ -67,9 +67,7 @@ export function DeleteConfirmDialog({
                 </li>
               ))}
               {paths.length > 3 && (
-                <li className="text-muted-foreground">
-                  …и ещё {paths.length - 3}
-                </li>
+                <li className="text-muted-foreground">…и ещё {paths.length - 3}</li>
               )}
             </ul>
           </div>
@@ -83,26 +81,23 @@ export function DeleteConfirmDialog({
             onChange={(e) => onPermanentChange(e.target.checked)}
           />
           <span>
-            Удалить навсегда{" "}
-            <span className="text-muted-foreground">(Shift+Del)</span>
+            Удалить навсегда <span className="text-muted-foreground">(Shift+Del)</span>
           </span>
         </label>
 
         <DialogFooter>
-          <Button
-            variant="outline"
-            onClick={() => onOpenChange(false)}
-            disabled={isLoading}>
+          <Button variant="outline" onClick={() => onOpenChange(false)} disabled={isLoading}>
             Отмена
           </Button>
           <Button
             variant="destructive"
             onClick={() => onConfirm({ paths, permanent })}
-            disabled={paths.length === 0 || isLoading}>
+            disabled={paths.length === 0 || isLoading}
+          >
             {permanent ? "Удалить навсегда" : "Удалить"}
           </Button>
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

@@ -1,6 +1,6 @@
-import { memo, useState, useCallback } from "react";
+import { memo, useCallback, useState } from "react";
 import type { FileEntry } from "@/entities/file-entry";
-import { formatBytes, formatDate, cn } from "@/shared/lib";
+import { cn, formatBytes, formatDate } from "@/shared/lib";
 import { FileIcon } from "./FileIcon";
 
 interface FileRowProps {
@@ -79,7 +79,8 @@ export const FileRow = memo(
     }, []);
 
     return (
-      <div
+      <button
+        type="button"
         data-file-row="true"
         draggable
         onDragStart={handleDragStart}
@@ -89,6 +90,7 @@ export const FileRow = memo(
         className={cn(
           "flex items-center gap-0 px-3 py-1.5 cursor-pointer select-none",
           "hover:bg-accent/50 transition-colors",
+          "w-full text-left",
           isSelected && "bg-accent",
           isFocused && !isSelected && "ring-1 ring-primary/50",
           isDragOver && file.is_dir && "bg-blue-500/20 ring-2 ring-blue-500"
@@ -120,7 +122,7 @@ export const FileRow = memo(
         </span>
 
         <span className="shrink-0" style={{ width: columnWidths.padding }} />
-      </div>
+      </button>
     );
   },
   (prev, next) => {

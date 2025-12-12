@@ -1,5 +1,5 @@
-import type { SearchResult, ContentMatch } from "@/shared/api/tauri";
 import { FileIcon } from "@/entities/file-entry";
+import type { ContentMatch, SearchResult } from "@/shared/api/tauri";
 import { getExtension } from "@/shared/lib";
 
 interface SearchResultItemProps {
@@ -11,8 +11,9 @@ export function SearchResultItem({ result, onSelect }: SearchResultItemProps) {
   const extension = getExtension(result.name);
 
   return (
-    <div
-      className="border-b border-border last:border-b-0 hover:bg-accent/50 cursor-pointer"
+    <button
+      type="button"
+      className="border-b border-border last:border-b-0 hover:bg-accent/50 cursor-pointer w-full text-left"
       onClick={() => onSelect(result.path)}>
       <div className="flex items-center gap-2 px-3 py-2">
         <FileIcon extension={extension} isDir={result.is_dir} size={16} />
@@ -24,8 +25,11 @@ export function SearchResultItem({ result, onSelect }: SearchResultItemProps) {
 
       {result.matches.length > 0 && (
         <div className="px-3 pb-2 space-y-1">
-          {result.matches.slice(0, 3).map((match, idx) => (
-            <MatchPreview key={idx} match={match} />
+          {result.matches.slice(0, 3).map((match) => (
+            <MatchPreview
+              key={`${match.line_number}-${match.match_start}-${match.match_end}`}
+              match={match}
+            />
           ))}
           {result.matches.length > 3 && (
             <div className="text-xs text-muted-foreground">
@@ -34,7 +38,7 @@ export function SearchResultItem({ result, onSelect }: SearchResultItemProps) {
           )}
         </div>
       )}
-    </div>
+    </button>
   );
 }
 

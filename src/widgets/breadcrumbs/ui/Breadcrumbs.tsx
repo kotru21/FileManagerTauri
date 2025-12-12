@@ -1,5 +1,5 @@
-import { useMemo } from "react";
 import { ChevronRight, Home } from "lucide-react";
+import { useMemo } from "react";
 import { useNavigationStore } from "@/features/navigation";
 import { cn } from "@/shared/lib";
 
@@ -53,6 +53,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
               />
             )}
             <button
+              type="button"
               onClick={() => navigate(part.path)}
               className={cn(
                 "hover:text-foreground transition-colors truncate max-w-[200px]",

@@ -1,20 +1,20 @@
 import {
+  Button,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  Button,
   Input,
-} from "@/shared/ui";
+} from "@/shared/ui"
 
 interface NewFileDialogProps {
-  isOpen: boolean;
-  value: string;
-  onValueChange: (value: string) => void;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: () => void;
-  isLoading?: boolean;
+  isOpen: boolean
+  value: string
+  onValueChange: (value: string) => void
+  onOpenChange: (open: boolean) => void
+  onSubmit: () => void
+  isLoading?: boolean
 }
 
 export function NewFileDialog({
@@ -49,5 +49,5 @@ export function NewFileDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

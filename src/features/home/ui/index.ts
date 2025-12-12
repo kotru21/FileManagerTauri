@@ -1,3 +1,3 @@
-export { HomeItem } from "./HomeItem";
-export { PinnedSection } from "./PinnedSection";
-export { FrequentSection } from "./FrequentSection";
+export { FrequentSection } from "./FrequentSection"
+export { HomeItem } from "./HomeItem"
+export { PinnedSection } from "./PinnedSection"

@@ -1,33 +1,33 @@
-import { create } from "zustand";
-import type { SearchResult } from "@/shared/api/tauri";
+import { create } from "zustand"
+import type { SearchResult } from "@/shared/api/tauri"
 
 export interface SearchProgress {
-  scanned: number;
-  found: number;
-  currentPath: string;
+  scanned: number
+  found: number
+  currentPath: string
 }
 
 interface SearchState {
-  query: string;
-  searchPath: string;
-  searchContent: boolean;
-  caseSensitive: boolean;
-  isSearching: boolean;
-  results: SearchResult[];
-  progress: SearchProgress | null;
-  shouldCancel: boolean;
+  query: string
+  searchPath: string
+  searchContent: boolean
+  caseSensitive: boolean
+  isSearching: boolean
+  results: SearchResult[]
+  progress: SearchProgress | null
+  shouldCancel: boolean
 
-  setQuery: (query: string) => void;
-  setSearchPath: (path: string) => void;
-  setSearchContent: (value: boolean) => void;
-  setCaseSensitive: (value: boolean) => void;
-  setIsSearching: (value: boolean) => void;
-  setResults: (results: SearchResult[]) => void;
-  setProgress: (progress: SearchProgress | null) => void;
-  cancelSearch: () => void;
-  reset: () => void;
+  setQuery: (query: string) => void
+  setSearchPath: (path: string) => void
+  setSearchContent: (value: boolean) => void
+  setCaseSensitive: (value: boolean) => void
+  setIsSearching: (value: boolean) => void
+  setResults: (results: SearchResult[]) => void
+  setProgress: (progress: SearchProgress | null) => void
+  cancelSearch: () => void
+  reset: () => void
   /** Очищает результаты и query, но сохраняет searchPath */
-  clearSearch: () => void;
+  clearSearch: () => void
 }
 
 const initialState = {
@@ -39,7 +39,7 @@ const initialState = {
   results: [] as SearchResult[],
   progress: null as SearchProgress | null,
   shouldCancel: false,
-};
+}
 
 export const useSearchStore = create<SearchState>((set) => ({
   ...initialState,
@@ -61,4 +61,4 @@ export const useSearchStore = create<SearchState>((set) => ({
       isSearching: false,
       shouldCancel: false,
     }),
-}));
+}))

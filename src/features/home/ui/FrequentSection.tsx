@@ -1,31 +1,30 @@
-import { HomeItem } from "./HomeItem";
-import { useMemo } from "react";
-import { cn } from "@/shared/lib";
-import { useHomeStore } from "@/features/home";
-import { HOME } from "@/shared/config";
-import { Star } from "lucide-react";
-import { VIEW_MODES } from "@/shared/config";
+import { Star } from "lucide-react"
+import { useMemo } from "react"
+import { useHomeStore } from "@/features/home"
+import { HOME, VIEW_MODES } from "@/shared/config"
+import { cn } from "@/shared/lib"
+import { HomeItem } from "./HomeItem"
 
 interface FrequentSectionProps {
-  viewMode?: (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
-  onOpenDir?: (path: string) => void;
+  viewMode?: (typeof VIEW_MODES)[keyof typeof VIEW_MODES]
+  onOpenDir?: (path: string) => void
 }
 
 export function FrequentSection({ viewMode, onOpenDir }: FrequentSectionProps) {
-  const items = useHomeStore((s) => s.items);
+  const items = useHomeStore((s) => s.items)
   const frequent = useMemo(
     () =>
       Object.values(items)
         .filter((i) => !i.pinned && i.openCount >= HOME.MIN_OPEN_COUNT)
         .sort((a, b) => b.openCount - a.openCount)
         .slice(0, HOME.MAX_FREQUENT_ITEMS),
-    [items]
-  );
-  const handleOpen = (path: string) => onOpenDir?.(path);
+    [items],
+  )
+  const handleOpen = (path: string) => onOpenDir?.(path)
 
-  const mode = viewMode ?? VIEW_MODES.list;
+  const mode = viewMode ?? VIEW_MODES.list
 
-  if (frequent.length === 0) return null;
+  if (frequent.length === 0) return null
 
   return (
     <section>
@@ -36,19 +35,15 @@ export function FrequentSection({ viewMode, onOpenDir }: FrequentSectionProps) {
       <div
         className={cn(
           "px-3 py-2",
-          mode === VIEW_MODES.grid ? "grid grid-cols-6 gap-2" : "flex flex-col"
-        )}>
+          mode === VIEW_MODES.grid ? "grid grid-cols-6 gap-2" : "flex flex-col",
+        )}
+      >
         {frequent.map((item) => (
-          <HomeItem
-            key={item.path}
-            item={item}
-            onOpenDir={handleOpen}
-            viewMode={mode}
-          />
+          <HomeItem key={item.path} item={item} onOpenDir={handleOpen} viewMode={mode} />
         ))}
       </div>
     </section>
-  );
+  )
 }
 
-export default FrequentSection;
+export default FrequentSection

@@ -1,11 +1,11 @@
-import { PinnedSection, FrequentSection } from "@/features/home";
-import { useLayoutStore } from "@/features/layout";
-import { useNavigationStore } from "@/features/navigation";
-import { VIEW_MODES } from "@/shared/config";
+import { FrequentSection, PinnedSection } from "@/features/home"
+import { useLayoutStore } from "@/features/layout"
+import { useNavigationStore } from "@/features/navigation"
+import { VIEW_MODES } from "@/shared/config"
 
 export function HomePanel() {
-  const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list);
-  const navigate = useNavigationStore((s) => s.navigate);
+  const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list)
+  const navigate = useNavigationStore((s) => s.navigate)
 
   return (
     <div className="flex-1 flex flex-col overflow-auto p-4" role="main">
@@ -15,7 +15,7 @@ export function HomePanel() {
         <FrequentSection viewMode={viewMode} onOpenDir={(p) => navigate(p)} />
       </div>
     </div>
-  );
+  )
 }
 
-export default HomePanel;
+export default HomePanel

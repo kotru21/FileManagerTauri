@@ -1,7 +1,7 @@
-import { useQuery, useMutation, useQueryClient } from "@tanstack/react-query";
+import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { commands } from "@/shared/api/tauri";
-import { unwrapResult } from "@/shared/lib";
 import { CACHE_TIME } from "@/shared/config";
+import { unwrapResult } from "@/shared/lib";
 
 export const fileKeys = {
   all: ["files"] as const,
@@ -12,7 +12,12 @@ export const fileKeys = {
 export function useDirectoryContents(path: string | null) {
   return useQuery({
     queryKey: fileKeys.directory(path ?? ""),
-    queryFn: async () => unwrapResult(await commands.readDirectory(path!)),
+    queryFn: async () => {
+      if (!path) {
+        throw new Error("Directory path is required");
+      }
+      return unwrapResult(await commands.readDirectory(path));
+    },
     enabled: !!path,
     staleTime: CACHE_TIME.DIRECTORY,
     refetchOnWindowFocus: false,

@@ -1,10 +1,10 @@
-import { useCallback, useState, useEffect, useRef } from "react";
-import { Search, X, FileText, Loader2, StopCircle } from "lucide-react";
-import { Input, Button } from "@/shared/ui";
-import { cn } from "@/shared/lib";
-import { useSearchStore } from "../model/store";
-import { useSearchWithProgress } from "../hooks/useSearchWithProgress";
+import { FileText, Loader2, Search, StopCircle, X } from "lucide-react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { SEARCH } from "@/shared/config";
+import { cn } from "@/shared/lib";
+import { Button, Input } from "@/shared/ui";
+import { useSearchWithProgress } from "../hooks/useSearchWithProgress";
+import { useSearchStore } from "../model/store";
 
 interface SearchBarProps {
   onSearch?: () => void;
@@ -110,7 +110,7 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
   // Сокращение пути для отображения
   const shortPath = progress?.currentPath
     ? progress.currentPath.length > 50
-      ? "..." + progress.currentPath.slice(-47)
+      ? `...${progress.currentPath.slice(-47)}`
       : progress.currentPath
     : "";
 
@@ -178,14 +178,13 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
             </span>
           </div>
           {shortPath && (
-            <div
+            <output
               id="search-progress"
-              role="status"
               aria-live="polite"
               className="truncate opacity-70"
               title={progress.currentPath}>
               {shortPath}
-            </div>
+            </output>
           )}
         </div>
       )}

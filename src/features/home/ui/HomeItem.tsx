@@ -1,15 +1,15 @@
 import { openPath } from "@tauri-apps/plugin-opener";
-import { getExtension, formatRelativeDate } from "@/shared/lib";
+import { Pin, Trash2 } from "lucide-react";
 import { FileIcon } from "@/entities/file-entry";
+import { useHomeStore } from "@/features/home";
+import { VIEW_MODES } from "@/shared/config";
+import { formatRelativeDate, getExtension } from "@/shared/lib";
 import {
   ContextMenu,
-  ContextMenuTrigger,
   ContextMenuContent,
   ContextMenuItem,
+  ContextMenuTrigger,
 } from "@/shared/ui";
-import { useHomeStore } from "@/features/home";
-import { Pin, Trash2 } from "lucide-react";
-import { VIEW_MODES } from "@/shared/config";
 
 interface HomeItemProps {
   item: import("../model/store").HomeItem;
@@ -44,8 +44,9 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
     return (
       <ContextMenu>
         <ContextMenuTrigger asChild>
-          <div className="relative w-28 group" role="group">
+          <div className="relative w-28 group">
             <button
+              type="button"
               onDoubleClick={handleOpen}
               className="flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer select-none hover:bg-accent/50 w-full"
               aria-label={`Открыть ${item.name}`}
@@ -61,9 +62,10 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
             </button>
 
             {/* Overlay quick actions */}
-            <div className="absolute inset-x-1 bottom-1 flex items-center justify-end gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <div className="absolute inset-x-1 bottom-1 flex items-center justify-end gap-1 invisible group-hover:visible pointer-events-none">
               <div className="flex gap-1 pointer-events-auto">
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     togglePin(item.path, item.isDir, item.name);
@@ -74,6 +76,7 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
                   <Pin className="h-4 w-4" />
                 </button>
                 <button
+                  type="button"
                   onClick={(e) => {
                     e.stopPropagation();
                     removeItem(item.path);
@@ -108,6 +111,7 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
       <ContextMenuTrigger asChild>
         <div className="group w-full">
           <button
+            type="button"
             className="flex items-center gap-3 p-2 rounded hover:bg-accent/50 w-full text-left"
             onDoubleClick={handleOpen}
             aria-label={`Открыть ${item.name}`}>
@@ -121,8 +125,9 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
                 {formatRelativeDate(Math.floor(item.lastOpened / 1000))}
               </div>
             </div>
-            <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none">
+            <div className="flex items-center gap-1 invisible group-hover:visible pointer-events-none">
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   togglePin(item.path, item.isDir, item.name);
@@ -133,6 +138,7 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
                 <Pin className="h-4 w-4" />
               </button>
               <button
+                type="button"
                 onClick={(e) => {
                   e.stopPropagation();
                   removeItem(item.path);

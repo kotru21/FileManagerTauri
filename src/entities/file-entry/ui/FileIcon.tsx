@@ -1,27 +1,27 @@
 import {
-  File,
-  Folder,
-  Image,
-  Video,
-  Music,
-  FileText,
-  FileCode,
   Archive,
+  BookOpen,
+  Database,
+  Disc,
+  File,
+  FileAxis3d,
+  FileChartLine,
+  FileCode,
+  FileCog,
   FileQuestion,
   FileSpreadsheet,
-  Database,
-  FileChartLine,
-  Type,
-  Disc,
-  Package,
+  FileText,
+  Folder,
+  Image,
   Key,
-  FileCog,
-  FileAxis3d,
-  BookOpen,
   Link,
   type LucideIcon,
-} from "lucide-react";
-import { getFileType, type FileType } from "@/shared/lib";
+  Music,
+  Package,
+  Type,
+  Video,
+} from "lucide-react"
+import { type FileType, getFileType } from "@/shared/lib"
 
 const ICON_MAP: Record<FileType, LucideIcon> = {
   folder: Folder,
@@ -47,7 +47,7 @@ const ICON_MAP: Record<FileType, LucideIcon> = {
   shortcut: Link,
   config: FileCog,
   unknown: FileQuestion,
-};
+}
 
 const COLOR_MAP: Record<FileType, string> = {
   folder: "text-yellow-500",
@@ -73,24 +73,19 @@ const COLOR_MAP: Record<FileType, string> = {
   shortcut: "text-sky-500",
   config: "text-cyan-500",
   unknown: "text-gray-400",
-};
-
-interface FileIconProps {
-  extension: string | null;
-  isDir: boolean;
-  className?: string;
-  size?: number;
 }
 
-export function FileIcon({
-  extension,
-  isDir,
-  className = "",
-  size = 20,
-}: FileIconProps) {
-  const fileType = getFileType(extension, isDir);
-  const Icon = ICON_MAP[fileType];
-  const colorClass = COLOR_MAP[fileType];
+interface FileIconProps {
+  extension: string | null
+  isDir: boolean
+  className?: string
+  size?: number
+}
 
-  return <Icon size={size} className={`${colorClass} ${className}`} />;
+export function FileIcon({ extension, isDir, className = "", size = 20 }: FileIconProps) {
+  const fileType = getFileType(extension, isDir)
+  const Icon = ICON_MAP[fileType]
+  const colorClass = COLOR_MAP[fileType]
+
+  return <Icon size={size} className={`${colorClass} ${className}`} />
 }

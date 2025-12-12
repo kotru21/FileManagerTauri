@@ -114,8 +114,10 @@ function ResizeHandle({ onResize }: ResizeHandleProps) {
   );
 
   return (
-    <div
+    <button
+      type="button"
       className="shrink-0 h-5 w-2 cursor-col-resize bg-border hover:bg-primary/60 active:bg-primary rounded-sm transition-colors"
+      aria-label="Изменение ширины колонки"
       onMouseDown={onMouseDown}
       title="Перетащите для изменения ширины"
       style={{ marginInline: -(handleWidth / 2) }}

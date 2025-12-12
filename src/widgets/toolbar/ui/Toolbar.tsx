@@ -2,19 +2,19 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
-  Home,
-  RefreshCw,
-  FolderPlus,
   FilePlus,
-  Search,
+  FolderPlus,
   Grid,
+  Home,
   List,
+  RefreshCw,
+  Search,
 } from "lucide-react";
-import { Button, Tooltip, TooltipTrigger, TooltipContent } from "@/shared/ui";
 import { useLayoutStore } from "@/features/layout";
-import { VIEW_MODES } from "@/shared/config";
 import { useNavigationStore } from "@/features/navigation";
+import { VIEW_MODES } from "@/shared/config";
 import { cn } from "@/shared/lib";
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui";
 
 interface ToolbarProps {
   onRefresh: () => void;
@@ -38,7 +38,7 @@ export function Toolbar({
   const canGoForward = useNavigationStore((s) => s.canGoForward());
   const currentPath = useNavigationStore((s) => s.currentPath);
   const goHome = useNavigationStore((s) => s.goHome);
-  const viewMode = useLayoutStore((s) => s.layout.viewMode);
+  const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list);
   const toggleViewMode = useLayoutStore((s) => s.toggleViewMode);
 
   return (
@@ -142,7 +142,7 @@ export function Toolbar({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => toggleViewMode?.()}
+            onClick={() => toggleViewMode()}
             aria-pressed={viewMode === VIEW_MODES.grid}>
             {viewMode === VIEW_MODES.grid ? (
               <Grid className="h-4 w-4" />

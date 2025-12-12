@@ -1,6 +1,6 @@
-import { X, Info, CheckCircle, AlertTriangle, XCircle } from "lucide-react";
-import { useToastStore, type ToastType } from "./store";
+import { AlertTriangle, CheckCircle, Info, X, XCircle } from "lucide-react";
 import { cn } from "@/shared/lib";
+import { type ToastType, useToastStore } from "./store";
 
 const icons: Record<ToastType, React.ComponentType<{ className?: string }>> = {
   info: Info,
@@ -39,6 +39,7 @@ export function ToastContainer() {
             <Icon className="h-5 w-5 shrink-0" />
             <span className="flex-1 text-sm">{toast.message}</span>
             <button
+              type="button"
               onClick={() => removeToast(toast.id)}
               className="shrink-0 opacity-60 hover:opacity-100 transition-opacity">
               <X className="h-4 w-4" />

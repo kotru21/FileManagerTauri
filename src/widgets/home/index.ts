@@ -1,1 +1,1 @@
-export { HomePanel } from "./ui/HomePanel";
+export { HomePanel } from "./ui/HomePanel"

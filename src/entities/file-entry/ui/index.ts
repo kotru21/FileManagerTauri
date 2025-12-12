@@ -1,3 +1,3 @@
-export { FileIcon } from "./FileIcon";
-export { FileRow } from "./FileRow";
-export { FileCard } from "./FileCard";
+export { FileCard } from "./FileCard"
+export { FileIcon } from "./FileIcon"
+export { FileRow } from "./FileRow"

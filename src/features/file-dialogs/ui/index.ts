@@ -1,4 +1,4 @@
-export { NewFolderDialog } from "./NewFolderDialog";
-export { NewFileDialog } from "./NewFileDialog";
-export { RenameDialog } from "./RenameDialog";
-export { DeleteConfirmDialog } from "./DeleteConfirmDialog";
+export { DeleteConfirmDialog } from "./DeleteConfirmDialog"
+export { NewFileDialog } from "./NewFileDialog"
+export { NewFolderDialog } from "./NewFolderDialog"
+export { RenameDialog } from "./RenameDialog"

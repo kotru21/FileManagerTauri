@@ -1,41 +1,41 @@
 import {
+  Clipboard,
+  Copy,
+  FilePlus,
+  FolderPlus,
+  Pencil,
+  Pin,
+  RefreshCw,
+  Scissors,
+  Trash2,
+} from "lucide-react"
+import type { FileEntry } from "@/entities/file-entry"
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
-} from "@/shared/ui";
-import {
-  Copy,
-  Scissors,
-  Clipboard,
-  Trash2,
-  Pencil,
-  Pin,
-  FolderPlus,
-  FilePlus,
-  RefreshCw,
-} from "lucide-react";
-import type { FileEntry } from "@/entities/file-entry";
+} from "@/shared/ui"
 
 interface FileContextMenuProps {
-  children: React.ReactNode;
-  selectedPaths: string[];
-  selectedFiles?: FileEntry[];
-  onCopy: () => void;
-  onCut: () => void;
-  onPaste: () => void;
-  onDelete: () => void;
-  onRename: () => void;
-  onNewFolder: () => void;
-  onNewFile: () => void;
-  onRefresh: () => void;
-  canPaste: boolean;
+  children: React.ReactNode
+  selectedPaths: string[]
+  selectedFiles?: FileEntry[]
+  onCopy: () => void
+  onCut: () => void
+  onPaste: () => void
+  onDelete: () => void
+  onRename: () => void
+  onNewFolder: () => void
+  onNewFile: () => void
+  onRefresh: () => void
+  canPaste: boolean
   // callbacks from parent components (avoid cross-import between features)
-  togglePin?: (path: string, isDir?: boolean, name?: string) => void;
-  removeItem?: (path: string) => void;
-  isSelectedPinned?: boolean;
+  togglePin?: (path: string, isDir?: boolean, name?: string) => void
+  removeItem?: (path: string) => void
+  isSelectedPinned?: boolean
 }
 
 export function FileContextMenu({
@@ -55,8 +55,8 @@ export function FileContextMenu({
   removeItem,
   isSelectedPinned,
 }: FileContextMenuProps) {
-  const hasSelection = selectedPaths.length > 0;
-  const singleSelection = selectedPaths.length === 1;
+  const hasSelection = selectedPaths.length > 0
+  const singleSelection = selectedPaths.length === 1
 
   return (
     <ContextMenu>
@@ -92,11 +92,11 @@ export function FileContextMenu({
               onClick={() =>
                 togglePin?.(
                   selectedPaths[0],
-                  selectedFiles?.find((f) => f.path === selectedPaths[0])
-                    ?.is_dir,
-                  selectedFiles?.find((f) => f.path === selectedPaths[0])?.name
+                  selectedFiles?.find((f) => f.path === selectedPaths[0])?.is_dir,
+                  selectedFiles?.find((f) => f.path === selectedPaths[0])?.name,
                 )
-              }>
+              }
+            >
               <Pin className="mr-2 h-4 w-4" />
               {isSelectedPinned ? "Открепить" : "Закрепить"}
             </ContextMenuItem>
@@ -146,5 +146,5 @@ export function FileContextMenu({
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
-  );
+  )
 }

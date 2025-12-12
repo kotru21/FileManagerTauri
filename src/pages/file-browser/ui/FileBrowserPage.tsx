@@ -1,30 +1,33 @@
-import { useState, useCallback, useEffect } from "react";
+import { openPath } from "@tauri-apps/plugin-opener";
+import { useCallback, useEffect, useState } from "react";
 import {
-  FileExplorer,
-  Breadcrumbs,
-  Toolbar,
-  Sidebar,
-  StatusBar,
-} from "@/widgets";
-import { HomePanel } from "@/widgets/home";
-import { useHomeStore } from "@/features/home";
-import { SearchBar, useSearchStore } from "@/features/search-content";
-import { useNavigationStore } from "@/features/navigation";
-import { useLayoutStore } from "@/features/layout";
-import {
-  NewFolderDialog,
   NewFileDialog,
+  NewFolderDialog,
   RenameDialog,
   useFileOperations,
 } from "@/features/file-dialogs";
-import { SearchResultItem } from "@/features/search-content";
-import { openPath } from "@tauri-apps/plugin-opener";
+import { useHomeStore } from "@/features/home";
+import { useLayoutStore } from "@/features/layout";
+import { useNavigationStore } from "@/features/navigation";
 import {
-  TooltipProvider,
-  ResizablePanelGroup,
-  ResizablePanel,
+  SearchBar,
+  SearchResultItem,
+  useSearchStore,
+} from "@/features/search-content";
+import {
   ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  TooltipProvider,
 } from "@/shared/ui";
+import {
+  Breadcrumbs,
+  FileExplorer,
+  Sidebar,
+  StatusBar,
+  Toolbar,
+} from "@/widgets";
+import { HomePanel } from "@/widgets/home";
 
 export function FileBrowserPage() {
   const currentPath = useNavigationStore((s) => s.currentPath);
@@ -109,9 +112,7 @@ export function FileBrowserPage() {
         role="application"
         aria-label="Файловый менеджер">
         {/* Header */}
-        <header
-          className="flex items-center gap-4 px-4 py-2 border-b"
-          role="banner">
+        <header className="flex items-center gap-4 px-4 py-2 border-b">
           <Toolbar
             onRefresh={handleRefresh}
             onNewFolder={handleNewFolder}
@@ -147,6 +148,7 @@ export function FileBrowserPage() {
                 <div className="px-3 py-1.5 border-b bg-muted/50 text-xs text-muted-foreground flex justify-between items-center">
                   <span>Найдено: {searchResults.length}</span>
                   <button
+                    type="button"
                     onClick={handleCloseSearchResults}
                     className="text-muted-foreground hover:text-foreground transition-colors"
                     aria-label="Закрыть результаты поиска">
@@ -208,7 +210,6 @@ export function FileBrowserPage() {
               minSize={30}>
               <main
                 className="flex-1 flex flex-col overflow-hidden h-full"
-                role="main"
                 aria-label="Содержимое директории">
                 {currentPath === null ? (
                   <HomePanel />

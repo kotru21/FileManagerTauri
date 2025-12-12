@@ -1,7 +1,7 @@
-import { HomePanel } from "@/widgets/home";
+import { HomePanel } from "@/widgets/home"
 
 export function HomePage() {
-  return <HomePanel />;
+  return <HomePanel />
 }
 
-export default HomePage;
+export default HomePage

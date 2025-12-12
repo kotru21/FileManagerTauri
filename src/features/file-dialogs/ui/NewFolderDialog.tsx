@@ -1,20 +1,20 @@
 import {
+  Button,
   Dialog,
   DialogContent,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogFooter,
-  Button,
   Input,
-} from "@/shared/ui";
+} from "@/shared/ui"
 
 interface NewFolderDialogProps {
-  isOpen: boolean;
-  value: string;
-  onValueChange: (value: string) => void;
-  onOpenChange: (open: boolean) => void;
-  onSubmit: () => void;
-  isLoading?: boolean;
+  isOpen: boolean
+  value: string
+  onValueChange: (value: string) => void
+  onOpenChange: (open: boolean) => void
+  onSubmit: () => void
+  isLoading?: boolean
 }
 
 export function NewFolderDialog({
@@ -49,5 +49,5 @@ export function NewFolderDialog({
         </DialogFooter>
       </DialogContent>
     </Dialog>
-  );
+  )
 }

@@ -16,7 +16,8 @@ export function FileCard({
   onOpen,
 }: FileCardProps) {
   return (
-    <div
+    <button
+      type="button"
       className={cn(
         "flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer select-none",
         "hover:bg-accent/50 transition-colors w-24",
@@ -28,6 +29,6 @@ export function FileCard({
       <span className="text-xs text-center truncate w-full" title={file.name}>
         {file.name}
       </span>
-    </div>
+    </button>
   );
 }

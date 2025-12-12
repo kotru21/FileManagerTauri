@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import type { FileEntry } from "@/entities/file-entry";
 
 interface UseKeyboardNavigationOptions {
@@ -115,7 +115,9 @@ export function useKeyboardNavigation({
           if (e.ctrlKey) {
             e.preventDefault();
             // Выделить все
-            files.forEach((f) => onSelect(f.path, { ctrlKey: true }));
+            files.forEach((f) => {
+              onSelect(f.path, { ctrlKey: true });
+            });
           }
           break;
       }
