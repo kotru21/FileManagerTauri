@@ -60,10 +60,11 @@ fn system_time_to_timestamp(time: SystemTime) -> Option<i64> {
         .map(|d| d.as_secs() as i64)
 }
 
+
 /// Валидация пути для предотвращения атак path traversal
 /// Проверяет, что путь абсолютный и не содержит опасных компонентов
 pub fn validate_path(path: &str) -> FsResult<std::path::PathBuf> {
-    let path_buf = Path::new(path);
+    let path_buf = std::path::PathBuf::from(path);
 
     // Путь должен быть абсолютным
     if !path_buf.is_absolute() {
@@ -76,15 +77,26 @@ pub fn validate_path(path: &str) -> FsResult<std::path::PathBuf> {
         .map_err(|_| FsError::InvalidPath)?;
 
     // Проверка, что путь не пытается выйти за пределы корня
-    // На Windows, что это валидный путь диска
-    #[cfg(windows)]
-    {
-        if canonical.components().count() < 1 {
-            return Err(FsError::InvalidPath);
-        }
+    if canonical.components().count() < 1 {
+        return Err(FsError::InvalidPath);
     }
 
+
+    #[cfg(windows)]
+    let canonical = strip_windows_prefix(canonical);
+
     Ok(canonical)
+}
+
+
+#[cfg(windows)]
+fn strip_windows_prefix(path: std::path::PathBuf) -> std::path::PathBuf {
+    let path_str = path.to_string_lossy();
+    if let Some(stripped) = path_str.strip_prefix(r"\\?\") {
+        std::path::PathBuf::from(stripped)
+    } else {
+        path
+    }
 }
 
 /// Validate a single path segment (file/directory name) to prevent traversal.

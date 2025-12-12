@@ -1,5 +1,6 @@
-import { openPath } from "@tauri-apps/plugin-opener"
-import { useCallback, useEffect, useMemo, useState } from "react"
+// src/widgets/file-explorer/ui/FileExplorer.tsx
+import { openPath } from "@tauri-apps/plugin-opener";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import {
   filterEntries,
   type SortConfig,
@@ -9,28 +10,28 @@ import {
   useDeleteEntries,
   useDirectoryContents,
   useMoveEntries,
-} from "@/entities/file-entry"
-import { useClipboardStore } from "@/features/clipboard"
-import { FileContextMenu } from "@/features/context-menu"
-import { DeleteConfirmDialog } from "@/features/file-dialogs"
-import { useSelectionStore } from "@/features/file-selection"
-import { useHomeStore } from "@/features/home"
-import { useLayoutStore } from "@/features/layout"
-import { useNavigationStore } from "@/features/navigation"
-import { VIEW_MODES } from "@/shared/config"
-import { cn, getBasename } from "@/shared/lib"
-import { toast } from "@/shared/ui"
-import { CopyProgressDialog } from "@/widgets/progress-dialog"
-import { GridFileList } from "./GridFileList"
-import { VirtualFileList } from "./VirtualFileList"
+} from "@/entities/file-entry";
+import { useClipboardStore } from "@/features/clipboard";
+import { FileContextMenu } from "@/features/context-menu";
+import { DeleteConfirmDialog } from "@/features/file-dialogs";
+import { useSelectionStore } from "@/features/file-selection";
+import { useHomeStore } from "@/features/home";
+import { useLayoutStore } from "@/features/layout";
+import { useNavigationStore } from "@/features/navigation";
+import { VIEW_MODES } from "@/shared/config";
+import { cn, getBasename } from "@/shared/lib";
+import { toast } from "@/shared/ui";
+import { CopyProgressDialog } from "@/widgets/progress-dialog";
+import { GridFileList } from "./GridFileList";
+import { VirtualFileList } from "./VirtualFileList";
 
 interface FileExplorerProps {
-  showHidden?: boolean
-  sortConfig?: SortConfig
-  onRenameRequest?: (path: string) => void
-  onNewFolderRequest?: () => void
-  onNewFileRequest?: () => void
-  className?: string
+  showHidden?: boolean;
+  sortConfig?: SortConfig;
+  onRenameRequest?: (path: string) => void;
+  onNewFolderRequest?: () => void;
+  onNewFileRequest?: () => void;
+  className?: string;
 }
 
 export function FileExplorer({
@@ -41,11 +42,12 @@ export function FileExplorer({
   onNewFileRequest,
   className,
 }: FileExplorerProps) {
-  const currentPath = useNavigationStore((s) => s.currentPath)
-  const navigate = useNavigationStore((s) => s.navigate)
-
-  const { data: rawFiles = [], refetch } = useDirectoryContents(currentPath)
-
+  const { currentPath, navigate } = useNavigationStore();
+  const {
+    data: files = [],
+    isLoading,
+    refetch,
+  } = useDirectoryContents(currentPath);
   const {
     selectedPaths,
     selectFile,
@@ -53,261 +55,317 @@ export function FileExplorer({
     toggleSelection,
     clearSelection,
     getSelectedPaths,
-  } = useSelectionStore()
+  } = useSelectionStore();
 
   const {
+    paths: clipboardPaths,
+    action: clipboardAction,
     copy,
     cut,
-    paths: clipboardPaths,
-    isCut,
     clear: clearClipboard,
-    hasContent,
-  } = useClipboardStore()
+  } = useClipboardStore();
+  const { trackOpen, togglePin, removeItem } = useHomeStore();
+  const { layout } = useLayoutStore();
 
-  const copyMutation = useCopyEntries()
-  const copyParallelMutation = useCopyEntriesParallel()
-  const moveMutation = useMoveEntries()
-  const deleteMutation = useDeleteEntries()
+  // viewMode из store (lowercase значения)
+  const viewMode = layout.viewMode ?? VIEW_MODES.list;
+  // В начале компонента FileExplorer, после получения viewMode
+  console.log(
+    "Current viewMode:",
+    viewMode,
+    "VIEW_MODES.grid:",
+    VIEW_MODES.grid
+  );
+  const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
+  const [deletePermanent, setDeletePermanent] = useState(false);
+  const [pathsToDelete, setPathsToDelete] = useState<string[]>([]);
+  const [progressDialogOpen, setProgressDialogOpen] = useState(false);
 
-  // Состояние для диалога прогресса
-  const [showCopyProgress, setShowCopyProgress] = useState(false)
+  const { mutateAsync: deleteEntries, isPending: isDeleting } =
+    useDeleteEntries();
+  const { mutateAsync: copyEntries } = useCopyEntries();
+  const { mutateAsync: copyEntriesParallel } = useCopyEntriesParallel();
+  const { mutateAsync: moveEntries } = useMoveEntries();
 
-  const [deleteDialog, setDeleteDialog] = useState<{
-    open: boolean
-    paths: string[]
-    permanent: boolean
-  }>({ open: false, paths: [], permanent: false })
-
-  const files = useMemo(() => {
-    const filtered = filterEntries(rawFiles, { showHidden })
-    return sortEntries(filtered, sortConfig)
-  }, [rawFiles, showHidden, sortConfig])
-
-  const allPaths = useMemo(() => files.map((f) => f.path), [files])
+  const processedFiles = useMemo(() => {
+    const filtered = filterEntries(files, { showHidden });
+    return sortEntries(filtered, sortConfig);
+  }, [files, showHidden, sortConfig]);
 
   const handleSelect = useCallback(
     (path: string, e: React.MouseEvent) => {
-      const lastSelected = useSelectionStore.getState().lastSelectedPath
-
-      if (e.shiftKey && lastSelected) {
-        selectRange(lastSelected, path, allPaths)
+      if (e.shiftKey && selectedPaths.size > 0) {
+        const allPaths = processedFiles.map((f) => f.path);
+        const lastSelected = Array.from(selectedPaths).pop();
+        if (lastSelected) {
+          selectRange(lastSelected, path, allPaths);
+        }
       } else if (e.ctrlKey || e.metaKey) {
-        toggleSelection(path)
+        toggleSelection(path);
       } else {
-        selectFile(path)
+        selectFile(path);
       }
     },
-    [selectFile, selectRange, toggleSelection, allPaths],
-  )
+    [processedFiles, selectedPaths, selectFile, selectRange, toggleSelection]
+  );
 
   const handleOpen = useCallback(
     async (path: string, isDir: boolean) => {
-      useHomeStore.getState().trackOpen(path, isDir, getBasename(path))
+      const file = processedFiles.find((f) => f.path === path);
+      const name = file?.name || getBasename(path);
+      trackOpen(path, isDir, name);
+
       if (isDir) {
-        clearSelection()
-        navigate(path)
+        navigate(path);
       } else {
         try {
-          await openPath(path)
+          await openPath(path);
         } catch (error) {
-          console.error("Failed to open file:", error)
+          toast.error(`Не удалось открыть файл: ${error}`);
         }
       }
     },
-    [navigate, clearSelection],
-  )
+    [processedFiles, navigate, trackOpen]
+  );
+
+  const handleEmptyContextMenu = useCallback(() => {
+    clearSelection();
+  }, [clearSelection]);
 
   const handleCopy = useCallback(() => {
-    copy(getSelectedPaths())
-  }, [copy, getSelectedPaths])
+    const paths = getSelectedPaths();
+    if (paths.length > 0) {
+      copy(paths);
+      toast.success(`Скопировано: ${paths.length}`);
+    }
+  }, [copy, getSelectedPaths]);
 
   const handleCut = useCallback(() => {
-    cut(getSelectedPaths())
-  }, [cut, getSelectedPaths])
+    const paths = getSelectedPaths();
+    if (paths.length > 0) {
+      cut(paths);
+      toast.success(`Вырезано: ${paths.length}`);
+    }
+  }, [cut, getSelectedPaths]);
 
   const handlePaste = useCallback(async () => {
-    if (!currentPath || clipboardPaths.length === 0) return
+    if (clipboardPaths.length === 0 || !currentPath) return;
 
     try {
-      if (isCut()) {
-        await moveMutation.mutateAsync({
+      if (clipboardPaths.length > 5) {
+        setProgressDialogOpen(true);
+        await copyEntriesParallel({
           sources: clipboardPaths,
           destination: currentPath,
-        })
-        clearClipboard()
+        });
+        setProgressDialogOpen(false);
+      } else if (clipboardAction === "copy") {
+        await copyEntries({
+          sources: clipboardPaths,
+          destination: currentPath,
+        });
       } else {
-        // Используем параллельное копирование с прогрессом для множества файлов
-        if (clipboardPaths.length > 1) {
-          setShowCopyProgress(true)
-          await copyParallelMutation.mutateAsync({
-            sources: clipboardPaths,
-            destination: currentPath,
-          })
-        } else {
-          await copyMutation.mutateAsync({
-            sources: clipboardPaths,
-            destination: currentPath,
-          })
-        }
+        await moveEntries({
+          sources: clipboardPaths,
+          destination: currentPath,
+        });
       }
+
+      if (clipboardAction === "cut") {
+        clearClipboard();
+      }
+      toast.success("Операция выполнена");
     } catch (error) {
-      console.error("Paste failed:", error)
+      setProgressDialogOpen(false);
+      toast.error(`Ошибка: ${error}`);
     }
   }, [
-    currentPath,
     clipboardPaths,
-    isCut,
-    moveMutation,
-    copyMutation,
-    copyParallelMutation,
+    clipboardAction,
+    currentPath,
+    copyEntries,
+    copyEntriesParallel,
+    moveEntries,
     clearClipboard,
-  ])
+  ]);
 
-  const requestDelete = useCallback(
-    (initialPermanent: boolean) => {
-      const paths = getSelectedPaths()
-      if (paths.length === 0) return
-      setDeleteDialog({ open: true, paths, permanent: initialPermanent })
-    },
-    [getSelectedPaths],
-  )
+  const handleDeleteRequest = useCallback(() => {
+    const paths = getSelectedPaths();
+    if (paths.length > 0) {
+      setPathsToDelete(paths);
+      setDeleteDialogOpen(true);
+    }
+  }, [getSelectedPaths]);
 
   const handleDeleteConfirm = useCallback(
     async ({ paths, permanent }: { paths: string[]; permanent: boolean }) => {
       try {
-        await deleteMutation.mutateAsync({ paths, permanent })
-        setDeleteDialog({ open: false, paths: [], permanent: false })
-        clearSelection()
-        toast.success(permanent ? "Удаление выполнено" : "Перемещено в корзину", 2000)
+        await deleteEntries({ paths, permanent });
+        clearSelection();
+        setDeleteDialogOpen(false);
+        toast.success(`Удалено: ${paths.length}`);
       } catch (error) {
-        console.error("Delete failed:", error)
-        const message = error instanceof Error ? error.message : String(error)
-        toast.error(`Не удалось удалить: ${message}`, 4000)
+        toast.error(`Ошибка удаления: ${error}`);
       }
     },
-    [deleteMutation, clearSelection],
-  )
+    [deleteEntries, clearSelection]
+  );
 
-  const handleRename = useCallback(() => {
-    const paths = getSelectedPaths()
-    if (paths.length === 1) {
-      onRenameRequest?.(paths[0])
+  const handleRenameRequest = useCallback(() => {
+    const paths = getSelectedPaths();
+    if (paths.length === 1 && onRenameRequest) {
+      onRenameRequest(paths[0]);
     }
-  }, [getSelectedPaths, onRenameRequest])
+  }, [getSelectedPaths, onRenameRequest]);
 
-  // Глобальные горячие клавиши для операций с файлами
+  const handleDrop = useCallback(
+    async (sources: string[], destination: string) => {
+      try {
+        await moveEntries({ sources, destination });
+        toast.success(`Перемещено: ${sources.length}`);
+      } catch (error) {
+        toast.error(`Ошибка перемещения: ${error}`);
+      }
+    },
+    [moveEntries]
+  );
+
+  // Горячие клавиши
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
-      if (e.target instanceof HTMLInputElement) return
-      if (e.target instanceof HTMLTextAreaElement) return
-
-      const meta = e.ctrlKey || e.metaKey
-
-      if (meta && (e.key === "c" || e.key === "C")) {
-        e.preventDefault()
-        handleCopy()
+      if (
+        e.target instanceof HTMLInputElement ||
+        e.target instanceof HTMLTextAreaElement
+      ) {
+        return;
       }
 
-      if (meta && (e.key === "x" || e.key === "X")) {
-        e.preventDefault()
-        handleCut()
+      if (e.ctrlKey || e.metaKey) {
+        switch (e.key.toLowerCase()) {
+          case "c":
+            e.preventDefault();
+            handleCopy();
+            break;
+          case "x":
+            e.preventDefault();
+            handleCut();
+            break;
+          case "v":
+            e.preventDefault();
+            handlePaste();
+            break;
+          case "a":
+            e.preventDefault();
+            processedFiles.forEach((f) => selectFile(f.path, true));
+            break;
+        }
+      } else if (e.key === "Delete") {
+        e.preventDefault();
+        handleDeleteRequest();
+      } else if (e.key === "F2") {
+        e.preventDefault();
+        handleRenameRequest();
+      } else if (e.key === "F5") {
+        e.preventDefault();
+        refetch();
       }
+    };
 
-      if (meta && (e.key === "v" || e.key === "V")) {
-        e.preventDefault()
-        void handlePaste()
-      }
+    window.addEventListener("keydown", handler);
+    return () => window.removeEventListener("keydown", handler);
+  }, [
+    handleCopy,
+    handleCut,
+    handlePaste,
+    handleDeleteRequest,
+    handleRenameRequest,
+    processedFiles,
+    selectFile,
+    refetch,
+  ]);
 
-      if (e.key === "Delete") {
-        e.preventDefault()
-        requestDelete(e.shiftKey)
-      }
+  const selectedFiles = useMemo(() => {
+    return processedFiles.filter((f) => selectedPaths.has(f.path));
+  }, [processedFiles, selectedPaths]);
 
-      if (e.key === "F2") {
-        e.preventDefault()
-        handleRename()
-      }
-    }
+  const isSelectedPinned = useMemo(() => {
+    if (selectedFiles.length !== 1) return false;
+    const { getPinned } = useHomeStore.getState();
+    return getPinned().some((item) => item.path === selectedFiles[0].path);
+  }, [selectedFiles]);
 
-    window.addEventListener("keydown", handler)
-    return () => window.removeEventListener("keydown", handler)
-  }, [handleCopy, handleCut, handlePaste, requestDelete, handleRename])
+  if (isLoading) {
+    return (
+      <div className={cn("flex items-center justify-center h-full", className)}>
+        <div className="text-muted-foreground">Загрузка...</div>
+      </div>
+    );
+  }
 
-  const viewMode = useLayoutStore((s) => s.layout.viewMode ?? VIEW_MODES.list)
-
-  // Home store functions
-  const togglePin = useHomeStore((s) => s.togglePin)
-  const removeHomeItem = useHomeStore((s) => s.removeItem)
-  const isSelectedPinned = ((): boolean => {
-    const sel = getSelectedPaths()
-    if (sel.length !== 1) return false
-    return useHomeStore.getState().items[sel[0]]?.pinned ?? false
-  })()
+  if (processedFiles.length === 0) {
+    return (
+      <div className={cn("flex items-center justify-center h-full", className)}>
+        <div className="text-muted-foreground">Папка пуста</div>
+      </div>
+    );
+  }
 
   return (
     <>
       <FileContextMenu
         selectedPaths={getSelectedPaths()}
-        selectedFiles={files.filter((f) => getSelectedPaths().includes(f.path))}
+        selectedFiles={selectedFiles}
         onCopy={handleCopy}
         onCut={handleCut}
         onPaste={handlePaste}
-        onDelete={() => requestDelete(false)}
-        onRename={handleRename}
-        onNewFolder={() => onNewFolderRequest?.()}
-        onNewFile={() => onNewFileRequest?.()}
+        onDelete={handleDeleteRequest}
+        onRename={handleRenameRequest}
+        onNewFolder={onNewFolderRequest ?? (() => {})}
+        onNewFile={onNewFileRequest ?? (() => {})}
         onRefresh={() => refetch()}
-        canPaste={hasContent()}
+        canPaste={clipboardPaths.length > 0}
         togglePin={togglePin}
-        removeItem={removeHomeItem}
-        isSelectedPinned={isSelectedPinned}
-      >
+        removeItem={removeItem}
+        isSelectedPinned={isSelectedPinned}>
+        {/* Условный рендеринг: grid или list */}
         {viewMode === VIEW_MODES.grid ? (
           <GridFileList
-            files={files}
+            files={processedFiles}
             selectedPaths={selectedPaths}
             onSelect={handleSelect}
             onOpen={handleOpen}
+            onEmptyContextMenu={handleEmptyContextMenu}
             className={cn("flex-1", className)}
-            onEmptyContextMenu={() => clearSelection()}
           />
         ) : (
           <VirtualFileList
-            files={files}
+            files={processedFiles}
             selectedPaths={selectedPaths}
             onSelect={handleSelect}
             onOpen={handleOpen}
+            onEmptyContextMenu={handleEmptyContextMenu}
+            onFileDrop={handleDrop}
+            getSelectedPaths={getSelectedPaths}
             className={cn("flex-1", className)}
-            onEmptyContextMenu={() => clearSelection()}
           />
         )}
       </FileContextMenu>
 
       <DeleteConfirmDialog
-        isOpen={deleteDialog.open}
-        paths={deleteDialog.paths}
-        permanent={deleteDialog.permanent}
-        onPermanentChange={(permanent) => setDeleteDialog((prev) => ({ ...prev, permanent }))}
-        isLoading={deleteMutation.isPending}
-        onOpenChange={(open) => {
-          if (!open) {
-            setDeleteDialog({ open: false, paths: [], permanent: false })
-          } else {
-            setDeleteDialog((prev) => ({ ...prev, open: true }))
-          }
-        }}
+        isOpen={deleteDialogOpen}
+        paths={pathsToDelete}
+        permanent={deletePermanent}
+        onPermanentChange={setDeletePermanent}
+        onOpenChange={setDeleteDialogOpen}
         onConfirm={handleDeleteConfirm}
+        isLoading={isDeleting}
       />
 
-      {/* Диалог прогресса копирования */}
       <CopyProgressDialog
-        open={showCopyProgress}
-        onComplete={() => setShowCopyProgress(false)}
-        onCancel={() => {
-          // TODO: Реализовать отмену операции
-          setShowCopyProgress(false)
-        }}
+        open={progressDialogOpen}
+        onCancel={() => setProgressDialogOpen(false)}
+        onComplete={() => setProgressDialogOpen(false)}
       />
     </>
-  )
+  );
 }
