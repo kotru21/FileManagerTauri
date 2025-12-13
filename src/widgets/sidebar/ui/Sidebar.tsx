@@ -1,19 +1,32 @@
-import { DriveItem } from "@/entities/drive"
-import { useDrives } from "@/entities/file-entry"
-import { useHomeStore } from "@/features/home"
-import { useNavigationStore } from "@/features/navigation"
-import { cn } from "@/shared/lib"
-import { ScrollArea, Separator } from "@/shared/ui"
+import { DriveItem } from "@/entities/drive";
+import { useRef } from "react";
+import { useDrives } from "@/entities/file-entry";
+import { useHomeStore } from "@/features/home";
+import { useNavigationStore } from "@/features/navigation";
+import { cn } from "@/shared/lib";
+import { ScrollArea, Separator } from "@/shared/ui";
 
 interface SidebarProps {
-  className?: string
+  className?: string;
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const { data: drives = [] } = useDrives()
-  const currentPath = useNavigationStore((s) => s.currentPath)
-  const navigate = useNavigationStore((s) => s.navigate)
-  const trackOpen = useHomeStore((s) => s.trackOpen)
+  const { data: drives = [] } = useDrives();
+  const currentPath = useNavigationStore((s) => s.currentPath);
+  const navigate = useNavigationStore((s) => s.navigate);
+  const trackOpen = useHomeStore((s) => s.trackOpen);
+
+  const selectHandlerCache = useRef<Map<string, () => void>>(new Map());
+  const getSelectHandler = (drivePath: string, driveName: string) => {
+    const cached = selectHandlerCache.current.get(drivePath);
+    if (cached) return cached;
+    const handler = () => {
+      trackOpen(drivePath, true, driveName);
+      navigate(drivePath);
+    };
+    selectHandlerCache.current.set(drivePath, handler);
+    return handler;
+  };
 
   return (
     <aside className={cn("flex flex-col border-r", className)}>
@@ -26,14 +39,11 @@ export function Sidebar({ className }: SidebarProps) {
               key={drive.path}
               drive={drive}
               isSelected={currentPath?.startsWith(drive.path) ?? false}
-              onSelect={() => {
-                trackOpen(drive.path, true, drive.name)
-                navigate(drive.path)
-              }}
+              onSelect={getSelectHandler(drive.path, drive.name)}
             />
           ))}
         </div>
       </ScrollArea>
     </aside>
-  )
+  );
 }

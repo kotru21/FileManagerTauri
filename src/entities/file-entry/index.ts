@@ -1,7 +1,7 @@
 // UI
 
 // Types
-export type { FileEntry } from "@/shared/api/tauri"
+export type { FileEntry } from "@/shared/api/tauri";
 // API
 export {
   fileKeys,
@@ -11,10 +11,12 @@ export {
   useCreateFile,
   useDeleteEntries,
   useDirectoryContents,
+  useDirectoryStats,
+  useStreamingDirectory,
   useDrives,
   useMoveEntries,
   useRenameEntry,
-} from "./api"
+} from "./api";
 // Model
 export {
   filterEntries,
@@ -22,6 +24,6 @@ export {
   type SortDirection,
   type SortField,
   sortEntries,
-} from "./model/types"
-export { FileCard, FileIcon, FileRow } from "./ui"
-export { ColumnHeader } from "./ui/ColumnHeader"
+} from "./model/types";
+export { FileCard, FileIcon, FileRow } from "./ui";
+export { ColumnHeader } from "./ui/ColumnHeader";

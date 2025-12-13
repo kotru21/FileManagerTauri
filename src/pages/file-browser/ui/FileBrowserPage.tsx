@@ -14,6 +14,7 @@ import {
   SearchResultItem,
   useSearchStore,
 } from "@/features/search-content";
+import { useRef } from "react";
 import {
   ResizableHandle,
   ResizablePanel,
@@ -101,6 +102,18 @@ export function FileBrowserPage() {
     [clearSearch]
   );
 
+  const searchSelectHandlerCache = useRef<Map<string, () => void>>(new Map());
+  const getSearchHandler = useCallback(
+    (path: string, isDir?: boolean, name?: string) => {
+      const cached = searchSelectHandlerCache.current.get(path);
+      if (cached) return cached;
+      const fn = () => handleResultSelect(path, isDir, name);
+      searchSelectHandlerCache.current.set(path, fn);
+      return fn;
+    },
+    [handleResultSelect]
+  );
+
   const handleCloseSearchResults = useCallback(() => {
     clearSearch();
   }, [clearSearch]);
@@ -160,13 +173,11 @@ export function FileBrowserPage() {
                     <SearchResultItem
                       key={result.path}
                       result={result}
-                      onSelect={() =>
-                        handleResultSelect(
-                          result.path,
-                          result.is_dir,
-                          result.name
-                        )
-                      }
+                      onSelect={getSearchHandler(
+                        result.path,
+                        result.is_dir,
+                        result.name
+                      )}
                     />
                   ))}
                 </div>

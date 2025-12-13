@@ -15,10 +15,10 @@ use crate::commands::error::FsError;
 use crate::commands::config::limits as limits;
 use crate::commands::config::get_security_config;
 
-// Максимальная глубина рекурсии для операций с директориями
+// Maximum recursion depth for directory operations
 // using config::limits::MAX_DIRECTORY_DEPTH
 
-/// Максимальный размер файла для чтения целиком (10MB)
+/// Maximum file size to read entirely (10 MB)
 // Replace with constant from config.
 const MAX_CONTENT_SIZE: u64 = limits::MAX_CONTENT_FILE_SIZE;
 
@@ -46,6 +46,12 @@ pub struct DriveInfo {
     pub drive_type: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize, Type)]
+pub struct DirectoryStats {
+    pub count: usize,
+    pub exceeded_threshold: bool,
+}
+
 // OperationProgress previously used for streaming long operations—removed as unused
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct CopyProgress {
@@ -61,22 +67,22 @@ fn system_time_to_timestamp(time: SystemTime) -> Option<i64> {
 }
 
 
-/// Валидация пути для предотвращения атак path traversal
-/// Проверяет, что путь абсолютный и не содержит опасных компонентов
+/// Validate path to prevent path traversal attacks
+/// Checks that path is absolute and does not contain unsafe components
 pub fn validate_path(path: &str) -> FsResult<std::path::PathBuf> {
     let path_buf = std::path::PathBuf::from(path);
 
-    // Путь должен быть абсолютным
+    // Path must be absolute
     if !path_buf.is_absolute() {
         return Err(FsError::PathNotAbsolute);
     }
 
-    // Канонизация пути для разрешения .. и .
+    // Canonicalize the path to resolve .. and .
     let canonical = path_buf
         .canonicalize()
         .map_err(|_| FsError::InvalidPath)?;
 
-    // Проверка, что путь не пытается выйти за пределы корня
+    // Check that the path does not attempt to escape the root
     if canonical.components().count() < 1 {
         return Err(FsError::InvalidPath);
     }
@@ -254,6 +260,26 @@ pub async fn read_directory(path: String) -> Result<Vec<FileEntry>, String> {
     Ok(v)
 }
 
+#[tauri::command]
+#[specta::specta]
+pub async fn get_directory_stats(path: String) -> Result<DirectoryStats, String> {
+    run_blocking_fs(move || get_directory_stats_sync(path)).await
+}
+
+fn get_directory_stats_sync(path: String) -> FsResult<DirectoryStats> {
+    let dir_path = validate_path(&path)?;
+    let read_dir = fs::read_dir(dir_path).map_err(|_| FsError::ReadDirectoryFailed)?;
+    let mut count = 0usize;
+    let threshold = limits::STREAM_BATCH_SIZE * 20; // default heuristic; could make property in config
+    for _entry in read_dir.flatten() {
+        count += 1;
+        if count > threshold {
+            return Ok(DirectoryStats { count, exceeded_threshold: true });
+        }
+    }
+    Ok(DirectoryStats { count, exceeded_threshold: false })
+}
+
 fn read_directory_sync(path: String) -> FsResult<Vec<FileEntry>> {
     // validate path for reading
     let dir_path = validate_path(&path)?;
@@ -302,7 +328,7 @@ fn read_directory_sync(path: String) -> FsResult<Vec<FileEntry>> {
     entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
         (true, false) => std::cmp::Ordering::Less,
         (false, true) => std::cmp::Ordering::Greater,
-        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
+        _ => a.name_lower.cmp(&b.name_lower),
     });
 
     Ok(entries)
@@ -396,7 +422,7 @@ pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), S
 }
 
 fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> FsResult<()> {
-    // Валидация всех путей без следования за symlink - операция должна действовать на сам symlink
+    // Validate all paths without following symlinks — operation should act on the symlink itself
     // Validate against sandbox rules as we are performing a mutating operation
     let validated_paths: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&paths)?;
 
@@ -461,7 +487,7 @@ pub async fn copy_entries(sources: Vec<String>, destination: String) -> Result<(
 }
 
 fn copy_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> {
-    // Валидация путей без следования за symlinks — агрессивно пропускаем симлинки при копировании
+    // Validate paths without following symlinks — aggressively skip symlinks when copying
     // Validate sources without following and sandbox them
     let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&sources)?;
     // Destination must be sandboxed for write operations
@@ -486,13 +512,13 @@ fn copy_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> 
     Ok(())
 }
 
-/// Итеративное копирование директории
+/// Iterative directory copy
 fn copy_dir_iterative(src: &Path, dst: &Path) -> FsResult<()> {
     let mut queue: VecDeque<(PathBuf, PathBuf, usize)> = VecDeque::new();
     queue.push_back((src.to_path_buf(), dst.to_path_buf(), 0));
 
     while let Some((current_src, current_dst, depth)) = queue.pop_front() {
-        // Защита от слишком глубокой вложенности
+        // Protect against excessive nesting depth
         if depth > limits::MAX_DIRECTORY_DEPTH {
             return Err(FsError::DirectoryTooDeep);
         }
@@ -534,7 +560,7 @@ pub async fn move_entries(sources: Vec<String>, destination: String) -> Result<(
 }
 
 fn move_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> {
-    // Валидация путей без следования за symlinks — перемещение должно действовать на сам объект
+    // Validate paths without following symlinks: moving should act on the object itself
     let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&sources)?;
     let dest_path = validate_path_sandboxed(&destination)?;
 
@@ -583,7 +609,7 @@ pub async fn path_exists(path: String) -> Result<bool, String> {
     Ok(r)
 }
 
-/// Параллельное копирование файлов с прогрессом
+/// Parallel file copy with progress
 #[tauri::command]
 #[specta::specta]
 pub async fn copy_entries_parallel(
@@ -633,15 +659,18 @@ pub async fn copy_entries_parallel(
                 .await
                 .map_err(|_| FsError::Internal)?;
 
-            let current = counter.fetch_add(1, Ordering::SeqCst);
-            let _ = app.emit(
-                "copy-progress",
-                CopyProgress {
-                    current: current + 1,
-                    total,
-                    file: source_str,
-                },
-            );
+            let current = counter.fetch_add(1, Ordering::Relaxed);
+            // Throttle progress events to avoid overwhelming the UI: emit every 5th file and the final file
+            if current + 1 == total || (current + 1).is_multiple_of(5) {
+                let _ = app.emit(
+                    "copy-progress",
+                    CopyProgress {
+                        current: current + 1,
+                        total,
+                        file: source_str,
+                    },
+                );
+            }
 
             result
         });
@@ -668,7 +697,7 @@ fn copy_single_entry_sync(src_path: &Path, dest_path: &Path) -> FsResult<()> {
     Ok(())
 }
 
-/// Стриминг директории пакетами для больших директорий
+/// Stream directory entries in batches for large directories
 #[tauri::command]
 #[specta::specta]
 pub async fn read_directory_stream(path: String, app: AppHandle) -> Result<(), String> {
@@ -686,7 +715,7 @@ pub async fn read_directory_stream(path: String, app: AppHandle) -> Result<(), S
             if let Some(file_entry) = entry_to_file_entry(&entry) {
                 batch.push(file_entry);
 
-                // Отправляем пакетами
+                // Emit in batches
                 if batch.len() >= limits::STREAM_BATCH_SIZE {
                     let _ = app.emit("directory-batch", &batch);
                     batch.clear();
@@ -694,7 +723,7 @@ pub async fn read_directory_stream(path: String, app: AppHandle) -> Result<(), S
             }
         }
 
-        // Остаток
+        // Remainder
         if !batch.is_empty() {
             let _ = app.emit("directory-batch", &batch);
         }

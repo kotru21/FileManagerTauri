@@ -7,7 +7,6 @@ use serde::Serialize;
 use specta::Type;
 use std::fs;
 use std::io::{Read, BufRead, BufReader};
-// spawn_blocking replaced by centralized run_blocking_fs in file_ops
 
 #[derive(Debug, Clone, Serialize, Type)]
 #[serde(tag = "type")]
@@ -53,7 +52,7 @@ fn get_file_preview_sync(path: String) -> FsResult<FilePreview> {
                 }
                 buf.push_str(&line);
                 if buf.len() > MAX_CHARS * 4 {
-                    // bail out if pathological; we'll truncate anyway
+      
                     break;
                 }
             }

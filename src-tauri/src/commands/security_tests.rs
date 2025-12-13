@@ -47,7 +47,7 @@ mod tests {
         // Normalize Windows long path prefix for comparison
         let normalize = |p: std::path::PathBuf| {
             let s = p.to_string_lossy().to_string();
-            if s.starts_with("\\\\?\\") { s[4..].to_string() } else { s }
+            if let Some(stripped) = s.strip_prefix("\\\\?\\") { stripped.to_string() } else { s }
         };
         assert_eq!(normalize(canonical), normalize(outside_file.canonicalize().unwrap()));
     }
@@ -153,8 +153,8 @@ mod tests {
         #[cfg(windows)]
         {
             let mut s = allowed_root.to_string_lossy().to_string();
-            if s.starts_with("\\\\?\\") {
-                s = s[4..].to_string();
+            if let Some(stripped) = s.strip_prefix("\\\\?\\") {
+                s = stripped.to_string();
                 allowed_root = std::path::PathBuf::from(s);
             }
         }
@@ -178,8 +178,8 @@ mod tests {
         #[cfg(windows)]
         {
             let mut s = allowed_root.to_string_lossy().to_string();
-            if s.starts_with("\\\\?\\") {
-                s = s[4..].to_string();
+            if let Some(stripped) = s.strip_prefix("\\\\?\\") {
+                s = stripped.to_string();
                 allowed_root = std::path::PathBuf::from(s);
             }
         }

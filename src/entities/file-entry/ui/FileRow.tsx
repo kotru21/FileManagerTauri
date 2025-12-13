@@ -1,4 +1,4 @@
-import { memo, useCallback, useState } from "react";
+import { memo, useCallback, useMemo, useState } from "react";
 import type { FileEntry } from "@/entities/file-entry";
 import { cn, formatBytes, formatDate } from "@/shared/lib";
 import { FileIcon } from "./FileIcon";
@@ -31,6 +31,14 @@ export const FileRow = memo(
   }: FileRowProps) {
     const [isDragOver, setIsDragOver] = useState(false);
 
+    const formattedSize = useMemo(() => {
+      return file.is_dir ? "" : formatBytes(file.size);
+    }, [file.size, file.is_dir]);
+
+    const formattedDate = useMemo(() => {
+      return formatDate(file.modified);
+    }, [file.modified]);
+
     const handleDragStart = useCallback(
       (e: React.DragEvent) => {
         const paths =
@@ -53,12 +61,12 @@ export const FileRow = memo(
             e.dataTransfer.getData("application/json")
           );
 
-          // Проверяем, что не перетаскиваем в себя
+          // Ensure not dropping into the same folder
           if (!paths.includes(file.path)) {
             onDrop(paths, file.path);
           }
         } catch {
-          // Игнорируем ошибки парсинга
+          // Ignore parse errors
         }
       },
       [file.is_dir, file.path, onDrop]
@@ -97,7 +105,7 @@ export const FileRow = memo(
         )}
         onClick={onSelect}
         onContextMenu={(e) => {
-          // Правый клик выделяет файл, если он ещё не был в выделении.
+          // Right-click selects the file if it's not already selected.
           if (!isSelected) {
             onSelect(e);
           }
@@ -111,14 +119,14 @@ export const FileRow = memo(
           <span
             className="text-xs text-muted-foreground text-right shrink-0 px-2"
             style={{ width: columnWidths.size }}>
-            {formatBytes(file.size)}
+            {formattedSize}
           </span>
         )}
 
         <span
           className="text-xs text-muted-foreground text-right shrink-0 px-2"
           style={{ width: columnWidths.date }}>
-          {formatDate(file.modified)}
+          {formattedDate}
         </span>
 
         <span className="shrink-0" style={{ width: columnWidths.padding }} />
@@ -126,12 +134,15 @@ export const FileRow = memo(
     );
   },
   (prev, next) => {
-    // Кастомное сравнение - перерендер только при изменении этих пропсов
+    // Custom comparison: re-render only when these props change
     return (
       prev.file.path === next.file.path &&
       prev.file.name === next.file.name &&
       prev.file.name_lower === next.file.name_lower &&
       prev.file.modified === next.file.modified &&
+      prev.file.size === next.file.size &&
+      prev.file.is_dir === next.file.is_dir &&
+      prev.file.extension === next.file.extension &&
       prev.isSelected === next.isSelected &&
       prev.isFocused === next.isFocused &&
       prev.columnWidths?.size === next.columnWidths?.size &&

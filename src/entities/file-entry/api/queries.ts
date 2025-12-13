@@ -1,16 +1,20 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { commands } from "@/shared/api/tauri";
+import { invoke as TAURI_INVOKE } from "@tauri-apps/api/core";
+import type { FileEntry, DriveInfo } from "@/shared/api/tauri";
 import { CACHE_TIME } from "@/shared/config";
 import { unwrapResult } from "@/shared/lib";
 
 export const fileKeys = {
   all: ["files"] as const,
   directory: (path: string) => [...fileKeys.all, "directory", path] as const,
+  directoryStats: (path: string) =>
+    [...fileKeys.all, "directory-stats", path] as const,
   drives: () => [...fileKeys.all, "drives"] as const,
 };
 
 export function useDirectoryContents(path: string | null) {
-  return useQuery({
+  return useQuery<FileEntry[]>({
     queryKey: fileKeys.directory(path ?? ""),
     queryFn: async () => {
       if (!path) {
@@ -20,15 +24,33 @@ export function useDirectoryContents(path: string | null) {
     },
     enabled: !!path,
     staleTime: CACHE_TIME.DIRECTORY,
+    // keepPreviousData: true,
     refetchOnWindowFocus: false,
   });
 }
 
 export function useDrives() {
-  return useQuery({
+  return useQuery<DriveInfo[]>({
     queryKey: fileKeys.drives(),
     queryFn: async () => unwrapResult(await commands.getDrives()),
     staleTime: CACHE_TIME.DRIVES,
+  });
+}
+
+export interface DirectoryStats {
+  count: number;
+  exceeded_threshold: boolean;
+}
+
+export function useDirectoryStats(path: string | null) {
+  return useQuery<DirectoryStats>({
+    queryKey: fileKeys.directoryStats(path ?? ""),
+    queryFn: async () => {
+      if (!path) throw new Error("Directory path is required");
+      return await TAURI_INVOKE("get_directory_stats", { path });
+    },
+    enabled: !!path,
+    staleTime: CACHE_TIME.DIRECTORY,
   });
 }
 

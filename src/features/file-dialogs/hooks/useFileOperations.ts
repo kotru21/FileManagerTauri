@@ -1,86 +1,95 @@
-import { useQueryClient } from "@tanstack/react-query"
-import { useCallback } from "react"
-import { fileKeys, useCreateDirectory, useCreateFile, useRenameEntry } from "@/entities/file-entry"
-import { getBasename, joinPath, useDialogState } from "@/shared/lib"
+import { useQueryClient } from "@tanstack/react-query";
+import { useCallback } from "react";
+import {
+  fileKeys,
+  useCreateDirectory,
+  useCreateFile,
+  useRenameEntry,
+} from "@/entities/file-entry";
+import { getBasename, joinPath, useDialogState } from "@/shared/lib";
 
 interface UseFileOperationsOptions {
-  currentPath: string | null
+  currentPath: string | null;
 }
 
 /**
- * Хук для управления файловыми операциями (создание, переименование)
- * Инкапсулирует состояние диалогов и логику мутаций
+ * Hook to manage file operations (create, rename)
+ * Encapsulates dialog state and mutation logic
  */
 export function useFileOperations({ currentPath }: UseFileOperationsOptions) {
-  const queryClient = useQueryClient()
+  const queryClient = useQueryClient();
 
-  // Состояния диалогов
-  const newFolderDialog = useDialogState("Новая папка")
-  const newFileDialog = useDialogState("Новый файл.txt")
-  const renameDialog = useDialogState<string>()
+  // Dialog states
+  const newFolderDialog = useDialogState("Новая папка");
+  const newFileDialog = useDialogState("Новый файл.txt");
+  const renameDialog = useDialogState<string>();
 
-  // Мутации
-  const createDirectory = useCreateDirectory()
-  const createFile = useCreateFile()
-  const renameEntry = useRenameEntry()
+  // Mutations
+  const createDirectory = useCreateDirectory();
+  const createFile = useCreateFile();
+  const renameEntry = useRenameEntry();
 
-  // Обработчики открытия диалогов
+  // Dialog open handlers
   const handleNewFolder = useCallback(() => {
-    newFolderDialog.open(null, "Новая папка")
-  }, [newFolderDialog])
+    newFolderDialog.open(null, "Новая папка");
+  }, [newFolderDialog]);
 
   const handleNewFile = useCallback(() => {
-    newFileDialog.open(null, "Новый файл.txt")
-  }, [newFileDialog])
+    newFileDialog.open(null, "Новый файл.txt");
+  }, [newFileDialog]);
 
   const handleRenameRequest = useCallback(
     (path: string) => {
-      renameDialog.open(path, getBasename(path))
+      renameDialog.open(path, getBasename(path));
     },
-    [renameDialog],
-  )
+    [renameDialog]
+  );
 
-  // Обработчики создания/переименования
+  // Create/rename handlers
   const handleCreateFolder = useCallback(async () => {
-    if (!currentPath || !newFolderDialog.state.value.trim()) return
+    if (!currentPath || !newFolderDialog.state.value.trim()) return;
     try {
-      await createDirectory.mutateAsync(joinPath(currentPath, newFolderDialog.state.value.trim()))
-      newFolderDialog.close()
+      await createDirectory.mutateAsync(
+        joinPath(currentPath, newFolderDialog.state.value.trim())
+      );
+      newFolderDialog.close();
     } catch (error) {
-      console.error("Failed to create folder:", error)
+      console.error("Failed to create folder:", error);
     }
-  }, [currentPath, newFolderDialog, createDirectory])
+  }, [currentPath, newFolderDialog, createDirectory]);
 
   const handleCreateFile = useCallback(async () => {
-    if (!currentPath || !newFileDialog.state.value.trim()) return
+    if (!currentPath || !newFileDialog.state.value.trim()) return;
     try {
-      await createFile.mutateAsync(joinPath(currentPath, newFileDialog.state.value.trim()))
-      newFileDialog.close()
+      await createFile.mutateAsync(
+        joinPath(currentPath, newFileDialog.state.value.trim())
+      );
+      newFileDialog.close();
     } catch (error) {
-      console.error("Failed to create file:", error)
+      console.error("Failed to create file:", error);
     }
-  }, [currentPath, newFileDialog, createFile])
+  }, [currentPath, newFileDialog, createFile]);
 
   const handleRename = useCallback(async () => {
-    if (!renameDialog.state.data || !renameDialog.state.value.trim()) return
+    if (!renameDialog.state.data || !renameDialog.state.value.trim()) return;
     try {
       await renameEntry.mutateAsync({
         oldPath: renameDialog.state.data,
         newName: renameDialog.state.value.trim(),
-      })
-      renameDialog.close()
+      });
+      renameDialog.close();
     } catch (error) {
-      console.error("Failed to rename:", error)
+      console.error("Failed to rename:", error);
     }
-  }, [renameDialog, renameEntry])
+  }, [renameDialog, renameEntry]);
 
   const handleRefresh = useCallback(() => {
     if (currentPath) {
       queryClient.invalidateQueries({
         queryKey: fileKeys.directory(currentPath),
-      })
+      });
     }
-  }, [currentPath, queryClient])
+  }, [currentPath, queryClient]);
 
   return {
     // Состояния диалогов
@@ -88,20 +97,20 @@ export function useFileOperations({ currentPath }: UseFileOperationsOptions) {
     newFileDialog,
     renameDialog,
 
-    // Обработчики открытия
+    // Open handlers
     handleNewFolder,
     handleNewFile,
     handleRenameRequest,
 
-    // Обработчики действий
+    // Action handlers
     handleCreateFolder,
     handleCreateFile,
     handleRename,
     handleRefresh,
 
-    // Состояния загрузки
+    // Loading states
     isCreatingFolder: createDirectory.isPending,
     isCreatingFile: createFile.isPending,
     isRenaming: renameEntry.isPending,
-  }
+  };
 }

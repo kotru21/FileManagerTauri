@@ -20,10 +20,10 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
 
   const [input, setInput] = useState(query);
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null);
-  // Флаг для предотвращения автопоиска после очистки
+  // Flag to prevent auto-search after clearing
   const skipNextSearch = useRef(false);
 
-  // синхронизация input с query из store (когда query очищается извне)
+  // Sync input with query from the store (when query is cleared externally)
   useEffect(() => {
     if (query === "" && input !== "") {
       // Schedule the input reset to avoid synchronous setState in effect
@@ -36,15 +36,13 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
     return;
   }, [query, input]);
 
-  // Debounce для автоматического поиска
+  // Debounce for auto-search
   useEffect(() => {
-    // Очистка предыдущего таймера
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
 
-    // Пропуск поиска если установлен флаг
     if (skipNextSearch.current) {
       skipNextSearch.current = false;
       return;
@@ -78,7 +76,6 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
     (e: React.FormEvent) => {
       e.preventDefault();
       if (input.length >= SEARCH.MIN_QUERY_LENGTH) {
-        // Отмена debounce таймера
         if (debounceRef.current) {
           clearTimeout(debounceRef.current);
           debounceRef.current = null;
@@ -92,14 +89,13 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
   );
 
   const handleClear = useCallback(() => {
-    // Отмена debounce таймера
     if (debounceRef.current) {
       clearTimeout(debounceRef.current);
       debounceRef.current = null;
     }
     skipNextSearch.current = true;
     setInput("");
-    cancelSearch(true); // Тихая отмена без toast
+    cancelSearch(true);
     clearSearch();
   }, [clearSearch, cancelSearch]);
 
@@ -107,7 +103,7 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
     cancelSearch();
   }, [cancelSearch]);
 
-  // Сокращение пути для отображения
+  // Shorten path for display
   const shortPath = progress?.currentPath
     ? progress.currentPath.length > 50
       ? `...${progress.currentPath.slice(-47)}`
@@ -164,7 +160,7 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
         )}
       </form>
 
-      {/* Индикатор прогресса поиска */}
+      {/* Search progress indicator */}
       {isSearching && progress && (
         <div className="flex flex-col gap-0.5 text-xs text-muted-foreground px-1 animate-in fade-in duration-200">
           <div className="flex items-center justify-between">

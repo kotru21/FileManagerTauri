@@ -45,12 +45,12 @@ export function ColumnHeader({
         "flex items-center gap-0 px-3 py-1.5 border-b bg-muted/30 text-xs font-medium text-muted-foreground select-none",
         className
       )}>
-      <span className="w-[18px] mr-3" /> {/* Icon placeholder */}
+      <span className="w-4.5 mr-3" /> {/* Icon placeholder */}
       <div className="flex-1 text-center">Имя</div>
-      {/* Handle between Имя and Размер */}
+      {/* Resize handle between 'Name' and 'Size' */}
       <ResizeHandle onResize={resizeSize} />
       <Column width={columnWidths.size} title="Размер" />
-      {/* Handle between Размер и Изменён */}
+      {/* Resize handle between 'Size' and 'Modified' */}
       <ResizeHandle onResize={resizeDate} />
       <Column width={columnWidths.date} title="Изменён" />
       {/* Right padding handle to adjust trailing spacing */}

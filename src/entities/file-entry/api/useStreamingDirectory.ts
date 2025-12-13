@@ -12,7 +12,7 @@ interface StreamState {
 // Действия для reducer
 type StreamAction =
   | { type: "START_LOADING" }
-  | { type: "ADD_BATCH"; payload: FileEntry[] }
+  | { type: "SET_ENTRIES"; payload: FileEntry[] }
   | { type: "COMPLETE" }
   | { type: "RESET" };
 
@@ -21,9 +21,9 @@ function streamReducer(state: StreamState, action: StreamAction): StreamState {
   switch (action.type) {
     case "START_LOADING":
       return { entries: [], isLoading: true };
-    case "ADD_BATCH":
+    case "SET_ENTRIES":
       return {
-        entries: [...state.entries, ...action.payload],
+        entries: action.payload,
         isLoading: true,
       };
     case "COMPLETE":
@@ -60,6 +60,8 @@ export function useStreamingDirectory(path: string | null) {
   const batchBuffer = useRef<FileEntry[]>([]);
   // ref для таймаута flush
   const flushTimeoutRef = useRef<number | null>(null);
+  // Ref to accumulate all entries to avoid repeated array copies on every flush
+  const entriesRef = useRef<FileEntry[]>([]);
 
   // Keep track of previous path and reset when it changes
   useEffect(() => {
@@ -69,6 +71,7 @@ export function useStreamingDirectory(path: string | null) {
       isInitialMount.current = true;
       batchBuffer.current = [];
       dispatch({ type: "RESET" });
+      entriesRef.current = [];
     }
   }, [path]);
 
@@ -82,6 +85,7 @@ export function useStreamingDirectory(path: string | null) {
     let cancelled = false;
     batchBuffer.current = [];
 
+    entriesRef.current = [];
     dispatch({ type: "START_LOADING" });
 
     // Keep a reference to unlisten functions so can remove listeners reliably
@@ -102,7 +106,12 @@ export function useStreamingDirectory(path: string | null) {
           flushTimeoutRef.current = window.setTimeout(() => {
             const toDispatch = batchBuffer.current.splice(0);
             if (toDispatch.length > 0) {
-              dispatch({ type: "ADD_BATCH", payload: toDispatch });
+              // Append into entriesRef and dispatch once
+              entriesRef.current.push(...toDispatch);
+              dispatch({
+                type: "SET_ENTRIES",
+                payload: entriesRef.current.slice(),
+              });
             }
             if (flushTimeoutRef.current) {
               clearTimeout(flushTimeoutRef.current as number);
@@ -122,7 +131,11 @@ export function useStreamingDirectory(path: string | null) {
         }
         if (batchBuffer.current.length > 0) {
           const toDispatch = batchBuffer.current.splice(0);
-          dispatch({ type: "ADD_BATCH", payload: toDispatch });
+          entriesRef.current.push(...toDispatch);
+          dispatch({
+            type: "SET_ENTRIES",
+            payload: entriesRef.current.slice(),
+          });
         }
         dispatch({ type: "COMPLETE" });
       });
@@ -142,6 +155,8 @@ export function useStreamingDirectory(path: string | null) {
         clearTimeout(flushTimeoutRef.current as number);
         flushTimeoutRef.current = null;
       }
+      // clear accumulated entries on teardown
+      entriesRef.current = [];
     };
   }, [path, triggerRefresh]);
 

@@ -1,5 +1,6 @@
-// src/widgets/file-explorer/ui/GridFileList.tsx
-import { useCallback, useRef } from "react";
+import { useCallback, useRef, useEffect, useState } from "react";
+import { useVirtualizer } from "@tanstack/react-virtual";
+import { VIRTUALIZATION } from "@/shared/config";
 import type { FileEntry } from "@/entities/file-entry";
 import { FileCard } from "@/entities/file-entry";
 import { cn } from "@/shared/lib";
@@ -22,6 +23,39 @@ export function GridFileList({
   className,
 }: GridFileListProps) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const [columns, setColumns] = useState(1);
+  const [minColWidth] = useState(140); // matches CSS minmax(140px, 1fr)
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const ro = new ResizeObserver(() => {
+      const width = el.clientWidth;
+      const cols = Math.max(1, Math.floor(width / minColWidth));
+      setColumns(cols);
+    });
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [minColWidth]);
+
+  // Clear handler caches when files change
+  useEffect(() => {
+    selectHandlerCache.current.clear();
+    openHandlerCache.current.clear();
+    return () => {
+      selectHandlerCache.current.clear();
+      openHandlerCache.current.clear();
+    };
+  }, []);
+
+  // Virtualize rows - each row contains `columns` items
+  const rows = Math.max(1, Math.ceil(files.length / columns));
+  const rowVirtualizer = useVirtualizer({
+    count: rows,
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => VIRTUALIZATION.GRID_ITEM_HEIGHT,
+    overscan: VIRTUALIZATION.OVERSCAN,
+  });
 
   const handleContainerClick = useCallback(
     (e: React.MouseEvent) => {
@@ -84,20 +118,49 @@ export function GridFileList({
       onClick={handleContainerClick}
       onContextMenu={handleContextMenu}>
       <div
-        className="grid gap-4"
         style={{
-          gridTemplateColumns: "repeat(auto-fill, minmax(140px, 1fr))",
+          height: `${rowVirtualizer.getTotalSize()}px`,
+          width: "100%",
+          position: "relative",
         }}>
-        {files.map((file) => (
-          <div key={file.path} data-file-card>
-            <FileCard
-              file={file}
-              isSelected={selectedPaths.has(file.path)}
-              onSelect={getSelectHandler(file.path)}
-              onOpen={getOpenHandler(file.path, file.is_dir)}
-            />
-          </div>
-        ))}
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const rowIndex = virtualRow.index;
+          const start = rowIndex * columns;
+          return (
+            <div
+              key={rowIndex}
+              data-row
+              style={{
+                position: "absolute",
+                top: 0,
+                left: 0,
+                width: "100%",
+                height: `${virtualRow.size}px`,
+                transform: `translateY(${virtualRow.start}px)`,
+                display: "flex",
+                gap: "16px",
+                paddingInline: "4px",
+                alignItems: "flex-start",
+              }}>
+              {new Array(columns).fill(null).map((_, colIndex) => {
+                const fileIndex = start + colIndex;
+                if (fileIndex >= files.length)
+                  return <div key={`e-${fileIndex}`} style={{ flex: 1 }} />;
+                const file = files[fileIndex];
+                return (
+                  <div key={file.path} data-file-card style={{ flex: 1 }}>
+                    <FileCard
+                      file={file}
+                      isSelected={selectedPaths.has(file.path)}
+                      onSelect={getSelectHandler(file.path)}
+                      onOpen={getOpenHandler(file.path, file.is_dir)}
+                    />
+                  </div>
+                );
+              })}
+            </div>
+          );
+        })}
       </div>
     </div>
   );

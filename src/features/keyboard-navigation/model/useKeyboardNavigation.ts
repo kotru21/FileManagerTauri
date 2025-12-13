@@ -21,7 +21,7 @@ export function useKeyboardNavigation({
 }: UseKeyboardNavigationOptions) {
   const [focusIndex, setFocusIndex] = useState(0);
 
-  // Вычисляем индекс из выделения без использования setState в эффекте
+  // Compute focus index from selection without using setState in effects
   const derivedFocusIndex = useMemo(() => {
     if (selectedPaths.size === 1) {
       const selectedPath = Array.from(selectedPaths)[0];
@@ -37,7 +37,7 @@ export function useKeyboardNavigation({
     (e: KeyboardEvent) => {
       if (!enabled) return;
 
-      // Игнорируем, если фокус в input
+      // Ignore when focus is inside an input or textarea
       if (e.target instanceof HTMLInputElement) return;
       if (e.target instanceof HTMLTextAreaElement) return;
 
@@ -114,7 +114,7 @@ export function useKeyboardNavigation({
         case "a":
           if (e.ctrlKey) {
             e.preventDefault();
-            // Выделить все
+            // Select all
             files.forEach((f) => {
               onSelect(f.path, { ctrlKey: true });
             });

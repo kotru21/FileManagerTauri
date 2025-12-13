@@ -14,10 +14,10 @@ pub struct FsChangeEvent {
     pub paths: Vec<String>,
 }
 
-/// Состояние для управления watchers
+/// State for managing watchers
 pub struct WatcherState {
-    /// Флаги для остановки watchers по пути
-    stop_flags: Mutex<HashMap<String, Arc<AtomicBool>>>,
+    /// Stop flags for watchers per path
+    stop_flags: Mutex<HashMap<String, Arc<AtomicBool>>>, 
 }
 
 impl WatcherState {
@@ -45,7 +45,7 @@ pub async fn watch_directory(
     let validated_path = validate_path(&path).map_err(|e| e.to_public_string())?;
     let canonical_key = validated_path.to_string_lossy().to_string();
 
-    // Сначала останавливается предыдущий watcher для этого пути, если есть
+    // First stop the previous watcher for this path if one exists
     {
         let flags = state.stop_flags.lock().map_err(|_| FsError::Internal.to_public_string())?;
         // We store stop flags by canonical (validated) path key.
@@ -63,7 +63,7 @@ pub async fn watch_directory(
         .watch(validated_path.as_path(), RecursiveMode::NonRecursive)
         .map_err(|_| FsError::Io.to_public_string())?;
 
-    //  флаг для остановки
+    // Stop flag
     {
         let mut flags = state.stop_flags.lock().map_err(|_| FsError::Internal.to_public_string())?;
         flags.insert(canonical_key.clone(), stop_flag.clone());
@@ -72,12 +72,12 @@ pub async fn watch_directory(
     let path_for_cleanup = canonical_key.clone();
     let state_clone = state.inner().clone();
 
-    //  watcher в отдельном потоке (блокирующий поток для mpsc)
+    // Watcher runs in a separate thread (blocking mpsc receiver)
     std::thread::spawn(move || {
         let _watcher = watcher; // keep alive
 
         loop {
-            // флаг остановки
+            // Stop flag
             if stop_flag.load(Ordering::SeqCst) {
                 break;
             }
@@ -98,13 +98,13 @@ pub async fn watch_directory(
                     );
                 }
                 Ok(Err(_)) => {
-                    // Ошибка события
+                    // Event error
                 }
                 Err(mpsc::RecvTimeoutError::Timeout) => {
-                    // Таймаут
+                    // Timeout
                 }
                 Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    // Канал закрыт
+                    // Channel closed
                     break;
                 }
             }
@@ -136,6 +136,6 @@ pub async fn unwatch_directory(
     if let Some(flag) = flags.get(&key) {
         flag.store(true, Ordering::SeqCst);
     }
-    // Watcher для этого пути не найден, но это не ошибка
+    // Watcher for this path not found, but it's not an error
     Ok(())
 }

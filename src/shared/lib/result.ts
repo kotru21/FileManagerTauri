@@ -1,32 +1,32 @@
-import type { Result } from "@/shared/api/tauri"
+import type { Result } from "@/shared/api/tauri";
 
 /**
- * Хелпер для распаковки Result из tauri-specta
- * Выбрасывает исключение если result содержит ошибку
+ * Helper to unwrap Result from tauri-specta
+ * Throws if the result contains an error
  */
 export function unwrapResult<T, E>(result: Result<T, E>): T {
   if (result.status === "ok") {
-    return result.data
+    return result.data;
   }
-  throw new Error(String(result.error))
+  throw new Error(String(result.error));
 }
 
 /**
- * Безопасная распаковка Result - возвращает null при ошибке
+ * Safe unwrap — return null on error
  */
 export function unwrapResultOrNull<T, E>(result: Result<T, E>): T | null {
   if (result.status === "ok") {
-    return result.data
+    return result.data;
   }
-  return null
+  return null;
 }
 
 /**
- * Распаковка Result с дефолтным значением
+ * Unwrap Result with a default value
  */
 export function unwrapResultOr<T, E>(result: Result<T, E>, defaultValue: T): T {
   if (result.status === "ok") {
-    return result.data
+    return result.data;
   }
-  return defaultValue
+  return defaultValue;
 }

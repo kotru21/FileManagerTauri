@@ -1,6 +1,5 @@
-// src/widgets/file-explorer/ui/FileExplorer.tsx
 import { openPath } from "@tauri-apps/plugin-opener";
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
   filterEntries,
   type SortConfig,
@@ -9,6 +8,8 @@ import {
   useCopyEntriesParallel,
   useDeleteEntries,
   useDirectoryContents,
+  useStreamingDirectory,
+  useDirectoryStats,
   useMoveEntries,
 } from "@/entities/file-entry";
 import { useClipboardStore } from "@/features/clipboard";
@@ -18,7 +19,7 @@ import { useSelectionStore } from "@/features/file-selection";
 import { useHomeStore } from "@/features/home";
 import { useLayoutStore } from "@/features/layout";
 import { useNavigationStore } from "@/features/navigation";
-import { VIEW_MODES } from "@/shared/config";
+import { VIEW_MODES, VIRTUALIZATION } from "@/shared/config";
 import { cn, getBasename } from "@/shared/lib";
 import { toast } from "@/shared/ui";
 import { CopyProgressDialog } from "@/widgets/progress-dialog";
@@ -43,17 +44,27 @@ export function FileExplorer({
   className,
 }: FileExplorerProps) {
   const { currentPath, navigate } = useNavigationStore();
+  const { data: stats } = useDirectoryStats(currentPath);
+  const useStream = !!(
+    stats &&
+    (stats.exceeded_threshold || stats.count > VIRTUALIZATION.STREAM_THRESHOLD)
+  );
+  const { entries: streamEntries = [], isLoading: streamIsLoading } =
+    useStreamingDirectory(useStream ? currentPath : null);
   const {
-    data: files = [],
-    isLoading,
+    data: dirFiles = [],
+    isLoading: dirIsLoading,
     refetch,
-  } = useDirectoryContents(currentPath);
+  } = useDirectoryContents(useStream ? null : currentPath);
+  const files = useStream ? streamEntries : dirFiles;
+  const isLoading = useStream ? streamIsLoading : dirIsLoading;
   const {
     selectedPaths,
     selectFile,
     selectRange,
     toggleSelection,
     clearSelection,
+    selectAll,
     getSelectedPaths,
   } = useSelectionStore();
 
@@ -67,15 +78,9 @@ export function FileExplorer({
   const { trackOpen, togglePin, removeItem } = useHomeStore();
   const { layout } = useLayoutStore();
 
-  // viewMode из store (lowercase значения)
+  // viewMode from store (lowercase values)
   const viewMode = layout.viewMode ?? VIEW_MODES.list;
-  // В начале компонента FileExplorer, после получения viewMode
-  console.log(
-    "Current viewMode:",
-    viewMode,
-    "VIEW_MODES.grid:",
-    VIEW_MODES.grid
-  );
+
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false);
   const [deletePermanent, setDeletePermanent] = useState(false);
   const [pathsToDelete, setPathsToDelete] = useState<string[]>([]);
@@ -91,6 +96,11 @@ export function FileExplorer({
     const filtered = filterEntries(files, { showHidden });
     return sortEntries(filtered, sortConfig);
   }, [files, showHidden, sortConfig]);
+
+  const processedFilesRef = useRef(processedFiles);
+  useEffect(() => {
+    processedFilesRef.current = processedFiles;
+  }, [processedFiles]);
 
   const handleSelect = useCallback(
     (path: string, e: React.MouseEvent) => {
@@ -230,7 +240,7 @@ export function FileExplorer({
     [moveEntries]
   );
 
-  // Горячие клавиши
+  // Keyboard shortcuts
   useEffect(() => {
     const handler = (e: KeyboardEvent) => {
       if (
@@ -256,9 +266,7 @@ export function FileExplorer({
             break;
           case "a":
             e.preventDefault();
-            processedFiles.forEach((f) => {
-              selectFile(f.path, true);
-            });
+            selectAll(processedFilesRef.current.map((f) => f.path));
             break;
         }
       } else if (e.key === "Delete") {
@@ -281,8 +289,7 @@ export function FileExplorer({
     handlePaste,
     handleDeleteRequest,
     handleRenameRequest,
-    processedFiles,
-    selectFile,
+    selectAll,
     refetch,
   ]);
 
@@ -329,7 +336,7 @@ export function FileExplorer({
         togglePin={togglePin}
         removeItem={removeItem}
         isSelectedPinned={isSelectedPinned}>
-        {/* Условный рендеринг: grid или list */}
+        {/* Conditional render: grid or list */}
         {viewMode === VIEW_MODES.grid ? (
           <GridFileList
             files={processedFiles}

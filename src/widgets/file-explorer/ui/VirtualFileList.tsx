@@ -1,13 +1,12 @@
-// src/widgets/file-explorer/ui/VirtualFileList.tsx
 import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useRef } from "react";
+import { useCallback, useEffect, useRef } from "react";
 import type { FileEntry } from "@/entities/file-entry";
 import { ColumnHeader, FileRow } from "@/entities/file-entry";
 import { useLayoutStore } from "@/features/layout";
 import { VIRTUALIZATION } from "@/shared/config";
 import { cn } from "@/shared/lib";
 
-// Исключаем оба конфликтующих свойства
+// Omit HTML attributes that conflict with component props
 interface VirtualFileListProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, "onSelect" | "onDrop"> {
   files: FileEntry[];
@@ -15,7 +14,7 @@ interface VirtualFileListProps
   onSelect: (path: string, e: React.MouseEvent) => void;
   onOpen: (path: string, isDir: boolean) => void;
   onEmptyContextMenu?: () => void;
-  onFileDrop?: (sources: string[], destination: string) => void; // Переименовано
+  onFileDrop?: (sources: string[], destination: string) => void;
   getSelectedPaths?: () => string[];
   className?: string;
 }
@@ -26,7 +25,7 @@ export function VirtualFileList({
   onSelect,
   onOpen,
   onEmptyContextMenu,
-  onFileDrop, // Переименовано
+  onFileDrop,
   getSelectedPaths,
   className,
   ...rest
@@ -82,12 +81,22 @@ export function VirtualFileList({
     }
   };
 
+  // Clear handler caches when files list changes (to avoid stale closures / memory growth)
+  useEffect(() => {
+    selectHandlerCache.current.clear();
+    openHandlerCache.current.clear();
+    return () => {
+      selectHandlerCache.current.clear();
+      openHandlerCache.current.clear();
+    };
+  }, []);
+
   return (
     <div className={cn("flex flex-col h-full", className)} {...rest}>
       <ColumnHeader
         columnWidths={columnWidths}
         onColumnResize={handleColumnResize}
-        className="flex-shrink-0"
+        className="shrink-0"
       />
       <div
         ref={parentRef}

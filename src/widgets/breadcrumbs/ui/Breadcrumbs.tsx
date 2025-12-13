@@ -1,4 +1,3 @@
-// src/widgets/breadcrumbs/ui/Breadcrumbs.tsx
 import { ChevronRight, Home } from "lucide-react";
 import { useMemo } from "react";
 import { useNavigationStore } from "@/features/navigation";
@@ -15,17 +14,16 @@ interface BreadcrumbSegment {
 
 export function Breadcrumbs({ className }: BreadcrumbsProps) {
   const { currentPath, navigate, goHome } = useNavigationStore();
-  console.log("Breadcrumbs currentPath:", JSON.stringify(currentPath));
   const segments = useMemo((): BreadcrumbSegment[] => {
-    // Если нет пути - возвращаем пустой массив
+    // If no path, return an empty array
     if (!currentPath || currentPath.trim() === "") {
       return [];
     }
 
-    // Нормализуем путь: заменяем все backslash на forward slash
+    // Normalize path: replace backslashes with forward slashes
     const normalizedPath = currentPath.replace(/\\/g, "/");
 
-    // Убираем trailing slash и разбиваем
+    // Trim trailing slashes and split
     const cleanPath = normalizedPath.replace(/\/+$/, "");
     const parts = cleanPath.split("/").filter((part) => part !== "");
 
@@ -35,7 +33,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
 
     const result: BreadcrumbSegment[] = [];
 
-    // Проверяем Windows путь (D:, C:, и т.д.)
+    // Check for Windows drive path (D:, C:, etc.)
     const firstPart = parts[0];
     const isWindowsDrive = /^[A-Za-z]:$/.test(firstPart);
 
@@ -46,7 +44,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
         path: `${firstPart}\\`,
       });
 
-      // Собираем остальные сегменты
+      // Accumulate remaining segments
       let accumulated = `${firstPart}\\`;
       for (let i = 1; i < parts.length; i++) {
         accumulated = `${accumulated}${parts[i]}`;
@@ -80,7 +78,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
         type="button"
         onClick={goHome}
         className={cn(
-          "flex items-center justify-center w-7 h-7 rounded flex-shrink-0",
+          "flex items-center justify-center w-7 h-7 rounded shrink-0",
           "hover:bg-accent transition-colors",
           currentPath === null && "bg-accent"
         )}
@@ -92,12 +90,12 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
       {/* Segments */}
       {segments.map((segment, index) => (
         <div key={segment.path} className="flex items-center gap-1 min-w-0">
-          <ChevronRight className="w-4 h-4 text-muted-foreground flex-shrink-0" />
+          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
           <button
             type="button"
             onClick={() => navigate(segment.path)}
             className={cn(
-              "px-2 py-1 rounded truncate max-w-[200px]",
+              "px-2 py-1 rounded truncate max-w-50",
               "hover:bg-accent transition-colors",
               index === segments.length - 1
                 ? "text-foreground font-medium"

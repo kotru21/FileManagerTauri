@@ -2,6 +2,7 @@ mod commands;
 
 use commands::{
     copy_entries, copy_entries_parallel, create_directory, create_file, delete_entries, get_drives,
+    get_directory_stats,
     get_file_content, get_file_preview, get_parent_path, move_entries, path_exists, read_directory,
     read_directory_stream, rename_entry, search_by_name, search_content, search_files,
     search_files_stream, unwatch_directory, watch_directory, watcher::WatcherState,
@@ -12,6 +13,7 @@ use tauri_specta::{Builder, collect_commands};
 pub fn run() {
     let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
         read_directory,
+        get_directory_stats,
         read_directory_stream,
         get_drives,
         create_directory,

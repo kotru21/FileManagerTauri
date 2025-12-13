@@ -83,7 +83,7 @@ pub async fn search_files(options: SearchOptions) -> Result<Vec<SearchResult>, S
     run_blocking_fs(move || search_files_sync(options)).await
 }
 
-/// Стриминг поиска с прогрессом
+/// Search streaming with progress
 #[tauri::command]
 #[specta::specta]
 pub async fn search_files_stream(
@@ -110,7 +110,7 @@ fn search_files_with_progress(
     let found = Arc::new(AtomicUsize::new(0));
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    // Отправляем начальный прогресс
+    // Emit initial progress
     let _ = app.emit(
         "search-progress",
         SearchProgress {
@@ -119,6 +119,9 @@ fn search_files_with_progress(
             current_path: options.search_path.clone(),
         },
     );
+
+    // Compute query lower once for this search run (avoid per-entry allocations)
+    let query_lower = if options.case_sensitive { options.query.clone() } else { options.query.to_lowercase() };
 
     // Parallel streaming walk to avoid allocating a huge Vec of entries.
     let results: Vec<SearchResult> = WalkDir::new(search_path)
@@ -135,7 +138,7 @@ fn search_files_with_progress(
 
             let current_scanned = scanned.fetch_add(1, Ordering::Relaxed) + 1;
 
-            // Отправляем прогресс каждые 100 файлов
+            // Emit progress every SEARCH_PROGRESS_INTERVAL files
             if current_scanned.is_multiple_of(limits::SEARCH_PROGRESS_INTERVAL) {
                 let _ = app.emit(
                     "search-progress",
@@ -147,8 +150,8 @@ fn search_files_with_progress(
                 );
             }
 
-                let query_lower_local = options.query.to_lowercase();
-                let result = process_search_entry(&entry, &options, &query_lower_local);
+                // Use query_lower captured from outer scope
+                let result = process_search_entry(&entry, &options, &query_lower);
 
             if result.is_some() {
                 let current_found = found.fetch_add(1, Ordering::Relaxed) + 1;
@@ -162,7 +165,7 @@ fn search_files_with_progress(
         .take_any_while(|_| !should_stop.load(Ordering::Relaxed))
         .collect();
 
-    // Отправляем финальный прогресс
+    // Emit final progress
     let scanned_final = scanned.load(Ordering::Relaxed);
     let _ = app.emit(
         "search-progress",
@@ -189,6 +192,9 @@ fn search_files_sync(options: SearchOptions) -> FsResult<Vec<SearchResult>> {
     let found_count = Arc::new(AtomicUsize::new(0));
     let should_stop = Arc::new(AtomicBool::new(false));
 
+    // Compute query lower once
+    let query_lower = if options.case_sensitive { options.query.clone() } else { options.query.to_lowercase() };
+
     // Parallel streaming walk.
     let results: Vec<SearchResult> = WalkDir::new(search_path)
         .max_depth(max_depth)
@@ -202,8 +208,7 @@ fn search_files_sync(options: SearchOptions) -> FsResult<Vec<SearchResult>> {
                 return None;
             }
 
-            let query_lower_local = options.query.to_lowercase();
-            let result = process_search_entry(&entry, &options, &query_lower_local);
+            let result = process_search_entry(&entry, &options, &query_lower);
 
             if result.is_some() {
                 let count = found_count.fetch_add(1, Ordering::Relaxed) + 1;
@@ -220,7 +225,7 @@ fn search_files_sync(options: SearchOptions) -> FsResult<Vec<SearchResult>> {
     Ok(results.into_iter().take(max_results).collect())
 }
 
-/// Обрабатывает одну запись для поиска
+/// Process a single entry for search
 fn process_search_entry(
     entry: &walkdir::DirEntry,
     options: &SearchOptions,
@@ -251,7 +256,7 @@ fn process_search_entry(
     let name_matches = if options.case_sensitive {
         name.contains(&options.query)
     } else {
-        name_lower.contains(&query_lower)
+        name_lower.contains(query_lower)
     };
 
     let mut content_matches = Vec::new();

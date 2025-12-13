@@ -1,20 +1,20 @@
-import { create } from "zustand"
-import { persist } from "zustand/middleware"
-import { commands } from "@/shared/api/tauri"
-import { STORAGE_VERSIONS } from "@/shared/config"
+import { create } from "zustand";
+import { persist } from "zustand/middleware";
+import { commands } from "@/shared/api/tauri";
+import { STORAGE_VERSIONS } from "@/shared/config";
 
 interface NavigationState {
-  currentPath: string | null
-  history: (string | null)[]
-  historyIndex: number
+  currentPath: string | null;
+  history: (string | null)[];
+  historyIndex: number;
 
-  navigate: (path: string) => void
-  goHome: () => void
-  goBack: () => void
-  goForward: () => void
-  goUp: () => Promise<void>
-  canGoBack: () => boolean
-  canGoForward: () => boolean
+  navigate: (path: string) => void;
+  goHome: () => void;
+  goBack: () => void;
+  goForward: () => void;
+  goUp: () => Promise<void>;
+  canGoBack: () => boolean;
+  canGoForward: () => boolean;
 }
 
 export const useNavigationStore = create<NavigationState>()(
@@ -25,67 +25,67 @@ export const useNavigationStore = create<NavigationState>()(
       historyIndex: -1,
 
       navigate: (path) => {
-        const state = get()
-        const newHistory = state.history.slice(0, state.historyIndex + 1)
-        newHistory.push(path)
+        const state = get();
+        const newHistory = state.history.slice(0, state.historyIndex + 1);
+        newHistory.push(path);
 
         set({
           currentPath: path,
           history: newHistory,
           historyIndex: newHistory.length - 1,
-        })
+        });
       },
       goHome: () => {
-        const state = get()
-        const newHistory = state.history.slice(0, state.historyIndex + 1)
-        newHistory.push(null)
+        const state = get();
+        const newHistory = state.history.slice(0, state.historyIndex + 1);
+        newHistory.push(null);
         set({
           currentPath: null,
           history: newHistory,
           historyIndex: newHistory.length - 1,
-        })
+        });
       },
 
       goBack: () => {
-        const state = get()
+        const state = get();
         if (state.historyIndex > 0) {
-          const newIndex = state.historyIndex - 1
+          const newIndex = state.historyIndex - 1;
           set({
             currentPath: state.history[newIndex],
             historyIndex: newIndex,
-          })
+          });
         }
       },
 
       goForward: () => {
-        const state = get()
+        const state = get();
         if (state.historyIndex < state.history.length - 1) {
-          const newIndex = state.historyIndex + 1
+          const newIndex = state.historyIndex + 1;
           set({
             currentPath: state.history[newIndex],
             historyIndex: newIndex,
-          })
+          });
         }
       },
 
       goUp: async () => {
-        const state = get()
-        if (!state.currentPath) return
+        const state = get();
+        if (!state.currentPath) return;
 
         try {
-          const result = await commands.getParentPath(state.currentPath)
+          const result = await commands.getParentPath(state.currentPath);
           if (result.status === "ok" && result.data) {
-            get().navigate(result.data)
+            get().navigate(result.data);
           }
         } catch (error) {
-          console.error("Failed to get parent path:", error)
+          console.error("Failed to get parent path:", error);
         }
       },
 
       canGoBack: () => get().historyIndex > 0,
       canGoForward: () => {
-        const state = get()
-        return state.historyIndex < state.history.length - 1
+        const state = get();
+        return state.historyIndex < state.history.length - 1;
       },
     }),
     {
@@ -95,13 +95,13 @@ export const useNavigationStore = create<NavigationState>()(
         currentPath: state.currentPath,
       }),
       migrate: (persistedState, version) => {
-        // Миграция для будущих версий
+        // Migration for future versions
         if (version === 0) {
-          // Миграция с версии 0 на 1
-          return persistedState
+          // Migration from version 0 to 1
+          return persistedState;
         }
-        return persistedState as NavigationState
+        return persistedState as NavigationState;
       },
-    },
-  ),
-)
+    }
+  )
+);

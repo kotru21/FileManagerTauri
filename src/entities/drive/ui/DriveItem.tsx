@@ -1,6 +1,7 @@
 import { HardDrive } from "lucide-react";
 import type { DriveInfo } from "@/shared/api/tauri";
 import { cn } from "@/shared/lib";
+import { memo } from "react";
 
 interface DriveItemProps {
   drive: DriveInfo;
@@ -8,7 +9,11 @@ interface DriveItemProps {
   onSelect: () => void;
 }
 
-export function DriveItem({ drive, isSelected, onSelect }: DriveItemProps) {
+export const DriveItem = memo(function DriveItem({
+  drive,
+  isSelected,
+  onSelect,
+}: DriveItemProps) {
   return (
     <button
       type="button"
@@ -22,4 +27,4 @@ export function DriveItem({ drive, isSelected, onSelect }: DriveItemProps) {
       <span className="truncate">{drive.name}</span>
     </button>
   );
-}
+});
