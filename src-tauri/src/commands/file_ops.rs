@@ -27,6 +27,7 @@ type FsResult<T> = Result<T, FsError>;
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct FileEntry {
     pub name: Box<str>,
+    pub name_lower: Box<str>,
     pub path: Box<str>,
     pub is_dir: bool,
     pub is_hidden: bool,
@@ -268,11 +269,13 @@ fn read_directory_sync(path: String) -> FsResult<Vec<FileEntry>> {
             Err(_) => continue,
         };
 
-        let name = entry_path
+        let name_str = entry_path
             .file_name()
             .and_then(|n| n.to_str())
             .unwrap_or("")
-            .to_string().into_boxed_str();
+            .to_string();
+        let name = name_str.clone().into_boxed_str();
+        let name_lower = name_str.to_lowercase().into_boxed_str();
 
         let extension = entry_path
             .extension()
@@ -281,6 +284,7 @@ fn read_directory_sync(path: String) -> FsResult<Vec<FileEntry>> {
 
         entries.push(FileEntry {
             name,
+            name_lower,
             path: entry_path.to_string_lossy().to_string().into_boxed_str(),
             is_dir: metadata.is_dir(),
             is_hidden: is_hidden(&entry_path),
@@ -706,11 +710,13 @@ fn entry_to_file_entry(entry: &fs::DirEntry) -> Option<FileEntry> {
     let entry_path = entry.path();
     let metadata = entry.metadata().ok()?;
 
-    let name = entry_path
+    let name_str = entry_path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("")
-        .to_string().into_boxed_str();
+        .to_string();
+    let name = name_str.clone().into_boxed_str();
+    let name_lower = name_str.to_lowercase().into_boxed_str();
 
     let extension = entry_path
         .extension()
@@ -719,6 +725,7 @@ fn entry_to_file_entry(entry: &fs::DirEntry) -> Option<FileEntry> {
 
     Some(FileEntry {
         name,
+        name_lower,
         path: entry_path.to_string_lossy().to_string().into_boxed_str(),
         is_dir: metadata.is_dir(),
         is_hidden: is_hidden(&entry_path),
@@ -759,5 +766,19 @@ mod tests {
     fn validate_path_rejects_relative_path() {
         let res = validate_path("./some/relative/path");
         assert!(res.is_err());
+    }
+
+    #[test]
+    fn read_directory_contains_name_lower() {
+        let dir = tempdir().unwrap();
+        let p = dir.path();
+        let file_path = p.join("AbC.txt");
+        fs::File::create(&file_path).unwrap();
+
+        let entries = read_directory_sync(p.to_string_lossy().to_string()).unwrap();
+        let found = entries.into_iter().find(|e| e.path.ends_with("AbC.txt"));
+        assert!(found.is_some());
+        let e = found.unwrap();
+        assert_eq!(e.name_lower.as_ref(), "abc.txt");
     }
 }

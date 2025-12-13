@@ -32,8 +32,8 @@ export function VirtualFileList({
   ...rest
 }: VirtualFileListProps) {
   const parentRef = useRef<HTMLDivElement>(null);
-  const { layout, setColumnWidth } = useLayoutStore();
-  const columnWidths = layout.columnWidths;
+  const columnWidths = useLayoutStore((s) => s.layout.columnWidths);
+  const setColumnWidth = useLayoutStore((s) => s.setColumnWidth);
 
   const rowVirtualizer = useVirtualizer({
     count: files.length,
@@ -47,6 +47,31 @@ export function VirtualFileList({
       setColumnWidth(column, width);
     },
     [setColumnWidth]
+  );
+  // Cache per-path handlers to avoid recreating closures for virtualized items
+  const selectHandlerCache = useRef<Map<string, (e: React.MouseEvent) => void>>(
+    new Map()
+  );
+  const openHandlerCache = useRef<Map<string, () => void>>(new Map());
+  const getSelectHandler = useCallback(
+    (path: string) => {
+      const cached = selectHandlerCache.current.get(path);
+      if (cached) return cached;
+      const handler = (e: React.MouseEvent) => onSelect(path, e);
+      selectHandlerCache.current.set(path, handler);
+      return handler;
+    },
+    [onSelect]
+  );
+  const getOpenHandler = useCallback(
+    (path: string, isDir: boolean) => {
+      const cached = openHandlerCache.current.get(path);
+      if (cached) return cached;
+      const handler = () => onOpen(path, isDir);
+      openHandlerCache.current.set(path, handler);
+      return handler;
+    },
+    [onOpen]
   );
 
   const handleContextMenu = (e: React.MouseEvent) => {
@@ -91,8 +116,8 @@ export function VirtualFileList({
                 <FileRow
                   file={file}
                   isSelected={selectedPaths.has(file.path)}
-                  onSelect={(e) => onSelect(file.path, e)}
-                  onOpen={() => onOpen(file.path, file.is_dir)}
+                  onSelect={getSelectHandler(file.path)}
+                  onOpen={getOpenHandler(file.path, file.is_dir)}
                   onDrop={onFileDrop}
                   getSelectedPaths={getSelectedPaths}
                   columnWidths={columnWidths}

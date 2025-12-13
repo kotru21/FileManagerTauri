@@ -1,6 +1,7 @@
 import type { FileEntry } from "@/entities/file-entry";
 import { cn } from "@/shared/lib";
 import { FileIcon } from "./FileIcon";
+import { memo } from "react";
 
 interface FileCardProps {
   file: FileEntry;
@@ -9,26 +10,25 @@ interface FileCardProps {
   onOpen: () => void;
 }
 
-export function FileCard({
-  file,
-  isSelected,
-  onSelect,
-  onOpen,
-}: FileCardProps) {
-  return (
-    <button
-      type="button"
-      className={cn(
-        "flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer select-none",
-        "hover:bg-accent/50 transition-colors w-24",
-        isSelected && "bg-accent"
-      )}
-      onClick={onSelect}
-      onDoubleClick={onOpen}>
-      <FileIcon extension={file.extension} isDir={file.is_dir} size={40} />
-      <span className="text-xs text-center truncate w-full" title={file.name}>
-        {file.name}
-      </span>
-    </button>
-  );
-}
+export const FileCard = memo(
+  function FileCard({ file, isSelected, onSelect, onOpen }: FileCardProps) {
+    return (
+      <button
+        type="button"
+        className={cn(
+          "flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer select-none",
+          "hover:bg-accent/50 transition-colors w-24",
+          isSelected && "bg-accent"
+        )}
+        onClick={onSelect}
+        onDoubleClick={onOpen}>
+        <FileIcon extension={file.extension} isDir={file.is_dir} size={40} />
+        <span className="text-xs text-center truncate w-full" title={file.name}>
+          {file.name}
+        </span>
+      </button>
+    );
+  },
+  (prev, next) =>
+    prev.file.path === next.file.path && prev.isSelected === next.isSelected
+);

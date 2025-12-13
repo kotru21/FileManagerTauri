@@ -190,10 +190,10 @@ async getFilePreview(path: string) : Promise<Result<FilePreview, string>> {
 
 export type ContentMatch = { line_number: number; line_content: string; match_start: number; match_end: number }
 export type DriveInfo = { name: string; path: string; total_space: number; free_space: number; drive_type: string }
-export type FileEntry = { name: string; path: string; is_dir: boolean; is_hidden: boolean; size: number; modified: number | null; created: number | null; extension: string | null }
+export type FileEntry = { name: string; name_lower: string; path: string; is_dir: boolean; is_hidden: boolean; size: number; modified: number | null; created: number | null; extension: string | null }
 export type FilePreview = { type: "Text"; content: string; truncated: boolean } | { type: "Image"; base64: string; mime: string } | { type: "Unsupported"; mime: string }
 export type SearchOptions = { query: string; search_path: string; search_content: boolean; case_sensitive: boolean; max_results: number | null; file_extensions: string[] | null }
-export type SearchResult = { path: string; name: string; is_dir: boolean; matches: ContentMatch[] }
+export type SearchResult = { path: string; name: string; name_lower: string; is_dir: boolean; matches: ContentMatch[] }
 
 /** tauri-specta globals **/
 

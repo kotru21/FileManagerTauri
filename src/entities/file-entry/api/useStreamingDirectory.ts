@@ -58,6 +58,8 @@ export function useStreamingDirectory(path: string | null) {
   const isInitialMount = useRef(true);
   // ref для накопления batch'ей перед dispatch
   const batchBuffer = useRef<FileEntry[]>([]);
+  // ref для таймаута flush
+  const flushTimeoutRef = useRef<number | null>(null);
 
   // Keep track of previous path and reset when it changes
   useEffect(() => {
@@ -94,12 +96,34 @@ export function useStreamingDirectory(path: string | null) {
           console.warn("Invalid directory-batch payload", payload);
           return;
         }
-        dispatch({ type: "ADD_BATCH", payload });
+        // Buffer the batch and schedule a flush to avoid frequent re-renders
+        batchBuffer.current.push(...payload);
+        if (flushTimeoutRef.current == null) {
+          flushTimeoutRef.current = window.setTimeout(() => {
+            const toDispatch = batchBuffer.current.splice(0);
+            if (toDispatch.length > 0) {
+              dispatch({ type: "ADD_BATCH", payload: toDispatch });
+            }
+            if (flushTimeoutRef.current) {
+              clearTimeout(flushTimeoutRef.current as number);
+              flushTimeoutRef.current = null;
+            }
+          }, 100);
+        }
       });
       unlistenBatchFn = ub;
 
       const uc = await listen<string>("directory-complete", () => {
         if (cancelled) return;
+        // Flush any remaining buffered batches immediately
+        if (flushTimeoutRef.current) {
+          clearTimeout(flushTimeoutRef.current as number);
+          flushTimeoutRef.current = null;
+        }
+        if (batchBuffer.current.length > 0) {
+          const toDispatch = batchBuffer.current.splice(0);
+          dispatch({ type: "ADD_BATCH", payload: toDispatch });
+        }
         dispatch({ type: "COMPLETE" });
       });
       unlistenCompleteFn = uc;
@@ -114,6 +138,10 @@ export function useStreamingDirectory(path: string | null) {
       cancelled = true;
       unlistenBatchFn?.();
       unlistenCompleteFn?.();
+      if (flushTimeoutRef.current) {
+        clearTimeout(flushTimeoutRef.current as number);
+        flushTimeoutRef.current = null;
+      }
     };
   }, [path, triggerRefresh]);
 

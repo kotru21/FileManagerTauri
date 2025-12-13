@@ -129,6 +129,8 @@ export const FileRow = memo(
     // Кастомное сравнение - перерендер только при изменении этих пропсов
     return (
       prev.file.path === next.file.path &&
+      prev.file.name === next.file.name &&
+      prev.file.name_lower === next.file.name_lower &&
       prev.file.modified === next.file.modified &&
       prev.isSelected === next.isSelected &&
       prev.isFocused === next.isFocused &&

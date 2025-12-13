@@ -20,8 +20,35 @@ use walkdir::WalkDir;
 pub struct SearchResult {
     pub path: String,
     pub name: String,
+    pub name_lower: String,
     pub is_dir: bool,
     pub matches: Vec<ContentMatch>,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use tempfile::tempdir;
+
+    #[test]
+    fn test_search_result_name_lower() {
+        let dir = tempdir().unwrap();
+        let p = dir.path();
+        let file_path = p.join("AbC.txt");
+        std::fs::File::create(&file_path).unwrap();
+
+        let opts = SearchOptions {
+            query: "abc".to_string(),
+            search_path: p.to_string_lossy().to_string(),
+            search_content: false,
+            case_sensitive: false,
+            max_results: Some(10),
+            file_extensions: None,
+        };
+
+        let res = search_files_sync(opts).unwrap();
+        assert!(res.iter().any(|r| r.name_lower == "abc.txt"));
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -120,7 +147,8 @@ fn search_files_with_progress(
                 );
             }
 
-            let result = process_search_entry(&entry, &options);
+                let query_lower_local = options.query.to_lowercase();
+                let result = process_search_entry(&entry, &options, &query_lower_local);
 
             if result.is_some() {
                 let current_found = found.fetch_add(1, Ordering::Relaxed) + 1;
@@ -174,7 +202,8 @@ fn search_files_sync(options: SearchOptions) -> FsResult<Vec<SearchResult>> {
                 return None;
             }
 
-            let result = process_search_entry(&entry, &options);
+            let query_lower_local = options.query.to_lowercase();
+            let result = process_search_entry(&entry, &options, &query_lower_local);
 
             if result.is_some() {
                 let count = found_count.fetch_add(1, Ordering::Relaxed) + 1;
@@ -195,15 +224,17 @@ fn search_files_sync(options: SearchOptions) -> FsResult<Vec<SearchResult>> {
 fn process_search_entry(
     entry: &walkdir::DirEntry,
     options: &SearchOptions,
+    query_lower: &str,
 ) -> Option<SearchResult> {
     let path = entry.path();
-    let query_lower = options.query.to_lowercase();
+    // `query_lower` is computed outside to avoid allocations per entry
 
     let name = path
         .file_name()
         .and_then(|n| n.to_str())
         .unwrap_or("")
         .to_string();
+    let name_lower = name.to_lowercase();
 
     // Filter by extension if specified
     if let Some(ref extensions) = options.file_extensions {
@@ -220,7 +251,7 @@ fn process_search_entry(
     let name_matches = if options.case_sensitive {
         name.contains(&options.query)
     } else {
-        name.to_lowercase().contains(&query_lower)
+        name_lower.contains(&query_lower)
     };
 
     let mut content_matches = Vec::new();
@@ -251,7 +282,7 @@ fn process_search_entry(
                 let needle = if options.case_sensitive {
                     options.query.as_str()
                 } else {
-                    query_lower.as_str()
+                    query_lower
                 };
 
                 if let Some(start) = haystack.find(needle) {
@@ -274,6 +305,7 @@ fn process_search_entry(
         Some(SearchResult {
             path: path.to_string_lossy().to_string(),
             name,
+            name_lower,
             is_dir: entry.file_type().is_dir(),
             matches: content_matches,
         })
