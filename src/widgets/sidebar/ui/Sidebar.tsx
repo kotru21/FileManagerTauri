@@ -3,7 +3,7 @@ import { useRef } from "react";
 import { useDrives } from "@/entities/file-entry";
 import { useHomeStore } from "@/features/home";
 import { useNavigationStore } from "@/features/navigation";
-import { cn } from "@/shared/lib";
+import { cn, getBasename } from "@/shared/lib";
 import { ScrollArea, Separator } from "@/shared/ui";
 
 interface SidebarProps {
@@ -11,13 +11,13 @@ interface SidebarProps {
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const { data: drives = [] } = useDrives();
+  const { data: drives = [], isLoading, error } = useDrives();
   const currentPath = useNavigationStore((s) => s.currentPath);
   const navigate = useNavigationStore((s) => s.navigate);
   const trackOpen = useHomeStore((s) => s.trackOpen);
 
   const selectHandlerCache = useRef<Map<string, () => void>>(new Map());
-  const getSelectHandler = (drivePath: string, driveName: string) => {
+  const getSelectHandler = (drivePath: string, driveName?: string) => {
     const cached = selectHandlerCache.current.get(drivePath);
     if (cached) return cached;
     const handler = () => {
@@ -34,14 +34,31 @@ export function Sidebar({ className }: SidebarProps) {
       <Separator />
       <ScrollArea className="flex-1">
         <div className="p-2 space-y-1">
-          {drives.map((drive) => (
-            <DriveItem
-              key={drive.path}
-              drive={drive}
-              isSelected={currentPath?.startsWith(drive.path) ?? false}
-              onSelect={getSelectHandler(drive.path, drive.name)}
-            />
-          ))}
+          {isLoading ? (
+            <div className="text-sm text-muted-foreground px-3 py-2">
+              Загрузка...
+            </div>
+          ) : error ? (
+            <div className="text-sm text-destructive px-3 py-2">
+              Ошибка: {String(error)}
+            </div>
+          ) : drives.length === 0 ? (
+            <div className="text-sm text-muted-foreground px-3 py-2">
+              Нет дисков
+            </div>
+          ) : (
+            drives.map((drive) => (
+              <DriveItem
+                key={drive.path}
+                drive={drive}
+                isSelected={currentPath?.startsWith(drive.path) ?? false}
+                onSelect={getSelectHandler(
+                  drive.path,
+                  drive.label ?? getBasename(drive.path)
+                )}
+              />
+            ))
+          )}
         </div>
       </ScrollArea>
     </aside>

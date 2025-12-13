@@ -7,6 +7,7 @@ import {
   useRenameEntry,
 } from "@/entities/file-entry";
 import { getBasename, joinPath, useDialogState } from "@/shared/lib";
+import { toast } from "@/shared/ui";
 
 interface UseFileOperationsOptions {
   currentPath: string | null;
@@ -55,6 +56,8 @@ export function useFileOperations({ currentPath }: UseFileOperationsOptions) {
       newFolderDialog.close();
     } catch (error) {
       console.error("Failed to create folder:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(`Не удалось создать папку: ${msg}`);
     }
   }, [currentPath, newFolderDialog, createDirectory]);
 
@@ -67,6 +70,8 @@ export function useFileOperations({ currentPath }: UseFileOperationsOptions) {
       newFileDialog.close();
     } catch (error) {
       console.error("Failed to create file:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(`Не удалось создать файл: ${msg}`);
     }
   }, [currentPath, newFileDialog, createFile]);
 
@@ -80,6 +85,8 @@ export function useFileOperations({ currentPath }: UseFileOperationsOptions) {
       renameDialog.close();
     } catch (error) {
       console.error("Failed to rename:", error);
+      const msg = error instanceof Error ? error.message : String(error);
+      toast.error(`Не удалось переименовать: ${msg}`);
     }
   }, [renameDialog, renameEntry]);
 

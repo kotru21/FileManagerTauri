@@ -1,4 +1,7 @@
-use crate::commands::file_ops::{validate_path, run_blocking_fs};
+use crate::commands::file_ops::{validate_path_sandboxed_with_cfg, run_blocking_fs};
+use crate::commands::config::SecurityConfig;
+use std::sync::RwLock;
+use tauri::State;
 use crate::commands::error::FsError;
 use crate::commands::config::limits as limits;
 type FsResult<T> = Result<T, FsError>;
@@ -14,6 +17,7 @@ use std::{
 };
 // spawn_blocking replaced by centralized run_blocking_fs in file_ops
 use tauri::{AppHandle, Emitter};
+use tracing::instrument;
 use walkdir::WalkDir;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -46,7 +50,8 @@ mod tests {
             file_extensions: None,
         };
 
-        let res = search_files_sync(opts).unwrap();
+        let cfg = crate::commands::config::SecurityConfig::default_windows();
+        let res = search_files_sync_with_cfg(opts, cfg).unwrap();
         assert!(res.iter().any(|r| r.name_lower == "abc.txt"));
     }
 }
@@ -78,28 +83,39 @@ pub struct SearchProgress {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn search_files(options: SearchOptions) -> Result<Vec<SearchResult>, String> {
+#[instrument(skip(options))]
+pub async fn search_files(
+    options: SearchOptions,
+    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
+) -> Result<Vec<SearchResult>, String> {
+    tracing::debug!(query = %options.query, search_path = %options.search_path, "search_files called");
     // Heavy IO, run on a blocking thread to keep async runtime responsive.
-    run_blocking_fs(move || search_files_sync(options)).await
+    let cfg = config_state.read().map_err(|_| "Failed to read security config")?.clone();
+    run_blocking_fs(move || search_files_sync_with_cfg(options, cfg)).await
 }
 
 /// Search streaming with progress
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(options, app))]
 pub async fn search_files_stream(
     options: SearchOptions,
     app: AppHandle,
+    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
 ) -> Result<Vec<SearchResult>, String> {
     let options_clone = options.clone();
 
-    run_blocking_fs(move || search_files_with_progress(options_clone, app)).await
+    let cfg = config_state.read().map_err(|_| "Failed to read security config")?.clone();
+    run_blocking_fs(move || search_files_with_progress_with_cfg(options_clone, app, cfg)).await
 }
 
-fn search_files_with_progress(
+fn search_files_with_progress_with_cfg(
     options: SearchOptions,
     app: AppHandle,
+    cfg: SecurityConfig,
  ) -> FsResult<Vec<SearchResult>> {
-    let search_path = validate_path(&options.search_path)?;
+    tracing::debug!(query = %options.query, path = %options.search_path, "search_files_with_progress start");
+    let search_path = validate_path_sandboxed_with_cfg(&options.search_path, &cfg)?;
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
@@ -181,8 +197,8 @@ fn search_files_with_progress(
     Ok(results.into_iter().take(max_results).collect())
 }
 
-fn search_files_sync(options: SearchOptions) -> FsResult<Vec<SearchResult>> {
-    let search_path = validate_path(&options.search_path)?;
+fn search_files_sync_with_cfg(options: SearchOptions, cfg: SecurityConfig) -> FsResult<Vec<SearchResult>> {
+    let search_path = validate_path_sandboxed_with_cfg(&options.search_path, &cfg)?;
 
     let max_results = options.max_results.unwrap_or(500) as usize;
     let max_depth = 10; // Ограничиваем глубину поиска
@@ -224,6 +240,8 @@ fn search_files_sync(options: SearchOptions) -> FsResult<Vec<SearchResult>> {
 
     Ok(results.into_iter().take(max_results).collect())
 }
+
+// Removed legacy wrapper search_files_sync — use search_files_sync_with_cfg(options, cfg) directly.
 
 /// Process a single entry for search
 fn process_search_entry(
@@ -325,15 +343,19 @@ pub async fn search_by_name(
     search_path: String,
     query: String,
     max_results: Option<u32>,
+    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
 ) -> Result<Vec<SearchResult>, String> {
-    search_files(SearchOptions {
+    search_files(
+        SearchOptions {
         query,
         search_path,
         search_content: false,
         case_sensitive: false,
         max_results,
         file_extensions: None,
-    })
+    },
+        config_state,
+    )
     .await
 }
 
@@ -344,14 +366,18 @@ pub async fn search_content(
     query: String,
     extensions: Option<Vec<String>>,
     max_results: Option<u32>,
+    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
 ) -> Result<Vec<SearchResult>, String> {
-    search_files(SearchOptions {
+    search_files(
+        SearchOptions {
         query,
         search_path,
         search_content: true,
         case_sensitive: false,
         max_results,
         file_extensions: extensions,
-    })
+    },
+        config_state,
+    )
     .await
 }

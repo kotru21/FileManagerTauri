@@ -2,14 +2,11 @@
 mod tests {
     use crate::commands::file_ops::validate_path;
     use crate::commands::file_ops::validate_child_name;
-    use crate::commands::file_ops::copy_entries;
-    use crate::commands::file_ops::delete_entries;
-    use crate::commands::file_ops::get_file_content;
     use tempfile::tempdir;
     use std::fs;
     use std::io::Write;
-    use crate::commands::file_ops::validate_paths_sandboxed;
-    use crate::commands::config::{override_security_config, get_security_config, SecurityConfig};
+    // Using the low-level validators with explicit config in tests
+    use crate::commands::config::SecurityConfig;
 
     #[test]
     fn validate_path_accepts_absolute_existing_path() {
@@ -79,10 +76,11 @@ mod tests {
         #[cfg(windows)]
         std::os::windows::fs::symlink_dir(outside.path(), src.path().join("escape_link")).unwrap();
 
-        // Use copy_entries to copy the directory
+        // Use copy_entries to copy the directory (call the sync-with-cfg helper)
         let roots = vec![src.path().to_string_lossy().to_string()];
         let dest = dst.path().to_string_lossy().to_string();
-        let res = copy_entries(roots, dest).await;
+        let cfg = SecurityConfig::default_windows();
+        let res = crate::commands::file_ops::copy_entries_sync_with_cfg(roots, dest, &cfg);
         assert!(res.is_ok());
 
         // escape_link should be skipped and secret.txt should not be present in dst
@@ -103,7 +101,8 @@ mod tests {
         #[cfg(windows)]
         std::os::windows::fs::symlink_file(&target_file, &link).unwrap();
 
-        let res = delete_entries(vec![link.to_string_lossy().to_string()], true).await;
+        let cfg = SecurityConfig::default_windows();
+        let res = crate::commands::file_ops::delete_entries_sync_with_cfg(vec![link.to_string_lossy().to_string()], true, &cfg);
         if let Err(e) = &res {
             println!("delete_entries error: {}", e);
         }
@@ -121,31 +120,33 @@ mod tests {
         // Create file slightly larger than MAX_CONTENT_SIZE (10MB). We'll write 11MB.
         let bytes = vec![b'a'; 11 * 1024 * 1024];
         f.write_all(&bytes).unwrap();
-        let res = get_file_content(big_file.to_string_lossy().to_string()).await;
+        let cfg = SecurityConfig::default_windows();
+        let res = crate::commands::file_ops::get_file_content_sync_with_cfg(big_file.to_string_lossy().to_string(), &cfg);
         assert!(res.is_err());
-        let err = res.err().unwrap();
-        assert!(err.contains("File too large"));
+        assert!(matches!(res, Err(crate::commands::error::FsError::FileTooLarge)));
     }
 
     #[test]
-    fn override_security_config_changes_global_config() {
-        let orig = get_security_config();
+    fn security_config_validator_respects_allowed_roots() {
+        
         let dir = tempdir().unwrap();
+        let mut allowed_root = dir.path().canonicalize().unwrap();
+        #[cfg(windows)] {
+            let mut s = allowed_root.to_string_lossy().to_string();
+            if let Some(stripped) = s.strip_prefix("\\\\?\\") { s = stripped.to_string(); allowed_root = std::path::PathBuf::from(s); }
+        }
         let cfg = SecurityConfig {
-            allowed_roots: vec![dir.path().to_path_buf()],
+            allowed_roots: vec![allowed_root.clone()],
             denied_patterns: vec!["**/secret/**".to_string()],
         };
-        override_security_config(cfg.clone());
-        let got = get_security_config();
-        assert_eq!(got.allowed_roots, cfg.allowed_roots);
-        assert_eq!(got.denied_patterns, cfg.denied_patterns);
-        // restore original
-        override_security_config(orig);
+        // Validate our custom config by directly running the sandboxed validator function
+        let p = dir.path().to_string_lossy().to_string();
+        let validated = crate::commands::file_ops::validate_path_sandboxed_with_cfg(&p, &cfg);
+            assert!(validated.is_ok());
     }
 
     #[test]
     fn validate_paths_sandboxed_accepts_allowed_root() {
-        let orig = get_security_config();
         let dir = tempdir().unwrap();
         // Override allowed roots to include our temp dir (canonicalized)
         let mut allowed_root = dir.path().canonicalize().unwrap();
@@ -159,19 +160,17 @@ mod tests {
             }
         }
         let cfg = SecurityConfig {
-            allowed_roots: vec![allowed_root],
+            allowed_roots: vec![allowed_root.clone()],
             denied_patterns: vec![],
         };
-        override_security_config(cfg);
-        let paths = vec![dir.path().to_string_lossy().to_string()];
-        let res = validate_paths_sandboxed(&paths);
+        // Test by using the cfg directly
+        let paths = vec![allowed_root.to_string_lossy().to_string()];
+        let res = crate::commands::file_ops::validate_paths_no_follow_sandboxed_with_cfg(&paths, &cfg);
         assert!(res.is_ok());
-        override_security_config(orig);
     }
 
     #[test]
     fn validate_paths_sandboxed_denies_outside_root() {
-        let orig = get_security_config();
         let allowed = tempdir().unwrap();
         let outside = tempdir().unwrap();
         let mut allowed_root = allowed.path().canonicalize().unwrap();
@@ -187,10 +186,8 @@ mod tests {
             allowed_roots: vec![allowed_root],
             denied_patterns: vec![],
         };
-        override_security_config(cfg);
         let paths = vec![outside.path().to_string_lossy().to_string()];
-        let res = validate_paths_sandboxed(&paths);
+        let res = crate::commands::file_ops::validate_paths_no_follow_sandboxed_with_cfg(&paths, &cfg);
         assert!(res.is_err());
-        override_security_config(orig);
     }
 }

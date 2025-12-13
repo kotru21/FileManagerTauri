@@ -1,3 +1,4 @@
+use crate::commands::config::SecurityConfig;
 use serde::{Deserialize, Serialize};
 use specta::Type;
 use std::collections::VecDeque;
@@ -5,18 +6,53 @@ use std::fs;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::Arc;
+use std::sync::RwLock;
+use tauri::State;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::time::SystemTime;
 use tauri::async_runtime::spawn_blocking;
 use tauri::{AppHandle, Emitter};
+use tracing::instrument;
+use sysinfo::SystemExt;
+use sysinfo::DiskExt;
 use tokio::task::JoinSet;
 
 use crate::commands::error::FsError;
 use crate::commands::config::limits as limits;
-use crate::commands::config::get_security_config;
+pub fn validate_path_sandboxed_with_cfg(path: &str, cfg: &crate::commands::config::SecurityConfig) -> FsResult<std::path::PathBuf> {
+    use glob::Pattern;
+    let canonical = validate_path(path)?;
+    let in_allowed = cfg.allowed_roots.iter().any(|root| canonical.starts_with(root));
+    if !in_allowed {
+        tracing::debug!(path = %canonical.to_string_lossy(), roots = ?cfg.allowed_roots, "sandbox validation failed: path not in allowed_roots (sandboxed)");
+        return Err(FsError::AccessDenied);
+    }
+
+    for pattern in &cfg.denied_patterns {
+        if let Ok(pat) = Pattern::new(pattern) && pat.matches(canonical.to_string_lossy().as_ref()) {
+            return Err(FsError::AccessDenied);
+        }
+    }
+    Ok(canonical)
+}
+// Legacy global getter removed. Commands now accept managed SecurityConfig from Tauri State
 
 // Maximum recursion depth for directory operations
 // using config::limits::MAX_DIRECTORY_DEPTH
+pub fn validate_path_no_follow_sandboxed_with_cfg(path: &str, cfg: &crate::commands::config::SecurityConfig) -> FsResult<std::path::PathBuf> {
+    let canonical = validate_path_no_follow(path)?;
+    let in_allowed = cfg.allowed_roots.iter().any(|root| canonical.starts_with(root));
+    if !in_allowed {
+        tracing::debug!(path = %canonical.to_string_lossy(), roots = ?cfg.allowed_roots, "sandbox validation failed: path not in allowed_roots (no_follow)");
+        return Err(FsError::AccessDenied);
+    }
+    for pattern in &cfg.denied_patterns {
+        if let Ok(pat) = glob::Pattern::new(pattern) && pat.matches(canonical.to_string_lossy().as_ref()) {
+            return Err(FsError::AccessDenied);
+        }
+    }
+    Ok(canonical)
+}
 
 /// Maximum file size to read entirely (10 MB)
 // Replace with constant from config.
@@ -44,6 +80,7 @@ pub struct DriveInfo {
     pub total_space: u64,
     pub free_space: u64,
     pub drive_type: String,
+    pub label: Option<String>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
@@ -165,54 +202,20 @@ fn is_windows_reparse_point(meta: &fs::Metadata) -> bool {
 }
 
 // validate_paths removed—use individual validate_path or validate_paths_sandboxed instead
-/// Validate a set of paths with sandbox rules
-#[cfg(test)]
-pub fn validate_paths_sandboxed(paths: &[String]) -> FsResult<Vec<std::path::PathBuf>> {
-    paths.iter().map(|p| validate_path_sandboxed(p)).collect()
-}
+// Removed legacy test-only wrapper validate_paths_sandboxed — use validate_paths_no_follow_sandboxed_with_cfg instead in tests.
 
 /// Validate a set of paths without following symlinks and sandbox them
-pub fn validate_paths_no_follow_sandboxed(paths: &[String]) -> FsResult<Vec<std::path::PathBuf>> {
-    paths.iter().map(|p| validate_path_no_follow_sandboxed(p)).collect()
-}
+// validate_paths_no_follow_sandboxed removed — use validate_paths_no_follow_sandboxed_with_cfg(paths, &cfg)
 
-pub fn validate_path_sandboxed(path: &str) -> FsResult<std::path::PathBuf> {
-    use glob::Pattern;
-    // First canonicalize with regular validate_path
-    let canonical = validate_path(path)?;
-    let cfg = get_security_config();
-    // Ensure canonical path sits under one of the allowed roots
-    let in_allowed = cfg.allowed_roots.iter().any(|root| canonical.starts_with(root));
-    if !in_allowed {
-        return Err(FsError::AccessDenied);
-    }
-    // Check denied patterns
-    for pattern in &cfg.denied_patterns {
-        if let Ok(pat) = Pattern::new(pattern) && pat.matches(canonical.to_string_lossy().as_ref()) {
-            return Err(FsError::AccessDenied);
-        }
-    }
-    Ok(canonical)
+/// Validate set of paths no follow using provided SecurityConfig
+pub fn validate_paths_no_follow_sandboxed_with_cfg(paths: &[String], cfg: &crate::commands::config::SecurityConfig) -> FsResult<Vec<std::path::PathBuf>> {
+    paths.iter().map(|p| validate_path_no_follow_sandboxed_with_cfg(p, cfg)).collect()
 }
+// validate_path_sandboxed removed — use validate_path_sandboxed_with_cfg
 
 // validate_paths_no_follow removed—use validate_paths_no_follow_sandboxed or validate_path_no_follow
 /// Validate a path without following symlinks and ensure sandbox rules (allowed_roots/denied_patterns)
-pub fn validate_path_no_follow_sandboxed(path: &str) -> FsResult<std::path::PathBuf> {
-    let canonical = validate_path_no_follow(path)?;
-    let cfg = get_security_config();
-    // Ensure canonical path sits under one of the allowed roots
-    let in_allowed = cfg.allowed_roots.iter().any(|root| canonical.starts_with(root));
-    if !in_allowed {
-        return Err(FsError::AccessDenied);
-    }
-    // Check denied patterns
-    for pattern in &cfg.denied_patterns {
-        if let Ok(pat) = glob::Pattern::new(pattern) && pat.matches(canonical.to_string_lossy().as_ref()) {
-            return Err(FsError::AccessDenied);
-        }
-    }
-    Ok(canonical)
-}
+// validate_path_no_follow_sandboxed removed — use validate_path_no_follow_sandboxed_with_cfg
 
 pub fn validate_path_no_follow(path: &str) -> FsResult<std::path::PathBuf> {
     let path_buf = std::path::PathBuf::from(path);
@@ -253,36 +256,27 @@ where
     inner.map_err(|e| e.to_public_string())
 }
 
+
+
 #[tauri::command]
 #[specta::specta]
-pub async fn read_directory(path: String) -> Result<Vec<FileEntry>, String> {
-    let v = run_blocking_fs(move || read_directory_sync(path)).await?;
+#[instrument(skip(path, config_state))]
+pub async fn read_directory(
+    path: String,
+    config_state: tauri::State<'_, std::sync::Arc<std::sync::RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<Vec<FileEntry>, String> {
+    let config = config_state.read().map_err(|_| "Failed to read security config")?.clone();
+    let v = run_blocking_fs({
+        let path = path.clone();
+        let config = config.clone();
+        move || read_directory_sync_with_cfg(path, &config)
+    }).await?;
     Ok(v)
 }
 
-#[tauri::command]
-#[specta::specta]
-pub async fn get_directory_stats(path: String) -> Result<DirectoryStats, String> {
-    run_blocking_fs(move || get_directory_stats_sync(path)).await
-}
-
-fn get_directory_stats_sync(path: String) -> FsResult<DirectoryStats> {
-    let dir_path = validate_path(&path)?;
-    let read_dir = fs::read_dir(dir_path).map_err(|_| FsError::ReadDirectoryFailed)?;
-    let mut count = 0usize;
-    let threshold = limits::STREAM_BATCH_SIZE * 20; // default heuristic; could make property in config
-    for _entry in read_dir.flatten() {
-        count += 1;
-        if count > threshold {
-            return Ok(DirectoryStats { count, exceeded_threshold: true });
-        }
-    }
-    Ok(DirectoryStats { count, exceeded_threshold: false })
-}
-
-fn read_directory_sync(path: String) -> FsResult<Vec<FileEntry>> {
+pub(crate) fn read_directory_sync_with_cfg(path: String, cfg: &SecurityConfig) -> FsResult<Vec<FileEntry>> {
     // validate path for reading
-    let dir_path = validate_path(&path)?;
+    let dir_path = validate_path_sandboxed_with_cfg(&path, cfg)?;
 
     let mut entries = Vec::new();
 
@@ -336,44 +330,135 @@ fn read_directory_sync(path: String) -> FsResult<Vec<FileEntry>> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
-    #[cfg(windows)]
-    {
-        let mut drives = Vec::new();
-        for letter in b'A'..=b'Z' {
-            let path = format!("{}:\\", letter as char);
-            if Path::new(&path).exists() {
-                drives.push(DriveInfo {
-                    name: format!("{}:", letter as char),
-                    path: path.clone(),
-                    total_space: 0,
-                    free_space: 0,
-                    drive_type: "local".to_string(),
-                });
-            }
-        }
-        Ok(drives)
-    }
+pub async fn get_directory_stats(
+    path: String,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<DirectoryStats, String> {
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
+    run_blocking_fs(move || get_directory_stats_sync_with_cfg(path, &config)).await
+}
 
-    #[cfg(not(windows))]
-    {
+pub(crate) fn get_directory_stats_sync_with_cfg(path: String, cfg: &SecurityConfig) -> FsResult<DirectoryStats> {
+    let dir_path = validate_path_sandboxed_with_cfg(&path, cfg)?;
+    let read_dir = fs::read_dir(dir_path).map_err(|_| FsError::ReadDirectoryFailed)?;
+    let mut count = 0usize;
+    let threshold = limits::STREAM_BATCH_SIZE * 20; // default heuristic; could make property in config
+    for _entry in read_dir.flatten() {
+        count += 1;
+        if count > threshold {
+            return Ok(DirectoryStats { count, exceeded_threshold: true });
+        }
+    }
+    Ok(DirectoryStats { count, exceeded_threshold: false })
+}
+
+// Removed legacy wrapper read_directory_sync — use read_directory_sync_with_cfg(path, &cfg) directly.
+
+#[tauri::command]
+#[specta::specta]
+pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
+    // Use sysinfo to enumerate disks and provide total/free space in a cross-platform manner.
+    let mut sys = sysinfo::System::new_all();
+    sys.refresh_disks_list();
+    sys.refresh_disks();
+
+    let mut drives = Vec::new();
+    for d in sys.disks() {
+        let name = d.name().to_string_lossy().to_string();
+        let path = d.mount_point().to_string_lossy().to_string();
+        // Attempt to extract OS-specific volume label where possible.
+        let label: Option<String> = {
+            #[cfg(windows)]
+            {
+                // Attempt to use WinAPI GetVolumeInformationW for a reliable label.
+                use std::os::windows::ffi::OsStrExt;
+                // no null_mut used; volume label retrieval does not use it explicitly
+                use winapi::um::fileapi::GetVolumeInformationW;
+                use winapi::shared::minwindef::DWORD;
+
+                let mount = d.mount_point();
+                let mut vol_name: Vec<u16> = vec![0u16; 260];
+                let mut fs_name: Vec<u16> = vec![0u16; 260];
+                let mut serial: DWORD = 0;
+                let mut max_comp: DWORD = 0;
+                let mut flags: DWORD = 0;
+                let mut root: Vec<u16> = mount.as_os_str().encode_wide().collect();
+                // Ensure null-termination
+                if *root.last().unwrap_or(&0) != 0 {
+                    root.push(0);
+                }
+                let res = unsafe {
+                    GetVolumeInformationW(
+                        root.as_ptr(),
+                        vol_name.as_mut_ptr(),
+                        vol_name.len() as DWORD,
+                        &mut serial,
+                        &mut max_comp,
+                        &mut flags,
+                        fs_name.as_mut_ptr(),
+                        fs_name.len() as DWORD,
+                    )
+                };
+                if res != 0 {
+                    let len = vol_name.iter().position(|&c| c == 0).unwrap_or(vol_name.len());
+                    let s = String::from_utf16_lossy(&vol_name[..len]);
+                    if s.trim().is_empty() {
+                        None
+                    } else {
+                        Some(s)
+                    }
+                } else {
+                    // Fallback to sysinfo name as label if available
+                    if name.is_empty() { None } else { Some(name.clone()) }
+                }
+            }
+            #[cfg(not(windows))]
+            {
+                // On non-Windows, sysinfo's `name()` is usually the mount label or name.
+                if name.is_empty() { None } else { Some(name.clone()) }
+            }
+        };
+        drives.push(DriveInfo {
+            name,
+            path,
+            total_space: d.total_space(),
+            free_space: d.available_space(),
+            drive_type: "local".to_string(),
+            label,
+        });
+        tracing::debug!(disk = %d.mount_point().to_string_lossy(), total = %d.total_space(), free = %d.available_space(), "found disk");
+    }
+    if drives.is_empty() {
+        // Fallback
         Ok(vec![DriveInfo {
             name: "/".to_string(),
             path: "/".to_string(),
             total_space: 0,
             free_space: 0,
             drive_type: "local".to_string(),
+            label: None,
         }])
+    } else {
+        Ok(drives)
     }
 }
 
+
 #[tauri::command]
 #[specta::specta]
-pub async fn create_directory(path: String) -> Result<(), String> {
-    run_blocking_fs(move || create_directory_sync(path)).await
+pub async fn create_directory(
+    path: String,
+    config_state: tauri::State<'_, std::sync::Arc<std::sync::RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<(), String> {
+    tracing::debug!(path = %path, "create_directory called");
+    let config = config_state.read().map_err(|_| "Failed to read security config")?.clone();
+    run_blocking_fs(move || create_directory_sync_with_cfg(path, &config)).await
 }
 
-fn create_directory_sync(path: String) -> FsResult<()> {
+pub(crate) fn create_directory_sync_with_cfg(path: String, cfg: &SecurityConfig) -> FsResult<()> {
     if path.is_empty() {
         return Err(FsError::InvalidPath);
     }
@@ -381,7 +466,7 @@ fn create_directory_sync(path: String) -> FsResult<()> {
     let p = Path::new(&path);
     let parent = p.parent().ok_or(FsError::InvalidPath)?;
     // validate the parent directory to ensure we don't write outside allowed locations
-    let validated_parent = validate_path(&parent.to_string_lossy())?;
+    let validated_parent = validate_path_sandboxed_with_cfg(&parent.to_string_lossy(), cfg)?;
     let name = p.file_name().ok_or(FsError::InvalidName)?;
     validate_child_name(name)?;
     let new_path = validated_parent.join(name);
@@ -390,11 +475,19 @@ fn create_directory_sync(path: String) -> FsResult<()> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn create_file(path: String) -> Result<(), String> {
-    run_blocking_fs(move || create_file_sync(path)).await
+pub async fn create_file(
+    path: String,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<(), String> {
+    tracing::debug!(path = %path, "create_file called");
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
+    run_blocking_fs(move || create_file_sync_with_cfg(path, &config)).await
 }
 
-fn create_file_sync(path: String) -> FsResult<()> {
+pub(crate) fn create_file_sync_with_cfg(path: String, cfg: &SecurityConfig) -> FsResult<()> {
     if path.is_empty() {
         return Err(FsError::InvalidPath);
     }
@@ -402,7 +495,7 @@ fn create_file_sync(path: String) -> FsResult<()> {
     let file_path = Path::new(&path);
     let parent = file_path.parent().ok_or(FsError::InvalidPath)?;
     // validate parent
-    let validated_parent = validate_path(&parent.to_string_lossy())?;
+    let validated_parent = validate_path_sandboxed_with_cfg(&parent.to_string_lossy(), cfg)?;
     let file_name = file_path.file_name().ok_or(FsError::InvalidName)?;
     validate_child_name(file_name)?;
     let new_file_path = validated_parent.join(file_name);
@@ -416,15 +509,24 @@ fn create_file_sync(path: String) -> FsResult<()> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), String> {
+pub async fn delete_entries(
+    paths: Vec<String>,
+    permanent: bool,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<(), String> {
+    tracing::debug!(?paths, permanent, "delete_entries called");
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
     // NOTE: This can be heavy IO (recursive deletes), keep it off the async runtime.
-    run_blocking_fs(move || delete_entries_sync(paths, permanent)).await
+    run_blocking_fs(move || delete_entries_sync_with_cfg(paths, permanent, &config)).await
 }
 
-fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> FsResult<()> {
+pub(crate) fn delete_entries_sync_with_cfg(paths: Vec<String>, permanent: bool, cfg: &SecurityConfig) -> FsResult<()> {
     // Validate all paths without following symlinks — operation should act on the symlink itself
     // Validate against sandbox rules as we are performing a mutating operation
-    let validated_paths: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&paths)?;
+    let validated_paths: Vec<PathBuf> = validate_paths_no_follow_sandboxed_with_cfg(&paths, cfg)?;
 
     for entry_path in validated_paths {
         if !entry_path.exists() {
@@ -460,21 +562,29 @@ fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> FsResult<()> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn rename_entry(old_path: String, new_name: String) -> Result<String, String> {
+pub async fn rename_entry(
+    old_path: String,
+    new_name: String,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<String, String> {
     // Perform blocking IO through helper
-    run_blocking_fs(move || rename_entry_sync(old_path, new_name)).await
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
+    run_blocking_fs(move || rename_entry_sync_with_cfg(old_path, new_name, &config)).await
 }
 
-fn rename_entry_sync(old_path: String, new_name: String) -> FsResult<String> {
+pub(crate) fn rename_entry_sync_with_cfg(old_path: String, new_name: String, cfg: &SecurityConfig) -> FsResult<String> {
     // Validate source without following symlinks — rename should operate on the entry itself
-        let validated_old = validate_path_no_follow(&old_path)?;
+        let validated_old = validate_path_no_follow_sandboxed_with_cfg(&old_path, cfg)?;
     // Prevent directory traversal via name
         validate_child_name(std::ffi::OsStr::new(&new_name))?;
     let parent = validated_old.parent().ok_or(FsError::InvalidPath)?;
     let new_path = parent.join(&new_name);
     // Do not allow moving to parents outside the validated parent
     // Validate parent of new path to ensure it's within allowed paths (sandboxed)
-    let _ = validate_path_sandboxed(&parent.to_string_lossy())?;
+    let _ = validate_path_sandboxed_with_cfg(&parent.to_string_lossy(), cfg)?;
     fs::rename(&validated_old, &new_path).map_err(|_| FsError::Io)?;
 
     Ok(new_path.to_string_lossy().to_string())
@@ -482,16 +592,25 @@ fn rename_entry_sync(old_path: String, new_name: String) -> FsResult<String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn copy_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
-    run_blocking_fs(move || copy_entries_sync(sources, destination)).await
+pub async fn copy_entries(
+    sources: Vec<String>,
+    destination: String,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<(), String> {
+    tracing::debug!(?sources, destination = %destination, "copy_entries called");
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
+    run_blocking_fs(move || copy_entries_sync_with_cfg(sources, destination, &config)).await
 }
 
-fn copy_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> {
+pub(crate) fn copy_entries_sync_with_cfg(sources: Vec<String>, destination: String, cfg: &SecurityConfig) -> FsResult<()> {
     // Validate paths without following symlinks — aggressively skip symlinks when copying
     // Validate sources without following and sandbox them
-    let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&sources)?;
+    let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed_with_cfg(&sources, cfg)?;
     // Destination must be sandboxed for write operations
-    let dest_path = validate_path_sandboxed(&destination)?;
+    let dest_path = validate_path_sandboxed_with_cfg(&destination, cfg)?;
 
     for src_path in validated_sources {
         let file_name = src_path.file_name().ok_or(FsError::InvalidPath)?;
@@ -555,14 +674,23 @@ fn copy_dir_iterative(src: &Path, dst: &Path) -> FsResult<()> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn move_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
-    run_blocking_fs(move || move_entries_sync(sources, destination)).await
+pub async fn move_entries(
+    sources: Vec<String>,
+    destination: String,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<(), String> {
+    tracing::debug!(?sources, destination = %destination, "move_entries called");
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
+    run_blocking_fs(move || move_entries_sync_with_cfg(sources, destination, &config)).await
 }
 
-fn move_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> {
+pub(crate) fn move_entries_sync_with_cfg(sources: Vec<String>, destination: String, cfg: &SecurityConfig) -> FsResult<()> {
     // Validate paths without following symlinks: moving should act on the object itself
-    let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&sources)?;
-    let dest_path = validate_path_sandboxed(&destination)?;
+    let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed_with_cfg(&sources, cfg)?;
+    let dest_path = validate_path_sandboxed_with_cfg(&destination, cfg)?;
 
     for src_path in validated_sources {
         let file_name = src_path.file_name().ok_or(FsError::InvalidPath)?;
@@ -575,13 +703,20 @@ fn move_entries_sync(sources: Vec<String>, destination: String) -> FsResult<()> 
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_file_content(path: String) -> Result<String, String> {
-    let content = run_blocking_fs(move || get_file_content_sync(path)).await?;
+pub async fn get_file_content(
+    path: String,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<String, String> {
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
+    let content = run_blocking_fs(move || get_file_content_sync_with_cfg(path, &config)).await?;
     Ok(content)
 }
 
-fn get_file_content_sync(path: String) -> FsResult<String> {
-    let validated_path = validate_path_sandboxed(&path)?;
+pub(crate) fn get_file_content_sync_with_cfg(path: String, cfg: &SecurityConfig) -> FsResult<String> {
+    let validated_path = validate_path_sandboxed_with_cfg(&path, cfg)?;
     let meta = fs::metadata(&validated_path).map_err(|_| FsError::Io)?;
     if meta.len() > MAX_CONTENT_SIZE {
         return Err(FsError::FileTooLarge);
@@ -591,9 +726,17 @@ fn get_file_content_sync(path: String) -> FsResult<String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn get_parent_path(path: String) -> Result<Option<String>, String> {
+pub async fn get_parent_path(
+    path: String,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<Option<String>, String> {
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
+    let p_clone = path.clone();
     let r = run_blocking_fs(move || {
-        let validated = validate_path(&path)?;
+        let validated = validate_path_sandboxed_with_cfg(&p_clone, &config)?;
         Ok::<_, FsError>(validated.parent().map(|p| p.to_string_lossy().to_string()))
     }).await?;
     Ok(r)
@@ -601,9 +744,17 @@ pub async fn get_parent_path(path: String) -> Result<Option<String>, String> {
 
 #[tauri::command]
 #[specta::specta]
-pub async fn path_exists(path: String) -> Result<bool, String> {
+pub async fn path_exists(
+    path: String,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<bool, String> {
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
+    let p_clone = path.clone();
     let r = run_blocking_fs(move || {
-        let validated = validate_path(&path)?;
+        let validated = validate_path_sandboxed_with_cfg(&p_clone, &config)?;
         Ok::<_, FsError>(validated.exists())
     }).await?;
     Ok(r)
@@ -616,10 +767,15 @@ pub async fn copy_entries_parallel(
     sources: Vec<String>,
     destination: String,
     app: AppHandle,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
 ) -> Result<(), String> {
     // Валидация путей: use sandboxed validation (no follow for sources)
-    let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed(&sources).map_err(|e| e.to_public_string())?;
-    let validated_dest = validate_path_sandboxed(&destination).map_err(|e| e.to_public_string())?;
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
+    let validated_sources: Vec<PathBuf> = validate_paths_no_follow_sandboxed_with_cfg(&sources, &config).map_err(|e| e.to_public_string())?;
+    let validated_dest = validate_path_sandboxed_with_cfg(&destination, &config).map_err(|e| e.to_public_string())?;
 
     let total = validated_sources.len();
     if total == 0 {
@@ -700,12 +856,20 @@ fn copy_single_entry_sync(src_path: &Path, dest_path: &Path) -> FsResult<()> {
 /// Stream directory entries in batches for large directories
 #[tauri::command]
 #[specta::specta]
-pub async fn read_directory_stream(path: String, app: AppHandle) -> Result<(), String> {
+pub async fn read_directory_stream(
+    path: String,
+    app: AppHandle,
+    config_state: State<'_, Arc<RwLock<crate::commands::config::SecurityConfig>>>,
+) -> Result<(), String> {
     let path_clone = path.clone();
+    let config = config_state
+        .read()
+        .map_err(|_| "Failed to read security config")?
+        .clone();
 
     run_blocking_fs(move || {
         // Validate incoming path inside blocking context (canonicalize can hit disk).
-        let validated_path = validate_path(&path_clone)?;
+        let validated_path = validate_path_sandboxed_with_cfg(&path_clone, &config)?;
         let dir_path = validated_path.as_path();
         let read_dir = fs::read_dir(dir_path).map_err(|_| FsError::ReadDirectoryFailed)?;
 
@@ -804,10 +968,30 @@ mod tests {
         let file_path = p.join("AbC.txt");
         fs::File::create(&file_path).unwrap();
 
-        let entries = read_directory_sync(p.to_string_lossy().to_string()).unwrap();
+        let cfg = crate::commands::config::SecurityConfig::default_windows();
+        let entries = read_directory_sync_with_cfg(p.to_string_lossy().to_string(), &cfg).unwrap();
         let found = entries.into_iter().find(|e| e.path.ends_with("AbC.txt"));
         assert!(found.is_some());
         let e = found.unwrap();
         assert_eq!(e.name_lower.as_ref(), "abc.txt");
+    }
+
+    #[tokio::test]
+    async fn get_drives_should_succeed() {
+        let res = get_drives().await;
+        assert!(res.is_ok());
+        let _v = res.unwrap();
+    }
+
+    #[cfg(windows)]
+    #[tokio::test]
+    async fn get_drives_should_have_label() {
+        let res = get_drives().await;
+        assert!(res.is_ok());
+        let v = res.unwrap();
+        assert!(!v.is_empty());
+        // At least one drive should have a label (volume name) or name set
+        let any_label = v.iter().any(|d| d.label.is_some() || !d.name.is_empty());
+        assert!(any_label);
     }
 }

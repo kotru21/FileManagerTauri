@@ -6,11 +6,23 @@ use commands::{
     get_file_content, get_file_preview, get_parent_path, move_entries, path_exists, read_directory,
     read_directory_stream, rename_entry, search_by_name, search_content, search_files,
     search_files_stream, unwatch_directory, watch_directory, watcher::WatcherState,
+    set_security_config_command,
+    get_security_config_command,
 };
-use std::sync::Arc;
+use commands::config::SecurityConfig;
+use std::sync::{Arc, RwLock};
 use tauri_specta::{Builder, collect_commands};
+use sysinfo::SystemExt;
+use sysinfo::DiskExt;
+// tracing_subscriber prelude not needed directly; using builder APIs in run()
 
 pub fn run() {
+    // Initialize tracing subscriber (structured logs)
+    let _ = tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_target(false)
+        .try_init();
+
     let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
         read_directory,
         get_directory_stats,
@@ -30,6 +42,8 @@ pub fn run() {
         search_files_stream,
         search_by_name,
         search_content,
+        set_security_config_command,
+        get_security_config_command,
         watch_directory,
         unwatch_directory,
         get_file_preview,
@@ -45,9 +59,25 @@ pub fn run() {
         )
         .expect("Failed to export typescript bindings");
 
+    // Initialize default security config and manage it with tauri State
+    // Extend allowed_roots with currently mounted disks (so drives like C:\ are accessible)
+    let mut sec_cfg = SecurityConfig::default_windows();
+    {
+        let mut sys = sysinfo::System::new_all();
+        sys.refresh_disks_list();
+        sys.refresh_disks();
+        for d in sys.disks() {
+            let mount_point = d.mount_point().to_path_buf();
+            if !sec_cfg.allowed_roots.contains(&mount_point) {
+                sec_cfg.allowed_roots.push(mount_point);
+            }
+        }
+    }
+
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
         .manage(Arc::new(WatcherState::new()))
+        .manage(Arc::new(RwLock::new(sec_cfg)))
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);

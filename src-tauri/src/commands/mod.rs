@@ -12,3 +12,5 @@ pub use file_ops::*;
 pub use preview::*;
 pub use search::*;
 pub use watcher::*;
+pub use config::set_security_config_command;
+pub use config::get_security_config_command;

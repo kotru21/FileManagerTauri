@@ -15,8 +15,16 @@ async readDirectory(path: string) : Promise<Result<FileEntry[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+async getDirectoryStats(path: string) : Promise<Result<DirectoryStats, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_directory_stats", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
 /**
- * Стриминг директории пакетами для больших директорий
+ * Stream directory entries in batches for large directories
  */
 async readDirectoryStream(path: string) : Promise<Result<null, string>> {
     try {
@@ -75,7 +83,7 @@ async copyEntries(sources: string[], destination: string) : Promise<Result<null,
 }
 },
 /**
- * Параллельное копирование файлов с прогрессом
+ * Parallel file copy with progress
  */
 async copyEntriesParallel(sources: string[], destination: string) : Promise<Result<null, string>> {
     try {
@@ -126,7 +134,7 @@ async searchFiles(options: SearchOptions) : Promise<Result<SearchResult[], strin
 }
 },
 /**
- * Стриминг поиска с прогрессом
+ * Search streaming with progress
  */
 async searchFilesStream(options: SearchOptions) : Promise<Result<SearchResult[], string>> {
     try {
@@ -147,6 +155,29 @@ async searchByName(searchPath: string, query: string, maxResults: number | null)
 async searchContent(searchPath: string, query: string, extensions: string[] | null, maxResults: number | null) : Promise<Result<SearchResult[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search_content", { searchPath, query, extensions, maxResults }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Tauri command for updating the runtime security configuration. This updates
+ * both the global config (for legacy code) and the application-managed state.
+ */
+async setSecurityConfigCommand(cfg: SecurityConfig) : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("set_security_config_command", { cfg }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Returns the current security config (managed state) for frontend consumption.
+ */
+async getSecurityConfigCommand() : Promise<Result<SecurityConfig, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_security_config_command") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -189,11 +220,13 @@ async getFilePreview(path: string) : Promise<Result<FilePreview, string>> {
 /** user-defined types **/
 
 export type ContentMatch = { line_number: number; line_content: string; match_start: number; match_end: number }
-export type DriveInfo = { name: string; path: string; total_space: number; free_space: number; drive_type: string }
+export type DirectoryStats = { count: number; exceeded_threshold: boolean }
+export type DriveInfo = { name: string; path: string; total_space: number; free_space: number; drive_type: string; label: string | null }
 export type FileEntry = { name: string; name_lower: string; path: string; is_dir: boolean; is_hidden: boolean; size: number; modified: number | null; created: number | null; extension: string | null }
 export type FilePreview = { type: "Text"; content: string; truncated: boolean } | { type: "Image"; base64: string; mime: string } | { type: "Unsupported"; mime: string }
 export type SearchOptions = { query: string; search_path: string; search_content: boolean; case_sensitive: boolean; max_results: number | null; file_extensions: string[] | null }
 export type SearchResult = { path: string; name: string; name_lower: string; is_dir: boolean; matches: ContentMatch[] }
+export type SecurityConfig = { allowed_roots: string[]; denied_patterns: string[] }
 
 /** tauri-specta globals **/
 

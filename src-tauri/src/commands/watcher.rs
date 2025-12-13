@@ -1,4 +1,6 @@
-use crate::commands::file_ops::validate_path;
+use crate::commands::file_ops::validate_path_sandboxed_with_cfg;
+use crate::commands::config::SecurityConfig;
+use std::sync::RwLock;
 use crate::commands::error::FsError;
 use notify::{Event, RecursiveMode, Watcher, recommended_watcher};
 use serde::Serialize;
@@ -7,6 +9,7 @@ use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, mpsc};
 use tauri::{AppHandle, Emitter, State};
+use tracing::instrument;
 
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct FsChangeEvent {
@@ -36,15 +39,22 @@ impl Default for WatcherState {
 
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(path, app, state))]
 pub async fn watch_directory(
     path: String,
     app: AppHandle,
     state: State<'_, Arc<WatcherState>>,
+    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
 ) -> Result<(), String> {
     // Validate path
-    let validated_path = validate_path(&path).map_err(|e| e.to_public_string())?;
+    let cfg = config_state
+        .read()
+        .map_err(|_| FsError::Internal.to_public_string())?
+        .clone();
+    let validated_path = validate_path_sandboxed_with_cfg(&path, &cfg).map_err(|e| e.to_public_string())?;
     let canonical_key = validated_path.to_string_lossy().to_string();
 
+    tracing::debug!(path = %canonical_key, "Starting watch for path");
     // First stop the previous watcher for this path if one exists
     {
         let flags = state.stop_flags.lock().map_err(|_| FsError::Internal.to_public_string())?;
@@ -127,11 +137,17 @@ pub async fn watch_directory(
 pub async fn unwatch_directory(
     path: String,
     state: State<'_, Arc<WatcherState>>,
+    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
 ) -> Result<(), String> {
     // Validate path and use canonical form to lookup
-    let validated = validate_path(&path).map_err(|e| e.to_public_string())?;
+    let cfg = config_state
+        .read()
+        .map_err(|_| FsError::Internal.to_public_string())?
+        .clone();
+    let validated = validate_path_sandboxed_with_cfg(&path, &cfg).map_err(|e| e.to_public_string())?;
     let key = validated.to_string_lossy().to_string();
 
+    tracing::debug!(path = %key, "unwatch_directory called");
     let flags = state.stop_flags.lock().map_err(|e| e.to_string())?;
     if let Some(flag) = flags.get(&key) {
         flag.store(true, Ordering::SeqCst);
