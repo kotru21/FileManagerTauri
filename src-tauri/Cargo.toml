@@ -13,7 +13,7 @@ crate-type = ["staticlib", "cdylib", "rlib"]
 tauri-build = { version = "2.5.3", features = [] }
 
 [dependencies]
-tauri = { version = "2.9.2", features = [] }
+tauri = { version = "2.9.5", features = [] }
 tauri-plugin-opener = "2.5.2"
 tauri-specta = { version = "2.0.0-rc.21", features = ["typescript"] }
 specta = { version = "2.0.0-rc.22", features = ["derive"] }
@@ -25,7 +25,7 @@ walkdir = "2.5"
 grep-regex = "0.1.14"
 grep-searcher = "0.1.16"
 chrono = { version = "0.4.42", features = ["serde"] }
-rayon = "1.10"
+rayon = "1.11"
 notify = "6.1"
 base64 = "0.22"
 mime_guess = "2.0"
@@ -40,5 +40,5 @@ tracing = "0.1"
 tracing-subscriber = { version = "0.3", features = ["env-filter"] }
 
 [dev-dependencies]
-tempfile = "3.6"
+tempfile = "3.23"
 
