@@ -9,6 +9,7 @@ mod error;
 mod models;
 mod utils;
 
+use commands::watcher::WatcherState;
 use tauri_specta::{collect_commands, Builder};
 
 /// Runs the Tauri application.
@@ -16,29 +17,30 @@ pub fn run() {
     let builder = Builder::<tauri::Wry>::new()
         .commands(collect_commands![
             // File operations
-            commands::read_directory,
-            commands::read_directory_stream,
-            commands::get_drives,
-            commands::create_directory,
-            commands::create_file,
-            commands::delete_entries,
-            commands::rename_entry,
-            commands::copy_entries,
-            commands::copy_entries_parallel,
-            commands::move_entries,
-            commands::get_file_content,
-            commands::get_parent_path,
-            commands::path_exists,
+            commands::file_ops::read_directory,
+            commands::file_ops::read_directory_stream,
+            commands::file_ops::get_drives,
+            commands::file_ops::create_directory,
+            commands::file_ops::create_file,
+            commands::file_ops::delete_entries,
+            commands::file_ops::rename_entry,
+            commands::file_ops::copy_entries,
+            commands::file_ops::copy_entries_parallel,
+            commands::file_ops::move_entries,
+            commands::file_ops::get_file_content,
+            commands::file_ops::get_parent_path,
+            commands::file_ops::path_exists,
             // Search
-            commands::search_files,
-            commands::search_files_stream,
-            commands::search_by_name,
-            commands::search_content,
+            commands::search::search_files,
+            commands::search::search_files_stream,
+            commands::search::search_by_name,
+            commands::search::search_content,
             // Preview
-            commands::get_file_preview,
+            commands::preview::get_file_preview,
             // Watcher
-            commands::watch_directory,
-            commands::unwatch_directory,
+            commands::watcher::watch_directory,
+            commands::watcher::unwatch_directory,
+            commands::watcher::unwatch_all,
         ]);
 
     #[cfg(debug_assertions)]
@@ -53,6 +55,7 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
+        .manage(WatcherState::new())
         .invoke_handler(builder.invoke_handler())
         .setup(move |app| {
             builder.mount_events(app);

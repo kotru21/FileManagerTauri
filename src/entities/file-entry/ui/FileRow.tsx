@@ -1,4 +1,4 @@
-import { memo, useState, useCallback } from "react";
+import { memo, useState, useCallback, useRef, useEffect } from "react";
 import type { FileEntry } from "@/shared/api/tauri";
 import { formatBytes, formatDate, cn } from "@/shared/lib";
 import { FileIcon } from "./FileIcon";
@@ -27,19 +27,43 @@ export const FileRow = memo(
     onOpen,
     onDrop,
     getSelectedPaths,
-    columnWidths = { size: 80, date: 140, padding: 12 },
+    columnWidths = { size: 100, date: 150, padding: 16 },
   }: FileRowProps) {
     const [isDragOver, setIsDragOver] = useState(false);
+    const rowRef = useRef<HTMLDivElement>(null);
+
+    // Scroll into view when focused
+    useEffect(() => {
+      if (isFocused && rowRef.current) {
+        rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+      }
+    }, [isFocused]);
 
     const handleDragStart = useCallback(
       (e: React.DragEvent) => {
-        const paths =
-          isSelected && getSelectedPaths ? getSelectedPaths() : [file.path];
+        const paths = getSelectedPaths?.() ?? [];
+        if (!paths.includes(file.path)) {
+          paths.push(file.path);
+        }
         e.dataTransfer.setData("application/json", JSON.stringify(paths));
         e.dataTransfer.effectAllowed = "copyMove";
       },
-      [file.path, isSelected, getSelectedPaths]
+      [file.path, getSelectedPaths]
     );
+
+    const handleDragOver = useCallback(
+      (e: React.DragEvent) => {
+        if (!file.is_dir) return;
+        e.preventDefault();
+        e.dataTransfer.dropEffect = "copy";
+        setIsDragOver(true);
+      },
+      [file.is_dir]
+    );
+
+    const handleDragLeave = useCallback(() => {
+      setIsDragOver(false);
+    }, []);
 
     const handleDrop = useCallback(
       (e: React.DragEvent) => {
@@ -49,82 +73,92 @@ export const FileRow = memo(
         if (!file.is_dir || !onDrop) return;
 
         try {
-          const paths: string[] = JSON.parse(
-            e.dataTransfer.getData("application/json")
-          );
+          const data = e.dataTransfer.getData("application/json");
+          const sources: string[] = JSON.parse(data);
 
-          // Проверяем, что не перетаскиваем в себя
-          if (!paths.includes(file.path)) {
-            onDrop(paths, file.path);
-          }
+          // Don't drop onto self
+          if (sources.includes(file.path)) return;
+
+          onDrop(sources, file.path);
         } catch {
-          // Игнорируем ошибки парсинга
+          // Ignore parse errors
         }
       },
       [file.is_dir, file.path, onDrop]
     );
 
-    const handleDragOver = useCallback(
-      (e: React.DragEvent) => {
-        e.preventDefault();
-        if (file.is_dir) {
-          setIsDragOver(true);
+    const handleDoubleClick = useCallback(() => {
+      onOpen();
+    }, [onOpen]);
+
+    const handleKeyDown = useCallback(
+      (e: React.KeyboardEvent) => {
+        if (e.key === "Enter") {
+          e.preventDefault();
+          onOpen();
         }
       },
-      [file.is_dir]
+      [onOpen]
     );
-
-    const handleDragLeave = useCallback(() => {
-      setIsDragOver(false);
-    }, []);
 
     return (
       <div
-        draggable
-        onDragStart={handleDragStart}
-        onDrop={handleDrop}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
+        ref={rowRef}
         className={cn(
-          "flex items-center gap-0 px-3 py-1.5 cursor-pointer select-none",
-          "hover:bg-accent/50 transition-colors",
-          isSelected && "bg-accent",
-          isFocused && !isSelected && "ring-1 ring-primary/50",
-          isDragOver && file.is_dir && "bg-blue-500/20 ring-2 ring-blue-500"
+          "flex items-center h-7 px-2 cursor-pointer select-none",
+          "hover:bg-accent/50 transition-colors duration-75",
+          isSelected && "bg-accent text-accent-foreground",
+          isFocused && "ring-1 ring-inset ring-primary",
+          isDragOver && file.is_dir && "bg-primary/20 ring-2 ring-primary"
         )}
         onClick={onSelect}
-        onDoubleClick={onOpen}>
-        <FileIcon extension={file.extension} isDir={file.is_dir} size={18} />
+        onDoubleClick={handleDoubleClick}
+        onKeyDown={handleKeyDown}
+        draggable
+        onDragStart={handleDragStart}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+        tabIndex={isFocused ? 0 : -1}
+        role="row"
+        aria-selected={isSelected}>
+        <FileIcon
+          extension={file.extension}
+          isDir={file.is_dir}
+          className="mr-3 shrink-0"
+          size={18}
+        />
 
-        <span className="flex-1 truncate text-sm ml-3">{file.name}</span>
-
-        {!file.is_dir && (
-          <span
-            className="text-xs text-muted-foreground text-right shrink-0 px-2"
-            style={{ width: columnWidths.size }}>
-            {formatBytes(file.size)}
-          </span>
-        )}
+        <span className="flex-1 truncate text-sm" title={file.name}>
+          {file.name}
+        </span>
 
         <span
-          className="text-xs text-muted-foreground text-right shrink-0 px-2"
+          className="text-sm text-muted-foreground text-right shrink-0"
+          style={{ width: columnWidths.size }}>
+          {file.is_dir ? "" : formatBytes(file.size)}
+        </span>
+
+        <span
+          className="text-sm text-muted-foreground text-right shrink-0"
           style={{ width: columnWidths.date }}>
           {formatDate(file.modified)}
         </span>
 
-        <span className="shrink-0" style={{ width: columnWidths.padding }} />
+        <span style={{ width: columnWidths.padding }} />
       </div>
     );
   },
-  (prev, next) => {
-    // Кастомное сравнение - перерендер только при изменении этих пропсов
+  // Custom comparison - rerender only when these props change
+  (prevProps, nextProps) => {
     return (
-      prev.file.path === next.file.path &&
-      prev.file.modified === next.file.modified &&
-      prev.isSelected === next.isSelected &&
-      prev.isFocused === next.isFocused &&
-      prev.columnWidths?.size === next.columnWidths?.size &&
-      prev.columnWidths?.date === next.columnWidths?.date
+      prevProps.file.path === nextProps.file.path &&
+      prevProps.file.modified === nextProps.file.modified &&
+      prevProps.isSelected === nextProps.isSelected &&
+      prevProps.isFocused === nextProps.isFocused &&
+      prevProps.columnWidths?.size === nextProps.columnWidths?.size &&
+      prevProps.columnWidths?.date === nextProps.columnWidths?.date &&
+      prevProps.columnWidths?.padding === nextProps.columnWidths?.padding
     );
   }
 );

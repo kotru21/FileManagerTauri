@@ -30,3 +30,6 @@ notify = "6.1"
 base64 = "0.22"
 mime_guess = "2.0"
 thiserror = "1.0"
+
+[target.'cfg(windows)'.dependencies]
+windows-sys = { version = "0.59", features = ["Win32_Storage_FileSystem"] }
