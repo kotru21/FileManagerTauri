@@ -1,69 +1,66 @@
-export type { DriveInfo, FileEntry } from "@/shared/api/tauri";
+export type { DriveInfo, FileEntry } from "@/shared/api/tauri"
 
-import type { FileEntry } from "@/shared/api/tauri";
+import type { FileEntry } from "@/shared/api/tauri"
 
-export type SortField = "name" | "size" | "modified" | "type";
-export type SortDirection = "asc" | "desc";
+export type SortField = "name" | "size" | "modified" | "type"
+export type SortDirection = "asc" | "desc"
 
 export interface SortConfig {
-  field: SortField;
-  direction: SortDirection;
+  field: SortField
+  direction: SortDirection
 }
 
-export function sortEntries(
-  entries: FileEntry[],
-  config: SortConfig
-): FileEntry[] {
+export function sortEntries(entries: FileEntry[], config: SortConfig): FileEntry[] {
   return [...entries].sort((a, b) => {
     // Folders always first
-    if (a.is_dir && !b.is_dir) return -1;
-    if (!a.is_dir && b.is_dir) return 1;
+    if (a.is_dir && !b.is_dir) return -1
+    if (!a.is_dir && b.is_dir) return 1
 
-    let comparison = 0;
+    let comparison = 0
 
     switch (config.field) {
       case "name":
         // Use precomputed lower-case field from backend to avoid per-compare allocations
         comparison = a.name_lower.localeCompare(b.name_lower, "ru", {
           sensitivity: "base",
-        });
-        break;
+        })
+        break
       case "size":
-        comparison = a.size - b.size;
-        break;
+        comparison = a.size - b.size
+        break
       case "modified":
-        comparison = (a.modified ?? 0) - (b.modified ?? 0);
-        break;
+        comparison = (a.modified ?? 0) - (b.modified ?? 0)
+        break
       case "type":
-        comparison = (a.extension ?? "").localeCompare(b.extension ?? "");
-        break;
+        comparison = (a.extension ?? "").localeCompare(b.extension ?? "")
+        break
     }
 
-    return config.direction === "asc" ? comparison : -comparison;
-  });
+    return config.direction === "asc" ? comparison : -comparison
+  })
 }
 
 export function filterEntries(
   entries: FileEntry[],
   options: {
-    showHidden?: boolean;
-    extensions?: string[];
-    searchQuery?: string;
-  }
+    showHidden?: boolean
+    extensions?: string[]
+    searchQuery?: string
+  },
 ): FileEntry[] {
   return entries.filter((entry) => {
-    if (!options.showHidden && entry.is_hidden) return false;
+    if (!options.showHidden && entry.is_hidden) return false
 
     if (options.extensions?.length && !entry.is_dir) {
-      const ext = entry.extension?.toLowerCase();
-      if (!ext || !options.extensions.includes(ext)) return false;
+      const ext = entry.extension?.toLowerCase()
+      if (!ext || !options.extensions.includes(ext)) return false
     }
 
     if (options.searchQuery) {
-      const query = options.searchQuery.toLowerCase();
-      if (!entry.name_lower.includes(query)) return false;
+      const query = options.searchQuery.toLowerCase()
+      if (!entry.name_lower.includes(query)) return false
     }
 
-    return true;
-  });
+    return true
+  })
 }

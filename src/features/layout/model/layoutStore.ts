@@ -1,42 +1,39 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
-import { STORAGE_VERSIONS, VIEW_MODES, type ViewMode } from "@/shared/config";
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
+import { STORAGE_VERSIONS, VIEW_MODES, type ViewMode } from "@/shared/config"
 
 function isValidViewMode(value: unknown): value is ViewMode {
-  return (
-    typeof value === "string" &&
-    (Object.values(VIEW_MODES) as string[]).includes(value)
-  );
+  return typeof value === "string" && (Object.values(VIEW_MODES) as string[]).includes(value)
 }
 
 export interface ColumnWidths {
-  size: number;
-  date: number;
-  padding: number;
+  size: number
+  date: number
+  padding: number
 }
 
 export interface PanelLayout {
-  sidebarSize: number;
-  mainPanelSize: number;
-  previewPanelSize: number;
-  showSidebar: boolean;
-  showPreview: boolean;
-  columnWidths: ColumnWidths;
-  viewMode?: ViewMode;
+  sidebarSize: number
+  mainPanelSize: number
+  previewPanelSize: number
+  showSidebar: boolean
+  showPreview: boolean
+  columnWidths: ColumnWidths
+  viewMode?: ViewMode
 }
 
 interface LayoutState {
-  layout: PanelLayout;
-  setLayout: (layout: Partial<PanelLayout>) => void;
-  setViewMode: (mode: ViewMode) => void;
-  toggleViewMode: () => void;
-  setSidebarSize: (size: number) => void;
-  setMainPanelSize: (size: number) => void;
-  setPreviewPanelSize: (size: number) => void;
-  setColumnWidth: (column: keyof ColumnWidths, width: number) => void;
-  toggleSidebar: () => void;
-  togglePreview: () => void;
-  resetLayout: () => void;
+  layout: PanelLayout
+  setLayout: (layout: Partial<PanelLayout>) => void
+  setViewMode: (mode: ViewMode) => void
+  toggleViewMode: () => void
+  setSidebarSize: (size: number) => void
+  setMainPanelSize: (size: number) => void
+  setPreviewPanelSize: (size: number) => void
+  setColumnWidth: (column: keyof ColumnWidths, width: number) => void
+  toggleSidebar: () => void
+  togglePreview: () => void
+  resetLayout: () => void
 }
 
 const defaultLayout: PanelLayout = {
@@ -51,7 +48,7 @@ const defaultLayout: PanelLayout = {
     padding: 12,
   },
   viewMode: VIEW_MODES.list,
-};
+}
 
 export const useLayoutStore = create<LayoutState>()(
   persist(
@@ -60,7 +57,7 @@ export const useLayoutStore = create<LayoutState>()(
 
       setLayout: (newLayout) =>
         set((state) => {
-          const merged = { ...state.layout, ...newLayout } as PanelLayout;
+          const merged = { ...state.layout, ...newLayout } as PanelLayout
 
           // Сравниваем поля, чтобы избежать обновления состояния, если ничего не изменилось
           const equal =
@@ -72,10 +69,10 @@ export const useLayoutStore = create<LayoutState>()(
             merged.columnWidths.size === state.layout.columnWidths.size &&
             merged.columnWidths.date === state.layout.columnWidths.date &&
             merged.columnWidths.padding === state.layout.columnWidths.padding &&
-            merged.viewMode === state.layout.viewMode;
+            merged.viewMode === state.layout.viewMode
 
-          if (equal) return state;
-          return { layout: merged };
+          if (equal) return state
+          return { layout: merged }
         }),
 
       setSidebarSize: (size) =>
@@ -131,12 +128,12 @@ export const useLayoutStore = create<LayoutState>()(
       name: "file-manager-layout",
       version: STORAGE_VERSIONS.LAYOUT,
       merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<LayoutState> | undefined;
+        const persisted = persistedState as Partial<LayoutState> | undefined
 
-        const persistedViewMode = persisted?.layout?.viewMode;
+        const persistedViewMode = persisted?.layout?.viewMode
         const safeViewMode = isValidViewMode(persistedViewMode)
           ? persistedViewMode
-          : defaultLayout.viewMode;
+          : defaultLayout.viewMode
 
         return {
           ...currentState,
@@ -149,23 +146,23 @@ export const useLayoutStore = create<LayoutState>()(
             },
             viewMode: safeViewMode,
           },
-        };
+        }
       },
       migrate: (persistedState, version) => {
         // Миграция для будущих версий
         if (version === 0) {
-          return persistedState;
+          return persistedState
         }
         // Защита от некорректных значений в storage
-        const state = persistedState as LayoutState;
+        const state = persistedState as LayoutState
         if (!isValidViewMode(state?.layout?.viewMode)) {
           return {
             ...state,
             layout: { ...state.layout, viewMode: defaultLayout.viewMode },
-          };
+          }
         }
-        return state;
+        return state
       },
-    }
-  )
-);
+    },
+  ),
+)

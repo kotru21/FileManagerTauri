@@ -87,14 +87,12 @@ fn search_sync(options: &SearchOptions, app: Option<AppHandle>) -> FsResult<Vec<
         .filter_map(|entry| {
             if should_stop.load(Ordering::Relaxed) { return None; }
             let current_scanned = scanned.fetch_add(1, Ordering::Relaxed) + 1;
-            if let Some(ref app) = app {
-                if current_scanned % limits::SEARCH_PROGRESS_INTERVAL == 0 {
-                    let _ = app.emit("search-progress", SearchProgress {
-                        scanned: current_scanned,
-                        found: found.load(Ordering::Relaxed),
-                        current_path: entry.path().to_string_lossy().to_string(),
-                    });
-                }
+            if let Some(ref app) = app && current_scanned.is_multiple_of(limits::SEARCH_PROGRESS_INTERVAL) {
+                let _ = app.emit("search-progress", SearchProgress {
+                    scanned: current_scanned,
+                    found: found.load(Ordering::Relaxed),
+                    current_path: entry.path().to_string_lossy().to_string(),
+                });
             }
             let result = process_entry(&entry, options, &query_lower);
             if result.is_some() {

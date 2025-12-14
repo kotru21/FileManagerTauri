@@ -1,22 +1,22 @@
-import { useVirtualizer } from "@tanstack/react-virtual";
-import { useCallback, useEffect, useRef } from "react";
-import type { FileEntry } from "@/entities/file-entry";
-import { ColumnHeader, FileRow } from "@/entities/file-entry";
-import { useLayoutStore } from "@/features/layout";
-import { VIRTUALIZATION } from "@/shared/config";
-import { cn } from "@/shared/lib";
+import { useVirtualizer } from "@tanstack/react-virtual"
+import { useCallback, useEffect, useRef } from "react"
+import type { FileEntry } from "@/entities/file-entry"
+import { ColumnHeader, FileRow } from "@/entities/file-entry"
+import { useLayoutStore } from "@/features/layout"
+import { VIRTUALIZATION } from "@/shared/config"
+import { cn } from "@/shared/lib"
 
 // Omit HTML attributes that conflict with component props
 interface VirtualFileListProps
   extends Omit<React.HTMLAttributes<HTMLDivElement>, "onSelect" | "onDrop"> {
-  files: FileEntry[];
-  selectedPaths: Set<string>;
-  onSelect: (path: string, e: React.MouseEvent) => void;
-  onOpen: (path: string, isDir: boolean) => void;
-  onEmptyContextMenu?: () => void;
-  onFileDrop?: (sources: string[], destination: string) => void;
-  getSelectedPaths?: () => string[];
-  className?: string;
+  files: FileEntry[]
+  selectedPaths: Set<string>
+  onSelect: (path: string, e: React.MouseEvent) => void
+  onOpen: (path: string, isDir: boolean) => void
+  onEmptyContextMenu?: () => void
+  onFileDrop?: (sources: string[], destination: string) => void
+  getSelectedPaths?: () => string[]
+  className?: string
 }
 
 export function VirtualFileList({
@@ -30,66 +30,64 @@ export function VirtualFileList({
   className,
   ...rest
 }: VirtualFileListProps) {
-  const parentRef = useRef<HTMLDivElement>(null);
-  const columnWidths = useLayoutStore((s) => s.layout.columnWidths);
-  const setColumnWidth = useLayoutStore((s) => s.setColumnWidth);
+  const parentRef = useRef<HTMLDivElement>(null)
+  const columnWidths = useLayoutStore((s) => s.layout.columnWidths)
+  const setColumnWidth = useLayoutStore((s) => s.setColumnWidth)
 
   const rowVirtualizer = useVirtualizer({
     count: files.length,
     getScrollElement: () => parentRef.current,
     estimateSize: () => VIRTUALIZATION.ROW_HEIGHT,
     overscan: VIRTUALIZATION.OVERSCAN,
-  });
+  })
 
   const handleColumnResize = useCallback(
     (column: "size" | "date" | "padding", width: number) => {
-      setColumnWidth(column, width);
+      setColumnWidth(column, width)
     },
-    [setColumnWidth]
-  );
+    [setColumnWidth],
+  )
   // Cache per-path handlers to avoid recreating closures for virtualized items
-  const selectHandlerCache = useRef<Map<string, (e: React.MouseEvent) => void>>(
-    new Map()
-  );
-  const openHandlerCache = useRef<Map<string, () => void>>(new Map());
+  const selectHandlerCache = useRef<Map<string, (e: React.MouseEvent) => void>>(new Map())
+  const openHandlerCache = useRef<Map<string, () => void>>(new Map())
   const getSelectHandler = useCallback(
     (path: string) => {
-      const cached = selectHandlerCache.current.get(path);
-      if (cached) return cached;
-      const handler = (e: React.MouseEvent) => onSelect(path, e);
-      selectHandlerCache.current.set(path, handler);
-      return handler;
+      const cached = selectHandlerCache.current.get(path)
+      if (cached) return cached
+      const handler = (e: React.MouseEvent) => onSelect(path, e)
+      selectHandlerCache.current.set(path, handler)
+      return handler
     },
-    [onSelect]
-  );
+    [onSelect],
+  )
   const getOpenHandler = useCallback(
     (path: string, isDir: boolean) => {
-      const cached = openHandlerCache.current.get(path);
-      if (cached) return cached;
-      const handler = () => onOpen(path, isDir);
-      openHandlerCache.current.set(path, handler);
-      return handler;
+      const cached = openHandlerCache.current.get(path)
+      if (cached) return cached
+      const handler = () => onOpen(path, isDir)
+      openHandlerCache.current.set(path, handler)
+      return handler
     },
-    [onOpen]
-  );
+    [onOpen],
+  )
 
   const handleContextMenu = (e: React.MouseEvent) => {
-    const target = e.target as HTMLElement;
-    const fileRow = target.closest("[data-file-row]");
+    const target = e.target as HTMLElement
+    const fileRow = target.closest("[data-file-row]")
     if (!fileRow && onEmptyContextMenu) {
-      onEmptyContextMenu();
+      onEmptyContextMenu()
     }
-  };
+  }
 
   // Clear handler caches when files list changes (to avoid stale closures / memory growth)
   useEffect(() => {
-    selectHandlerCache.current.clear();
-    openHandlerCache.current.clear();
+    selectHandlerCache.current.clear()
+    openHandlerCache.current.clear()
     return () => {
-      selectHandlerCache.current.clear();
-      openHandlerCache.current.clear();
-    };
-  }, []);
+      selectHandlerCache.current.clear()
+      openHandlerCache.current.clear()
+    }
+  }, [])
 
   return (
     <div className={cn("flex flex-col h-full", className)} {...rest}>
@@ -98,18 +96,16 @@ export function VirtualFileList({
         onColumnResize={handleColumnResize}
         className="shrink-0"
       />
-      <div
-        ref={parentRef}
-        className="flex-1 overflow-auto"
-        onContextMenu={handleContextMenu}>
+      <div ref={parentRef} className="flex-1 overflow-auto" onContextMenu={handleContextMenu}>
         <div
           style={{
             height: `${rowVirtualizer.getTotalSize()}px`,
             width: "100%",
             position: "relative",
-          }}>
+          }}
+        >
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
-            const file = files[virtualRow.index];
+            const file = files[virtualRow.index]
             return (
               <div
                 key={file.path}
@@ -121,7 +117,8 @@ export function VirtualFileList({
                   width: "100%",
                   height: `${virtualRow.size}px`,
                   transform: `translateY(${virtualRow.start}px)`,
-                }}>
+                }}
+              >
                 <FileRow
                   file={file}
                   isSelected={selectedPaths.has(file.path)}
@@ -132,10 +129,10 @@ export function VirtualFileList({
                   columnWidths={columnWidths}
                 />
               </div>
-            );
+            )
           })}
         </div>
       </div>
     </div>
-  );
+  )
 }

@@ -101,6 +101,6 @@ export function getParent(path: string): string {
   const i = Math.max(path.lastIndexOf("\\"), path.lastIndexOf("/"));
   if (i < 0) return path;
   const parent = path.slice(0, i);
-  if (/^[A-Za-z]:$/.test(parent)) return parent + "\\";
+  if (/^[A-Za-z]:$/.test(parent)) return `${parent}\\`;
   return parent;
 }

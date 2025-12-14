@@ -1,44 +1,39 @@
-import { openPath } from "@tauri-apps/plugin-opener";
-import { Pin, Trash2 } from "lucide-react";
-import { FileIcon } from "@/entities/file-entry";
-import { useHomeStore } from "@/features/home";
-import { VIEW_MODES } from "@/shared/config";
-import { formatRelativeDate, getExtension } from "@/shared/lib";
-import {
-  ContextMenu,
-  ContextMenuContent,
-  ContextMenuItem,
-  ContextMenuTrigger,
-} from "@/shared/ui";
+import { openPath } from "@tauri-apps/plugin-opener"
+import { Pin, Trash2 } from "lucide-react"
+import { FileIcon } from "@/entities/file-entry"
+import { useHomeStore } from "@/features/home"
+import { VIEW_MODES } from "@/shared/config"
+import { formatRelativeDate, getExtension } from "@/shared/lib"
+import { ContextMenu, ContextMenuContent, ContextMenuItem, ContextMenuTrigger } from "@/shared/ui"
 
 interface HomeItemProps {
-  item: import("../model/store").HomeItem;
-  onOpenDir?: (path: string) => void;
-  viewMode?: (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
+  item: import("../model/store").HomeItem
+  onOpenDir?: (path: string) => void
+  viewMode?: (typeof VIEW_MODES)[keyof typeof VIEW_MODES]
 }
 
 export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
-  const togglePin = useHomeStore((s) => s.togglePin);
-  const removeItem = useHomeStore((s) => s.removeItem);
-  const isPinned = useHomeStore((s) => s.items[item.path]?.pinned);
+  const togglePin = useHomeStore((s) => s.togglePin)
+  const removeItem = useHomeStore((s) => s.removeItem)
+  const isPinned = useHomeStore((s) => s.items[item.path]?.pinned)
 
   const handleOpen = async (e?: React.MouseEvent) => {
-    e?.stopPropagation();
+    e?.stopPropagation()
     if (item.isDir) {
-      onOpenDir?.(item.path);
+      onOpenDir?.(item.path)
     } else {
       try {
-        await openPath(item.path);
+        await openPath(item.path)
       } catch (e) {
-        console.error("Failed to open Home item:", e);
+        console.error("Failed to open Home item:", e)
       }
     }
-  };
+  }
 
-  const extension = getExtension(item.name);
+  const extension = getExtension(item.name)
 
   // viewMode should be provided by parent to avoid cross-feature import
-  const mode = viewMode ?? VIEW_MODES.list;
+  const mode = viewMode ?? VIEW_MODES.list
 
   if (mode === VIEW_MODES.grid) {
     return (
@@ -50,14 +45,12 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
               onDoubleClick={handleOpen}
               className="flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer select-none hover:bg-accent/50 w-full"
               aria-label={`Открыть ${item.name}`}
-              tabIndex={0}>
+              tabIndex={0}
+            >
               <FileIcon extension={extension} isDir={item.isDir} size={40} />
-              <span className="text-xs text-center truncate w-full">
-                {item.name}
-              </span>
+              <span className="text-xs text-center truncate w-full">{item.name}</span>
               <div className="text-xs text-muted-foreground mt-1 text-center w-full">
-                {item.openCount}× •{" "}
-                {formatRelativeDate(Math.floor(item.lastOpened / 1000))}
+                {item.openCount}× • {formatRelativeDate(Math.floor(item.lastOpened / 1000))}
               </div>
             </button>
 
@@ -67,23 +60,25 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
                 <button
                   type="button"
                   onClick={(e) => {
-                    e.stopPropagation();
-                    togglePin(item.path, item.isDir, item.name);
+                    e.stopPropagation()
+                    togglePin(item.path, item.isDir, item.name)
                   }}
                   title={isPinned ? "Открепить" : "Закрепить"}
                   aria-pressed={isPinned}
-                  className="p-1 bg-background/80 rounded-md hover:bg-accent/60 shadow">
+                  className="p-1 bg-background/80 rounded-md hover:bg-accent/60 shadow"
+                >
                   <Pin className="h-4 w-4" />
                 </button>
                 <button
                   type="button"
                   onClick={(e) => {
-                    e.stopPropagation();
-                    removeItem(item.path);
+                    e.stopPropagation()
+                    removeItem(item.path)
                   }}
                   title="Удалить из истории"
                   aria-label={`Удалить ${item.name} из истории`}
-                  className="p-1 bg-background/80 rounded-md hover:bg-destructive/60 text-destructive shadow">
+                  className="p-1 bg-background/80 rounded-md hover:bg-destructive/60 text-destructive shadow"
+                >
                   <Trash2 className="h-4 w-4" />
                 </button>
               </div>
@@ -92,8 +87,7 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
         </ContextMenuTrigger>
 
         <ContextMenuContent className="w-44">
-          <ContextMenuItem
-            onClick={() => togglePin(item.path, item.isDir, item.name)}>
+          <ContextMenuItem onClick={() => togglePin(item.path, item.isDir, item.name)}>
             <Pin className="mr-2 h-4 w-4" />
             {isPinned ? "Открепить" : "Закрепить"}
           </ContextMenuItem>
@@ -103,7 +97,7 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
           </ContextMenuItem>
         </ContextMenuContent>
       </ContextMenu>
-    );
+    )
   }
 
   return (
@@ -114,38 +108,40 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
             type="button"
             className="flex items-center gap-3 p-2 rounded hover:bg-accent/50 w-full text-left"
             onDoubleClick={handleOpen}
-            aria-label={`Открыть ${item.name}`}>
+            aria-label={`Открыть ${item.name}`}
+          >
             <FileIcon extension={extension} isDir={item.isDir} size={24} />
             <div className="flex-1 min-w-0">
               <div className="text-sm truncate" title={item.name}>
                 {item.name}
               </div>
               <div className="text-xs text-muted-foreground">
-                {item.openCount}× •{" "}
-                {formatRelativeDate(Math.floor(item.lastOpened / 1000))}
+                {item.openCount}× • {formatRelativeDate(Math.floor(item.lastOpened / 1000))}
               </div>
             </div>
             <div className="flex items-center gap-1 invisible group-hover:visible pointer-events-none">
               <button
                 type="button"
                 onClick={(e) => {
-                  e.stopPropagation();
-                  togglePin(item.path, item.isDir, item.name);
+                  e.stopPropagation()
+                  togglePin(item.path, item.isDir, item.name)
                 }}
                 title={isPinned ? "Открепить" : "Закрепить"}
                 aria-pressed={isPinned}
-                className="pointer-events-auto p-1 bg-background/80 rounded-md hover:bg-accent/60 shadow">
+                className="pointer-events-auto p-1 bg-background/80 rounded-md hover:bg-accent/60 shadow"
+              >
                 <Pin className="h-4 w-4" />
               </button>
               <button
                 type="button"
                 onClick={(e) => {
-                  e.stopPropagation();
-                  removeItem(item.path);
+                  e.stopPropagation()
+                  removeItem(item.path)
                 }}
                 title="Удалить из истории"
                 aria-label={`Удалить ${item.name} из истории`}
-                className="pointer-events-auto p-1 bg-background/80 rounded-md hover:bg-destructive/60 text-destructive shadow">
+                className="pointer-events-auto p-1 bg-background/80 rounded-md hover:bg-destructive/60 text-destructive shadow"
+              >
                 <Trash2 className="h-4 w-4" />
               </button>
             </div>
@@ -154,8 +150,7 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
       </ContextMenuTrigger>
 
       <ContextMenuContent className="w-44">
-        <ContextMenuItem
-          onClick={() => togglePin(item.path, item.isDir, item.name)}>
+        <ContextMenuItem onClick={() => togglePin(item.path, item.isDir, item.name)}>
           <Pin className="mr-2 h-4 w-4" />
           {isPinned ? "Открепить" : "Закрепить"}
         </ContextMenuItem>
@@ -165,7 +160,7 @@ export function HomeItem({ item, onOpenDir, viewMode }: HomeItemProps) {
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
-  );
+  )
 }
 
-export default HomeItem;
+export default HomeItem

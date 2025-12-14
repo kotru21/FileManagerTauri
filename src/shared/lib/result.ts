@@ -1,4 +1,4 @@
-import type { Result } from "@/shared/api/tauri";
+import type { Result } from "@/shared/api/tauri"
 
 /**
  * Helper to unwrap Result from tauri-specta
@@ -6,9 +6,9 @@ import type { Result } from "@/shared/api/tauri";
  */
 export function unwrapResult<T, E>(result: Result<T, E>): T {
   if (result.status === "ok") {
-    return result.data;
+    return result.data
   }
-  throw new Error(String(result.error));
+  throw new Error(String(result.error))
 }
 
 /**
@@ -16,9 +16,9 @@ export function unwrapResult<T, E>(result: Result<T, E>): T {
  */
 export function unwrapResultOrNull<T, E>(result: Result<T, E>): T | null {
   if (result.status === "ok") {
-    return result.data;
+    return result.data
   }
-  return null;
+  return null
 }
 
 /**
@@ -26,7 +26,7 @@ export function unwrapResultOrNull<T, E>(result: Result<T, E>): T | null {
  */
 export function unwrapResultOr<T, E>(result: Result<T, E>, defaultValue: T): T {
   if (result.status === "ok") {
-    return result.data;
+    return result.data
   }
-  return defaultValue;
+  return defaultValue
 }

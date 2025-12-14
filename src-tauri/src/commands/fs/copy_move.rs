@@ -86,7 +86,7 @@ pub async fn copy_entries_parallel(
                 .await
                 .map_err(|_| FsError::Internal)?;
             let current = counter.fetch_add(1, Ordering::Relaxed) + 1;
-            if current == total || current % 5 == 0 {
+            if current == total || current.is_multiple_of(5) {
                 let _ = app.emit("copy-progress", CopyProgress { current, total, file: src_str });
             }
             result

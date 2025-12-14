@@ -1,7 +1,7 @@
 //! File preview generation for text and image files.
 
 use crate::commands::config::limits;
-use crate::commands::error::{FsError, FsResult};
+use crate::commands::error::FsResult;
 use crate::commands::fs::run_blocking;
 use crate::commands::validation::validate_path;
 

@@ -50,6 +50,7 @@ impl FileEntry {
     }
 
     /// Create a FileEntry from a path with metadata.
+    #[allow(dead_code)]
     pub fn from_path(path: &Path, metadata: &fs::Metadata) -> Option<Self> {
         let name = path.file_name()?.to_str()?.to_string();
 

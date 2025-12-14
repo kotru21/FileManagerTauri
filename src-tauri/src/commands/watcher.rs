@@ -70,10 +70,8 @@ pub async fn watch_directory(path: String, app: AppHandle, state: State<'_, Arc<
                 Err(mpsc::RecvTimeoutError::Disconnected) => break,
             }
         }
-        if let Ok(mut flags) = state_clone.stop_flags.lock() {
-            if let Some(current) = flags.get(&cleanup_key) {
-                if Arc::ptr_eq(current, &stop_flag_clone) { flags.remove(&cleanup_key); }
-            }
+        if let Ok(mut flags) = state_clone.stop_flags.lock() && let Some(current) = flags.get(&cleanup_key) && Arc::ptr_eq(current, &stop_flag_clone) {
+            flags.remove(&cleanup_key);
         }
         tracing::debug!(path = %cleanup_key, "Directory watch stopped");
     });

@@ -18,10 +18,8 @@ pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), S
 pub fn delete_entries_sync(paths: Vec<String>, permanent: bool) -> FsResult<()> {
     let validated = validate_paths(&paths)?;
     for path in validated {
-        if !path.exists() {
-            if fs::symlink_metadata(&path).is_err() {
-                continue;
-            }
+        if !path.exists() && fs::symlink_metadata(&path).is_err() {
+            continue;
         }
         if permanent {
             delete_permanent(&path)?;

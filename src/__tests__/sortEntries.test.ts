@@ -1,6 +1,6 @@
-import { describe, it, expect } from "vitest";
-import { sortEntries, filterEntries } from "@/entities/file-entry/model/types";
-import type { FileEntry } from "@/entities/file-entry";
+import { describe, expect, it } from "vitest"
+import type { FileEntry } from "@/entities/file-entry"
+import { filterEntries, sortEntries } from "@/entities/file-entry/model/types"
 
 describe("sortEntries - name using name_lower", () => {
   it("should sort case-insensitive using name_lower", () => {
@@ -12,7 +12,7 @@ describe("sortEntries - name using name_lower", () => {
       size: 0,
       modified: null,
       extension: null,
-    };
+    }
     const b: FileEntry = {
       path: "2",
       name: "aaa",
@@ -21,11 +21,11 @@ describe("sortEntries - name using name_lower", () => {
       size: 0,
       modified: null,
       extension: null,
-    };
-    const entries = sortEntries([a, b], { field: "name", direction: "asc" });
-    expect(entries[0].name_lower).toBe("aaa");
-  });
-});
+    }
+    const entries = sortEntries([a, b], { field: "name", direction: "asc" })
+    expect(entries[0].name_lower).toBe("aaa")
+  })
+})
 
 describe("filterEntries - uses name_lower for case-insensitive filtering", () => {
   it("should filter using name_lower", () => {
@@ -48,9 +48,9 @@ describe("filterEntries - uses name_lower for case-insensitive filtering", () =>
         modified: null,
         extension: null,
       },
-    ];
-    const res = filterEntries(entries, { searchQuery: "abc" });
-    expect(res.length).toBe(1);
-    expect(res[0].name_lower).toBe("abc");
-  });
-});
+    ]
+    const res = filterEntries(entries, { searchQuery: "abc" })
+    expect(res.length).toBe(1)
+    expect(res[0].name_lower).toBe("abc")
+  })
+})

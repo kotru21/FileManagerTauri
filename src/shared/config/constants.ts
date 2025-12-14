@@ -17,7 +17,7 @@ export const HOTKEYS = {
   forward: "alt+right",
   up: "alt+up",
   addressBar: "ctrl+l",
-} as const;
+} as const
 
 // =====================================
 // Cache times (ms)
@@ -29,7 +29,7 @@ export const CACHE_TIME = {
   DRIVES: 60_000,
   /** Время кэширования результатов поиска */
   SEARCH: 10_000,
-} as const;
+} as const
 
 // =====================================
 // Search settings
@@ -39,7 +39,7 @@ export const SEARCH = {
   MIN_QUERY_LENGTH: 2,
   /** Интервал throttle для обновления прогресса (мс) */
   PROGRESS_THROTTLE_MS: 200,
-} as const;
+} as const
 
 // =====================================
 // Virtualization settings
@@ -55,7 +55,7 @@ export const VIRTUALIZATION = {
   STREAM_THRESHOLD: 2_000,
   /** Размер batch при стриминге директории */
   STREAM_BATCH_SIZE: 100,
-} as const;
+} as const
 
 // =====================================
 // Версии для persist storage
@@ -65,7 +65,7 @@ export const STORAGE_VERSIONS = {
   LAYOUT: 1,
   FILE_SELECTION: 1,
   HOME: 1,
-} as const;
+} as const
 
 // =====================================
 // Иконки файлов по расширению
@@ -98,7 +98,7 @@ export const FILE_ICONS_BY_EXTENSION: Record<string, string> = {
   "7z": "archive",
   tar: "archive",
   gz: "archive",
-};
+}
 
 // =====================================
 // Настройки сортировки по умолчанию
@@ -106,7 +106,7 @@ export const FILE_ICONS_BY_EXTENSION: Record<string, string> = {
 export const DEFAULT_SORT = {
   field: "name" as const,
   direction: "asc" as const,
-};
+}
 
 // =====================================
 // Режимы отображения
@@ -115,7 +115,7 @@ export const VIEW_MODES = {
   list: "list",
   grid: "grid",
   details: "details",
-} as const;
+} as const
 
 // =====================================
 // Настройки для домашней страницы
@@ -126,6 +126,6 @@ export const HOME = {
   MAX_RECENT_ITEMS: 20,
   /** Max entries to persist in home storage to prevent unbounded localStorage growth */
   MAX_STORED_ITEMS: 200,
-} as const;
+} as const
 
-export type ViewMode = (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
+export type ViewMode = (typeof VIEW_MODES)[keyof typeof VIEW_MODES]

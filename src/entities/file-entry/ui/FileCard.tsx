@@ -1,13 +1,13 @@
-import type { FileEntry } from "@/entities/file-entry";
-import { cn } from "@/shared/lib";
-import { FileIcon } from "./FileIcon";
-import { memo } from "react";
+import { memo } from "react"
+import type { FileEntry } from "@/entities/file-entry"
+import { cn } from "@/shared/lib"
+import { FileIcon } from "./FileIcon"
 
 interface FileCardProps {
-  file: FileEntry;
-  isSelected: boolean;
-  onSelect: (e: React.MouseEvent) => void;
-  onOpen: () => void;
+  file: FileEntry
+  isSelected: boolean
+  onSelect: (e: React.MouseEvent) => void
+  onOpen: () => void
 }
 
 export const FileCard = memo(
@@ -18,17 +18,17 @@ export const FileCard = memo(
         className={cn(
           "flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer select-none",
           "hover:bg-accent/50 transition-colors w-24",
-          isSelected && "bg-accent"
+          isSelected && "bg-accent",
         )}
         onClick={onSelect}
-        onDoubleClick={onOpen}>
+        onDoubleClick={onOpen}
+      >
         <FileIcon extension={file.extension} isDir={file.is_dir} size={40} />
         <span className="text-xs text-center truncate w-full" title={file.name}>
           {file.name}
         </span>
       </button>
-    );
+    )
   },
-  (prev, next) =>
-    prev.file.path === next.file.path && prev.isSelected === next.isSelected
-);
+  (prev, next) => prev.file.path === next.file.path && prev.isSelected === next.isSelected,
+)

@@ -1,14 +1,14 @@
-import { useCallback, useEffect, useRef } from "react";
-import { commands, type SearchOptions } from "@/shared/api/tauri";
-import { SEARCH } from "@/shared/config";
-import { useTauriEvent } from "@/shared/lib/useTauriEvent";
-import { toast, useToastStore } from "@/shared/ui";
-import { type SearchProgress, useSearchStore } from "../model/store";
+import { useCallback, useEffect, useRef } from "react"
+import { commands, type SearchOptions } from "@/shared/api/tauri"
+import { SEARCH } from "@/shared/config"
+import { useTauriEvent } from "@/shared/lib/useTauriEvent"
+import { toast, useToastStore } from "@/shared/ui"
+import { type SearchProgress, useSearchStore } from "../model/store"
 
 interface SearchProgressEvent {
-  scanned: number;
-  found: number;
-  current_path: string;
+  scanned: number
+  found: number
+  current_path: string
 }
 
 export function useSearchWithProgress() {
@@ -23,30 +23,30 @@ export function useSearchWithProgress() {
     setIsSearching,
     setProgress,
     setResults,
-  } = useSearchStore();
+  } = useSearchStore()
 
-  const abortRef = useRef(false);
-  const isMountedRef = useRef(true);
-  const lastUpdateRef = useRef(0);
-  const searchingToastRef = useRef<string | null>(null);
+  const abortRef = useRef(false)
+  const isMountedRef = useRef(true)
+  const lastUpdateRef = useRef(0)
+  const searchingToastRef = useRef<string | null>(null)
 
   useEffect(() => {
-    isMountedRef.current = true;
+    isMountedRef.current = true
     return () => {
-      isMountedRef.current = false;
-    };
-  }, []);
+      isMountedRef.current = false
+    }
+  }, [])
 
   const startSearch = useCallback(async () => {
-    if (!searchPath || query.length < 2) return;
+    if (!searchPath || query.length < 2) return
 
-    abortRef.current = false;
-    setIsSearching(true);
-    setProgress({ scanned: 0, found: 0, currentPath: "" });
-    setResults([]);
+    abortRef.current = false
+    setIsSearching(true)
+    setProgress({ scanned: 0, found: 0, currentPath: "" })
+    setResults([])
 
     // Show toast for search start
-    searchingToastRef.current = toast.info(`Поиск "${query}"...`, 0);
+    searchingToastRef.current = toast.info(`Поиск "${query}"...`, 0)
 
     // Remove previous listener if any — managed by useTauriEvent
 
@@ -58,89 +58,81 @@ export function useSearchWithProgress() {
         case_sensitive: caseSensitive,
         max_results: 1000,
         file_extensions: null,
-      };
+      }
 
-      const result = await commands.searchFilesStream(options);
+      const result = await commands.searchFilesStream(options)
 
       // Remove search toast
       if (searchingToastRef.current) {
-        useToastStore.getState().removeToast(searchingToastRef.current);
-        searchingToastRef.current = null;
+        useToastStore.getState().removeToast(searchingToastRef.current)
+        searchingToastRef.current = null
       }
 
       if (result.status === "ok" && !abortRef.current) {
-        setResults(result.data);
+        setResults(result.data)
 
         // Toast with results
         if (result.data.length === 0) {
-          toast.info("Ничего не найдено", 3000);
+          toast.info("Ничего не найдено", 3000)
         } else {
-          toast.success(`Найдено ${result.data.length} результатов`, 2000);
+          toast.success(`Найдено ${result.data.length} результатов`, 2000)
         }
       } else if (result.status === "error") {
-        console.error("Search error:", result.error);
-        toast.error("Ошибка поиска", 3000);
+        console.error("Search error:", result.error)
+        toast.error("Ошибка поиска", 3000)
       }
     } catch (error) {
-      console.error("Search failed:", error);
-      toast.error("Ошибка поиска", 3000);
+      console.error("Search failed:", error)
+      toast.error("Ошибка поиска", 3000)
 
       if (searchingToastRef.current) {
-        useToastStore.getState().removeToast(searchingToastRef.current);
-        searchingToastRef.current = null;
+        useToastStore.getState().removeToast(searchingToastRef.current)
+        searchingToastRef.current = null
       }
     } finally {
-      setIsSearching(false);
-      setProgress(null);
+      setIsSearching(false)
+      setProgress(null)
 
       // Unlisten handled by useTauriEvent
     }
-  }, [
-    searchPath,
-    query,
-    searchContent,
-    caseSensitive,
-    setIsSearching,
-    setProgress,
-    setResults,
-  ]);
+  }, [searchPath, query, searchContent, caseSensitive, setIsSearching, setProgress, setResults])
 
   const cancelSearch = useCallback(
     (silent = false) => {
-      abortRef.current = true;
-      setIsSearching(false);
-      setProgress(null);
+      abortRef.current = true
+      setIsSearching(false)
+      setProgress(null)
 
       if (searchingToastRef.current) {
-        useToastStore.getState().removeToast(searchingToastRef.current);
-        searchingToastRef.current = null;
+        useToastStore.getState().removeToast(searchingToastRef.current)
+        searchingToastRef.current = null
       }
 
       if (!silent) {
-        toast.warning("Поиск отменён", 2000);
+        toast.warning("Поиск отменён", 2000)
       }
     },
-    [setIsSearching, setProgress]
-  );
+    [setIsSearching, setProgress],
+  )
 
   // Register Tauri event listener for search-progress while searching
   useTauriEvent<SearchProgressEvent>(
     "search-progress",
     (payload) => {
-      if (abortRef.current) return;
-      const now = Date.now();
-      if (now - lastUpdateRef.current < SEARCH.PROGRESS_THROTTLE_MS) return;
-      lastUpdateRef.current = now;
+      if (abortRef.current) return
+      const now = Date.now()
+      if (now - lastUpdateRef.current < SEARCH.PROGRESS_THROTTLE_MS) return
+      lastUpdateRef.current = now
       const prog: SearchProgress = {
         scanned: payload.scanned,
         found: payload.found,
         currentPath: payload.current_path,
-      };
-      setProgress(prog);
+      }
+      setProgress(prog)
     },
     [setProgress],
-    isSearching
-  );
+    isSearching,
+  )
 
   return {
     startSearch,
@@ -148,5 +140,5 @@ export function useSearchWithProgress() {
     isSearching,
     progress,
     results,
-  };
+  }
 }

@@ -1,9 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
-import { commands } from "@/shared/api/tauri";
 import { invoke as TAURI_INVOKE } from "@tauri-apps/api/core";
-import type { FileEntry, DriveInfo } from "@/shared/api/tauri";
+import type { DriveInfo, FileEntry } from "@/shared/api/tauri";
+import { commands } from "@/shared/api/tauri";
 import { CACHE_TIME } from "@/shared/config";
-import { unwrapResult, getParent } from "@/shared/lib";
+import { getParent, unwrapResult } from "@/shared/lib";
 
 export const fileKeys = {
   all: ["files"] as const,
@@ -116,7 +116,7 @@ export function useRenameEntry() {
     onSuccess: (_data, { oldPath }) => {
       const i = Math.max(oldPath.lastIndexOf("\\"), oldPath.lastIndexOf("/"));
       let parent = i < 0 ? oldPath : oldPath.slice(0, i);
-      if (/^[A-Za-z]:$/.test(parent)) parent = parent + "\\";
+      if (/^[A-Za-z]:$/.test(parent)) parent = `${parent}\\`;
       queryClient.invalidateQueries({
         queryKey: fileKeys.directory(getParent(oldPath)),
       });
