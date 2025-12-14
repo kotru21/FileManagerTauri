@@ -1,159 +1,133 @@
-use serde::{Deserialize, Serialize};
-use specta::Type;
+//! File system operations: read, create, copy, move, delete.
+
 use std::fs;
 use std::path::Path;
-use std::time::SystemTime;
-use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use tauri::async_runtime::spawn_blocking;
-use tauri::{AppHandle, Emitter};
+use std::sync::Arc;
+
+use tauri::{async_runtime::spawn_blocking, AppHandle, Emitter};
 use tokio::task::JoinSet;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct FileEntry {
-    pub name: String,
-    pub path: String,
-    pub is_dir: bool,
-    pub is_hidden: bool,
-    pub size: u64,
-    pub modified: Option<i64>,
-    pub created: Option<i64>,
-    pub extension: Option<String>,
-}
+use crate::constants::DIRECTORY_BATCH_SIZE;
+use crate::error::{FileManagerError, Result};
+use crate::models::{CopyProgress, DriveInfo, FileEntry};
 
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct DriveInfo {
-    pub name: String,
-    pub path: String,
-    pub total_space: u64,
-    pub free_space: u64,
-    pub drive_type: String,
-}
-
-#[allow(dead_code)]
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct OperationProgress {
-    pub current: u64,
-    pub total: u64,
-    pub current_file: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Type)]
-pub struct CopyProgress {
-    pub current: usize,
-    pub total: usize,
-    pub file: String,
-}
-
-fn system_time_to_timestamp(time: SystemTime) -> Option<i64> {
-    time.duration_since(SystemTime::UNIX_EPOCH)
-        .ok()
-        .map(|d| d.as_secs() as i64)
-}
-
-fn is_hidden(path: &Path) -> bool {
-    #[cfg(windows)]
-    {
-        use std::os::windows::fs::MetadataExt;
-        if let Ok(metadata) = fs::metadata(path) {
-            const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
-            return metadata.file_attributes() & FILE_ATTRIBUTE_HIDDEN != 0;
-        }
-    }
-    path.file_name()
-        .and_then(|n| n.to_str())
-        .map(|n| n.starts_with('.'))
-        .unwrap_or(false)
-}
-
+/// Reads the contents of a directory.
 #[tauri::command]
 #[specta::specta]
-pub async fn read_directory(path: String) -> Result<Vec<FileEntry>, String> {
+pub async fn read_directory(path: String) -> std::result::Result<Vec<FileEntry>, String> {
     let path_clone = path.clone();
-    spawn_blocking(move || read_directory_sync(path_clone))
+    spawn_blocking(move || read_directory_sync(&path_clone))
         .await
-        .map_err(|e| e.to_string())
-        .and_then(|r| r)
+        .map_err(|e| e.to_string())?
+        .map_err(Into::into)
 }
 
-fn read_directory_sync(path: String) -> Result<Vec<FileEntry>, String> {
-    let dir_path = Path::new(&path);
-    
+/// Synchronous directory reading implementation.
+fn read_directory_sync(path: &str) -> Result<Vec<FileEntry>> {
+    let dir_path = Path::new(path);
+
     if !dir_path.exists() {
-        return Err(format!("Directory does not exist: {}", path));
+        return Err(FileManagerError::DirectoryNotFound(path.to_string()));
     }
-    
+
     if !dir_path.is_dir() {
-        return Err(format!("Path is not a directory: {}", path));
+        return Err(FileManagerError::NotADirectory(path.to_string()));
     }
 
-    let mut entries = Vec::new();
-    
     let read_dir = fs::read_dir(dir_path)
-        .map_err(|e| format!("Failed to read directory: {}", e))?;
+        .map_err(|e| FileManagerError::ReadDirError(e.to_string()))?;
 
-    for entry in read_dir.flatten() {
-        let entry_path = entry.path();
-        let metadata = match entry.metadata() {
-            Ok(m) => m,
-            Err(_) => continue,
-        };
+    let mut entries: Vec<FileEntry> = read_dir
+        .flatten()
+        .filter_map(|entry| {
+            let entry_path = entry.path();
+            entry.metadata().ok().map(|metadata| {
+                FileEntry::from_path(&entry_path, &metadata)
+            })
+        })
+        .collect();
 
-        let name = entry_path
-            .file_name()
-            .and_then(|n| n.to_str())
-            .unwrap_or("")
-            .to_string();
-
-        let extension = entry_path
-            .extension()
-            .and_then(|e| e.to_str())
-            .map(|s| s.to_lowercase());
-
-        entries.push(FileEntry {
-            name,
-            path: entry_path.to_string_lossy().to_string(),
-            is_dir: metadata.is_dir(),
-            is_hidden: is_hidden(&entry_path),
-            size: if metadata.is_file() { metadata.len() } else { 0 },
-            modified: metadata.modified().ok().and_then(system_time_to_timestamp),
-            created: metadata.created().ok().and_then(system_time_to_timestamp),
-            extension,
-        });
-    }
-
-    entries.sort_by(|a, b| {
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+    // Sort: directories first, then alphabetically
+    entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
 
     Ok(entries)
 }
 
+/// Streams directory contents in batches for large directories.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
+pub async fn read_directory_stream(
+    path: String,
+    app: AppHandle,
+) -> std::result::Result<(), String> {
+    let path_clone = path.clone();
+
+    spawn_blocking(move || -> Result<()> {
+        let dir_path = Path::new(&path_clone);
+
+        if !dir_path.exists() {
+            return Err(FileManagerError::DirectoryNotFound(path_clone.clone()));
+        }
+
+        let read_dir = fs::read_dir(dir_path)
+            .map_err(|e| FileManagerError::ReadDirError(e.to_string()))?;
+
+        let mut batch = Vec::with_capacity(DIRECTORY_BATCH_SIZE);
+
+        for entry in read_dir.flatten() {
+            if let Some(file_entry) = entry
+                .metadata()
+                .ok()
+                .map(|m| FileEntry::from_path(&entry.path(), &m))
+            {
+                batch.push(file_entry);
+
+                if batch.len() >= DIRECTORY_BATCH_SIZE {
+                    let _ = app.emit("directory-batch", &batch);
+                    batch.clear();
+                }
+            }
+        }
+
+        // Emit remaining entries
+        if !batch.is_empty() {
+            let _ = app.emit("directory-batch", &batch);
+        }
+
+        let _ = app.emit("directory-complete", &path_clone);
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(Into::into)
+}
+
+/// Returns a list of available drives on the system.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_drives() -> std::result::Result<Vec<DriveInfo>, String> {
     #[cfg(windows)]
     {
-        let mut drives = Vec::new();
-        for letter in b'A'..=b'Z' {
-            let path = format!("{}:\\", letter as char);
-            if Path::new(&path).exists() {
-                drives.push(DriveInfo {
+        let drives: Vec<DriveInfo> = (b'A'..=b'Z')
+            .filter_map(|letter| {
+                let path = format!("{}:\\", letter as char);
+                Path::new(&path).exists().then(|| DriveInfo {
                     name: format!("{}:", letter as char),
-                    path: path.clone(),
+                    path,
                     total_space: 0,
                     free_space: 0,
                     drive_type: "local".to_string(),
-                });
-            }
-        }
+                })
+            })
+            .collect();
         Ok(drives)
     }
-    
+
     #[cfg(not(windows))]
     {
         Ok(vec![DriveInfo {
@@ -166,292 +140,266 @@ pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
     }
 }
 
+/// Creates a new directory at the specified path.
 #[tauri::command]
 #[specta::specta]
-pub async fn create_directory(path: String) -> Result<(), String> {
-    println!("Creating directory: {}", path);
-    
+pub async fn create_directory(path: String) -> std::result::Result<(), String> {
     if path.is_empty() {
-        return Err("Path is empty".to_string());
+        return Err(FileManagerError::EmptyPath.to_string());
     }
-    
-    let dir_path = Path::new(&path);
-    
-    // Проверяем, что путь абсолютный
-    if !dir_path.is_absolute() {
-        return Err(format!("Path must be absolute: {}", path));
-    }
-    
-    fs::create_dir_all(&path)
-        .map_err(|e| format!("Failed to create directory: {} (path: {})", e, path))
-}
 
-#[tauri::command]
-#[specta::specta]
-pub async fn create_file(path: String) -> Result<(), String> {
-    println!("Creating file: {}", path);
-    
-    if path.is_empty() {
-        return Err("Path is empty".to_string());
+    let dir_path = Path::new(&path);
+
+    if !dir_path.is_absolute() {
+        return Err(FileManagerError::NotAbsolutePath(path).to_string());
     }
-    
-    let file_path = Path::new(&path);
-    
-    // Проверяем, что путь абсолютный
-    if !file_path.is_absolute() {
-        return Err(format!("Path must be absolute: {}", path));
-    }
-    
-    if let Some(parent) = file_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| format!("Failed to create parent directory: {} (path: {:?})", e, parent))?;
-        }
-    }
-    
-    fs::File::create(&path)
-        .map_err(|e| format!("Failed to create file: {} (path: {})", e, path))?;
+
+    fs::create_dir_all(dir_path)
+        .map_err(|e| FileManagerError::CreateDirError(format!("{} (path: {})", e, path)))?;
+
     Ok(())
 }
 
+/// Creates a new empty file at the specified path.
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_entries(paths: Vec<String>, permanent: bool) -> Result<(), String> {
+pub async fn create_file(path: String) -> std::result::Result<(), String> {
+    if path.is_empty() {
+        return Err(FileManagerError::EmptyPath.to_string());
+    }
+
+    let file_path = Path::new(&path);
+
+    if !file_path.is_absolute() {
+        return Err(FileManagerError::NotAbsolutePath(path).to_string());
+    }
+
+    // Ensure parent directory exists
+    if let Some(parent) = file_path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)
+                .map_err(|e| FileManagerError::CreateDirError(e.to_string()))?;
+        }
+    }
+
+    fs::File::create(file_path)
+        .map_err(|e| FileManagerError::CreateFileError(format!("{} (path: {})", e, path)))?;
+
+    Ok(())
+}
+
+/// Deletes files or directories.
+///
+/// # Arguments
+/// * `paths` - List of paths to delete
+/// * `permanent` - If true, permanently delete; otherwise move to trash (TODO)
+#[tauri::command]
+#[specta::specta]
+pub async fn delete_entries(
+    paths: Vec<String>,
+    permanent: bool,
+) -> std::result::Result<(), String> {
     for path in paths {
         let entry_path = Path::new(&path);
+
         if !entry_path.exists() {
             continue;
         }
 
         if permanent {
             if entry_path.is_dir() {
-                fs::remove_dir_all(&path)
-                    .map_err(|e| format!("Failed to delete directory {}: {}", path, e))?;
+                fs::remove_dir_all(entry_path)
+                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
             } else {
-                fs::remove_file(&path)
-                    .map_err(|e| format!("Failed to delete file {}: {}", path, e))?;
+                fs::remove_file(entry_path)
+                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
             }
         } else {
-            // TODO: Move to trash using system API
+            // TODO: Move to trash using system API (trash crate)
             if entry_path.is_dir() {
-                fs::remove_dir_all(&path)
-                    .map_err(|e| format!("Failed to delete directory {}: {}", path, e))?;
+                fs::remove_dir_all(entry_path)
+                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
             } else {
-                fs::remove_file(&path)
-                    .map_err(|e| format!("Failed to delete file {}: {}", path, e))?;
+                fs::remove_file(entry_path)
+                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
             }
         }
     }
+
     Ok(())
 }
 
+/// Renames a file or directory.
+///
+/// Returns the new path after renaming.
 #[tauri::command]
 #[specta::specta]
-pub async fn rename_entry(old_path: String, new_name: String) -> Result<String, String> {
+pub async fn rename_entry(
+    old_path: String,
+    new_name: String,
+) -> std::result::Result<String, String> {
     let old = Path::new(&old_path);
-    let new_path = old.parent()
-        .ok_or("Invalid path")?
+    let new_path = old
+        .parent()
+        .ok_or_else(|| FileManagerError::InvalidPath(old_path.clone()))?
         .join(&new_name);
-    
-    fs::rename(&old_path, &new_path)
-        .map_err(|e| format!("Failed to rename: {}", e))?;
-    
+
+    fs::rename(old, &new_path)
+        .map_err(|e| FileManagerError::RenameError(e.to_string()))?;
+
     Ok(new_path.to_string_lossy().to_string())
 }
 
+/// Copies files or directories to a destination.
 #[tauri::command]
 #[specta::specta]
-pub async fn copy_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
+pub async fn copy_entries(
+    sources: Vec<String>,
+    destination: String,
+) -> std::result::Result<(), String> {
     let dest_path = Path::new(&destination);
-    
+
     for source in sources {
         let src_path = Path::new(&source);
-        let file_name = src_path.file_name()
-            .ok_or("Invalid source path")?;
+        let file_name = src_path
+            .file_name()
+            .ok_or_else(|| FileManagerError::InvalidSourcePath)?;
         let target = dest_path.join(file_name);
-        
+
         if src_path.is_dir() {
             copy_dir_recursive(src_path, &target)?;
         } else {
-            fs::copy(&source, &target)
-                .map_err(|e| format!("Failed to copy {}: {}", source, e))?;
+            fs::copy(src_path, &target)
+                .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)))?;
         }
     }
+
     Ok(())
 }
 
-fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<(), String> {
-    fs::create_dir_all(dst)
-        .map_err(|e| format!("Failed to create directory: {}", e))?;
-    
-    for entry in fs::read_dir(src).map_err(|e| e.to_string())? {
-        let entry = entry.map_err(|e| e.to_string())?;
+/// Recursively copies a directory.
+fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
+    fs::create_dir_all(dst).map_err(|e| FileManagerError::CreateDirError(e.to_string()))?;
+
+    for entry in fs::read_dir(src).map_err(|e| FileManagerError::ReadDirError(e.to_string()))? {
+        let entry = entry.map_err(|e| FileManagerError::ReadDirError(e.to_string()))?;
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
-        
+
         if src_path.is_dir() {
             copy_dir_recursive(&src_path, &dst_path)?;
         } else {
             fs::copy(&src_path, &dst_path)
-                .map_err(|e| format!("Failed to copy: {}", e))?;
+                .map_err(|e| FileManagerError::CopyError(e.to_string()))?;
         }
     }
+
     Ok(())
 }
 
-#[tauri::command]
-#[specta::specta]
-pub async fn move_entries(sources: Vec<String>, destination: String) -> Result<(), String> {
-    let dest_path = Path::new(&destination);
-    
-    for source in sources {
-        let src_path = Path::new(&source);
-        let file_name = src_path.file_name()
-            .ok_or("Invalid source path")?;
-        let target = dest_path.join(file_name);
-        
-        fs::rename(&source, &target)
-            .map_err(|e| format!("Failed to move {}: {}", source, e))?;
-    }
-    Ok(())
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn get_file_content(path: String) -> Result<String, String> {
-    fs::read_to_string(&path)
-        .map_err(|e| format!("Failed to read file: {}", e))
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn get_parent_path(path: String) -> Result<Option<String>, String> {
-    let p = Path::new(&path);
-    Ok(p.parent().map(|p| p.to_string_lossy().to_string()))
-}
-
-#[tauri::command]
-#[specta::specta]
-pub async fn path_exists(path: String) -> Result<bool, String> {
-    Ok(Path::new(&path).exists())
-}
-
-/// Параллельное копирование файлов с прогрессом
+/// Copies files in parallel with progress events.
 #[tauri::command]
 #[specta::specta]
 pub async fn copy_entries_parallel(
     sources: Vec<String>,
     destination: String,
     app: AppHandle,
-) -> Result<(), String> {
+) -> std::result::Result<(), String> {
     let total = sources.len();
-    let mut set = JoinSet::new();
     let counter = Arc::new(AtomicUsize::new(0));
-    
+    let mut set = JoinSet::new();
+
     for source in sources {
         let dest = destination.clone();
         let app = app.clone();
         let counter = counter.clone();
-        
+
         set.spawn(async move {
             let result = copy_single_entry(&source, &dest).await;
-            let current = counter.fetch_add(1, Ordering::SeqCst);
-            
-            // Отправляем прогресс
-            let _ = app.emit("copy-progress", CopyProgress {
-                current: current + 1,
-                total,
-                file: source,
-            });
-            
+            let current = counter.fetch_add(1, Ordering::SeqCst) + 1;
+
+            let _ = app.emit(
+                "copy-progress",
+                CopyProgress {
+                    current,
+                    total,
+                    file: source,
+                },
+            );
+
             result
         });
     }
-    
+
     while let Some(result) = set.join_next().await {
-        result.map_err(|e| e.to_string())??;
+        result
+            .map_err(|e| FileManagerError::JoinError(e.to_string()))?
+            .map_err(|e: String| e)?;
     }
-    
+
     Ok(())
 }
 
-async fn copy_single_entry(source: &str, destination: &str) -> Result<(), String> {
+/// Copies a single file or directory entry.
+async fn copy_single_entry(source: &str, destination: &str) -> std::result::Result<(), String> {
     let src_path = Path::new(source);
     let dest_path = Path::new(destination);
-    let file_name = src_path.file_name().ok_or("Invalid source path")?;
+    let file_name = src_path
+        .file_name()
+        .ok_or_else(|| FileManagerError::InvalidSourcePath.to_string())?;
     let target = dest_path.join(file_name);
-    
+
     if src_path.is_dir() {
-        copy_dir_recursive(src_path, &target)?;
+        copy_dir_recursive(src_path, &target).map_err(|e| e.to_string())
     } else {
-        fs::copy(source, &target)
-            .map_err(|e| format!("Failed to copy {}: {}", source, e))?;
+        fs::copy(src_path, &target)
+            .map(|_| ())
+            .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)).to_string())
     }
-    Ok(())
 }
 
-/// Стриминг директории пакетами для больших директорий
+/// Moves files or directories to a destination.
 #[tauri::command]
 #[specta::specta]
-pub async fn read_directory_stream(
-    path: String,
-    app: AppHandle,
-) -> Result<(), String> {
-    let path_clone = path.clone();
-    
-    spawn_blocking(move || {
-        let dir_path = Path::new(&path_clone);
-        let read_dir = fs::read_dir(dir_path).map_err(|e| e.to_string())?;
-        
-        let mut batch = Vec::with_capacity(100);
-        
-        for entry in read_dir.flatten() {
-            if let Some(file_entry) = entry_to_file_entry(&entry) {
-                batch.push(file_entry);
-                
-                // Отправляем пакетами по 100
-                if batch.len() >= 100 {
-                    let _ = app.emit("directory-batch", &batch);
-                    batch.clear();
-                }
-            }
-        }
-        
-        // Остаток
-        if !batch.is_empty() {
-            let _ = app.emit("directory-batch", &batch);
-        }
-        
-        let _ = app.emit("directory-complete", &path_clone);
-        Ok::<_, String>(())
-    }).await.map_err(|e| e.to_string())??;
-    
+pub async fn move_entries(
+    sources: Vec<String>,
+    destination: String,
+) -> std::result::Result<(), String> {
+    let dest_path = Path::new(&destination);
+
+    for source in sources {
+        let src_path = Path::new(&source);
+        let file_name = src_path
+            .file_name()
+            .ok_or_else(|| FileManagerError::InvalidSourcePath)?;
+        let target = dest_path.join(file_name);
+
+        fs::rename(src_path, &target)
+            .map_err(|e| FileManagerError::MoveError(format!("{}: {}", source, e)))?;
+    }
+
     Ok(())
 }
 
-fn entry_to_file_entry(entry: &fs::DirEntry) -> Option<FileEntry> {
-    let entry_path = entry.path();
-    let metadata = entry.metadata().ok()?;
-    
-    let name = entry_path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .to_string();
-    
-    let extension = entry_path
-        .extension()
-        .and_then(|e| e.to_str())
-        .map(|s| s.to_lowercase());
-    
-    Some(FileEntry {
-        name,
-        path: entry_path.to_string_lossy().to_string(),
-        is_dir: metadata.is_dir(),
-        is_hidden: is_hidden(&entry_path),
-        size: if metadata.is_file() { metadata.len() } else { 0 },
-        modified: metadata.modified().ok().and_then(system_time_to_timestamp),
-        created: metadata.created().ok().and_then(system_time_to_timestamp),
-        extension,
-    })
+/// Reads the content of a text file.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_file_content(path: String) -> std::result::Result<String, String> {
+    fs::read_to_string(&path)
+        .map_err(|e| FileManagerError::ReadFileError(e.to_string()).to_string())
+}
+
+/// Returns the parent directory of a path.
+#[tauri::command]
+#[specta::specta]
+pub async fn get_parent_path(path: String) -> std::result::Result<Option<String>, String> {
+    let p = Path::new(&path);
+    Ok(p.parent().map(|p| p.to_string_lossy().to_string()))
+}
+
+/// Checks if a path exists.
+#[tauri::command]
+#[specta::specta]
+pub async fn path_exists(path: String) -> std::result::Result<bool, String> {
+    Ok(Path::new(&path).exists())
 }
