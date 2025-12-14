@@ -12,8 +12,7 @@ use commands::{
 use commands::config::SecurityConfig;
 use std::sync::{Arc, RwLock};
 use tauri_specta::{Builder, collect_commands};
-use sysinfo::SystemExt;
-use sysinfo::DiskExt;
+// sysinfo is used via fully-qualified paths where needed
 // tracing_subscriber prelude not needed directly; using builder APIs in run()
 
 pub fn run() {
@@ -63,10 +62,8 @@ pub fn run() {
     // Extend allowed_roots with currently mounted disks (so drives like C:\ are accessible)
     let mut sec_cfg = SecurityConfig::default_windows();
     {
-        let mut sys = sysinfo::System::new_all();
-        sys.refresh_disks_list();
-        sys.refresh_disks();
-        for d in sys.disks() {
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        for d in &disks {
             let mount_point = d.mount_point().to_path_buf();
             if !sec_cfg.allowed_roots.contains(&mount_point) {
                 sec_cfg.allowed_roots.push(mount_point);

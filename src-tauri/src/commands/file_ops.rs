@@ -13,8 +13,6 @@ use std::time::SystemTime;
 use tauri::async_runtime::spawn_blocking;
 use tauri::{AppHandle, Emitter};
 use tracing::instrument;
-use sysinfo::SystemExt;
-use sysinfo::DiskExt;
 use tokio::task::JoinSet;
 
 use crate::commands::error::FsError;
@@ -205,8 +203,6 @@ fn is_windows_reparse_point(meta: &fs::Metadata) -> bool {
 // Removed legacy test-only wrapper validate_paths_sandboxed — use validate_paths_no_follow_sandboxed_with_cfg instead in tests.
 
 /// Validate a set of paths without following symlinks and sandbox them
-// validate_paths_no_follow_sandboxed removed — use validate_paths_no_follow_sandboxed_with_cfg(paths, &cfg)
-
 /// Validate set of paths no follow using provided SecurityConfig
 pub fn validate_paths_no_follow_sandboxed_with_cfg(paths: &[String], cfg: &crate::commands::config::SecurityConfig) -> FsResult<Vec<std::path::PathBuf>> {
     paths.iter().map(|p| validate_path_no_follow_sandboxed_with_cfg(p, cfg)).collect()
@@ -215,8 +211,6 @@ pub fn validate_paths_no_follow_sandboxed_with_cfg(paths: &[String], cfg: &crate
 
 // validate_paths_no_follow removed—use validate_paths_no_follow_sandboxed or validate_path_no_follow
 /// Validate a path without following symlinks and ensure sandbox rules (allowed_roots/denied_patterns)
-// validate_path_no_follow_sandboxed removed — use validate_path_no_follow_sandboxed_with_cfg
-
 pub fn validate_path_no_follow(path: &str) -> FsResult<std::path::PathBuf> {
     let path_buf = std::path::PathBuf::from(path);
     if !path_buf.is_absolute() {
@@ -361,12 +355,10 @@ pub(crate) fn get_directory_stats_sync_with_cfg(path: String, cfg: &SecurityConf
 #[specta::specta]
 pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
     // Use sysinfo to enumerate disks and provide total/free space in a cross-platform manner.
-    let mut sys = sysinfo::System::new_all();
-    sys.refresh_disks_list();
-    sys.refresh_disks();
+    let disks = sysinfo::Disks::new_with_refreshed_list();
 
     let mut drives = Vec::new();
-    for d in sys.disks() {
+    for d in &disks {
         let name = d.name().to_string_lossy().to_string();
         let path = d.mount_point().to_string_lossy().to_string();
         // Attempt to extract OS-specific volume label where possible.
