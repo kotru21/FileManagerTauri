@@ -1,10 +1,12 @@
-use std::path::PathBuf;
-use std::sync::RwLock;
+//! Security and operational configuration for the file manager.
+
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::sync::Arc;
+use std::path::PathBuf;
+use std::sync::{Arc, RwLock};
 use tauri::State;
 
+/// Operational limits to prevent resource exhaustion.
 pub mod limits {
     pub const MAX_DIRECTORY_DEPTH: usize = 100;
     pub const STREAM_BATCH_SIZE: usize = 100;
@@ -14,8 +16,11 @@ pub mod limits {
     pub const MAX_PREVIEW_IMAGE_BYTES: u64 = 5 * 1024 * 1024;
     pub const MAX_CONTENT_FILE_SIZE: u64 = 10 * 1024 * 1024;
     pub const MAX_SEARCH_FILE_SIZE: u64 = 4 * 1024 * 1024;
+    pub const DEFAULT_SEARCH_DEPTH: usize = 10;
+    pub const MAX_PARALLEL_COPIES: usize = 16;
 }
 
+/// Security configuration for sandboxing file operations.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SecurityConfig {
     pub allowed_roots: Vec<PathBuf>,
@@ -23,46 +28,88 @@ pub struct SecurityConfig {
 }
 
 impl SecurityConfig {
-    pub fn default_windows() -> Self {
+    /// Create default security config with common safe directories.
+    pub fn default_config() -> Self {
+        let mut roots = Vec::new();
+
+        if let Some(home) = dirs::home_dir() {
+            roots.push(home);
+        }
+        if let Some(docs) = dirs::document_dir() {
+            roots.push(docs);
+        }
+        if let Some(downloads) = dirs::download_dir() {
+            roots.push(downloads);
+        }
+
+        roots.push(std::env::temp_dir());
+
         Self {
-            allowed_roots: vec![
-                dirs::home_dir().unwrap_or_default(),
-                std::env::temp_dir(),
-                dirs::document_dir().unwrap_or_default(),
-                dirs::download_dir().unwrap_or_default(),
-            ],
-            denied_patterns: vec![
+            allowed_roots: roots,
+            denied_patterns: Self::default_denied_patterns(),
+        }
+    }
+
+    fn default_denied_patterns() -> Vec<String> {
+        #[cfg(windows)]
+        {
+            vec![
                 "**/Windows/System32/**".to_string(),
                 "**/Program Files/**".to_string(),
-            ],
+                "**/Program Files (x86)/**".to_string(),
+            ]
         }
+        #[cfg(not(windows))]
+        {
+            vec![
+                "/etc/**".to_string(),
+                "/usr/**".to_string(),
+                "/bin/**".to_string(),
+                "/sbin/**".to_string(),
+            ]
+        }
+    }
+
+    /// Extend allowed roots with mounted disks.
+    pub fn with_mounted_disks(mut self) -> Self {
+        let disks = sysinfo::Disks::new_with_refreshed_list();
+        for disk in &disks {
+            let mount = disk.mount_point().to_path_buf();
+            if !self.allowed_roots.contains(&mount) {
+                self.allowed_roots.push(mount);
+            }
+        }
+        self
     }
 }
 
-// No global config - application should manage config in Tauri State<Arc<RwLock<SecurityConfig>>>.
-// Legacy global config was removed in favor of state-managed configuration for greater
-// auditability and to avoid global mutable state across tauri commands.
+impl Default for SecurityConfig {
+    fn default() -> Self {
+        Self::default_config()
+    }
+}
 
- 
-/// Tauri command for updating the runtime security configuration. This updates
-/// both the global config (for legacy code) and the application-managed state.
+/// Update the runtime security configuration.
 #[tauri::command]
 #[specta::specta]
-pub fn set_security_config_command(
+pub fn set_security_config(
     cfg: SecurityConfig,
-    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
+    state: State<'_, Arc<RwLock<SecurityConfig>>>,
 ) -> Result<(), String> {
-    // Legacy global config removed; update the managed state only.
-    // If the app manages a state RwLock for the config, update that too.
-    let mut w = config_state.write().map_err(|_| "Failed to acquire config write lock".to_string())?;
-    *w = cfg;
+    let mut guard = state.write().map_err(|_| "Failed to acquire config lock")?;
+    *guard = cfg;
+    tracing::info!("Security config updated");
     Ok(())
 }
 
-/// Returns the current security config (managed state) for frontend consumption.
+/// Get the current security configuration.
 #[tauri::command]
 #[specta::specta]
-pub fn get_security_config_command(config_state: State<'_, Arc<RwLock<SecurityConfig>>>) -> Result<SecurityConfig, String> {
-    let cfg = config_state.read().map_err(|_| "Failed to read security config".to_string())?.clone();
-    Ok(cfg)
+pub fn get_security_config(
+    state: State<'_, Arc<RwLock<SecurityConfig>>>,
+) -> Result<SecurityConfig, String> {
+    state
+        .read()
+        .map(|guard| guard.clone())
+        .map_err(|_| "Failed to read security config".to_string())
 }

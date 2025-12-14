@@ -1,25 +1,22 @@
-use crate::commands::file_ops::{validate_path_sandboxed_with_cfg, run_blocking_fs};
-use crate::commands::config::SecurityConfig;
-use std::sync::RwLock;
-use tauri::State;
-use crate::commands::error::FsError;
-use crate::commands::config::limits as limits;
-type FsResult<T> = Result<T, FsError>;
-use rayon::prelude::*;
+//! File and content search functionality.
+
+use crate::commands::config::{limits, SecurityConfig};
+use crate::commands::error::FsResult;
+use crate::commands::file_ops::{run_blocking_fs, ConfigExt, SecurityConfigState};
+use crate::commands::validation::validate_sandboxed;
 use rayon::iter::ParallelBridge;
+use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
 use specta::Type;
-use std::sync::Arc;
+use std::fs::File;
+use std::io::{BufRead, BufReader};
 use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::{
-    fs::File,
-    io::{BufRead, BufReader},
-};
-// spawn_blocking replaced by centralized run_blocking_fs in file_ops
-use tauri::{AppHandle, Emitter};
+use std::sync::Arc;
+use tauri::{AppHandle, Emitter, State};
 use tracing::instrument;
 use walkdir::WalkDir;
 
+/// A search result entry.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SearchResult {
     pub path: String,
@@ -29,33 +26,7 @@ pub struct SearchResult {
     pub matches: Vec<ContentMatch>,
 }
 
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use tempfile::tempdir;
-
-    #[test]
-    fn test_search_result_name_lower() {
-        let dir = tempdir().unwrap();
-        let p = dir.path();
-        let file_path = p.join("AbC.txt");
-        std::fs::File::create(&file_path).unwrap();
-
-        let opts = SearchOptions {
-            query: "abc".to_string(),
-            search_path: p.to_string_lossy().to_string(),
-            search_content: false,
-            case_sensitive: false,
-            max_results: Some(10),
-            file_extensions: None,
-        };
-
-        let cfg = crate::commands::config::SecurityConfig::default_windows();
-        let res = search_files_sync_with_cfg(opts, cfg).unwrap();
-        assert!(res.iter().any(|r| r.name_lower == "abc.txt"));
-    }
-}
-
+/// A content match within a file.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct ContentMatch {
     pub line_number: u64,
@@ -64,6 +35,7 @@ pub struct ContentMatch {
     pub match_end: u64,
 }
 
+/// Search options.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SearchOptions {
     pub query: String,
@@ -74,6 +46,7 @@ pub struct SearchOptions {
     pub file_extensions: Option<Vec<String>>,
 }
 
+/// Search progress information.
 #[derive(Debug, Clone, Serialize, Deserialize, Type)]
 pub struct SearchProgress {
     pub scanned: usize,
@@ -81,71 +54,66 @@ pub struct SearchProgress {
     pub current_path: String,
 }
 
+/// Search files by name and optionally content.
 #[tauri::command]
 #[specta::specta]
-#[instrument(skip(options))]
+#[instrument(skip(options, config_state))]
 pub async fn search_files(
     options: SearchOptions,
-    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
+    config_state: State<'_, SecurityConfigState>,
 ) -> Result<Vec<SearchResult>, String> {
-    tracing::debug!(query = %options.query, search_path = %options.search_path, "search_files called");
-    // Heavy IO, run on a blocking thread to keep async runtime responsive.
-    let cfg = config_state.read().map_err(|_| "Failed to read security config")?.clone();
-    run_blocking_fs(move || search_files_sync_with_cfg(options, cfg)).await
+    let config = config_state.get_config()?;
+    run_blocking_fs(move || search_sync(&options, &config, None)).await
 }
 
-/// Search streaming with progress
+/// Search with progress streaming.
 #[tauri::command]
 #[specta::specta]
-#[instrument(skip(options, app))]
+#[instrument(skip(options, app, config_state))]
 pub async fn search_files_stream(
     options: SearchOptions,
     app: AppHandle,
-    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
+    config_state: State<'_, SecurityConfigState>,
 ) -> Result<Vec<SearchResult>, String> {
-    let options_clone = options.clone();
-
-    let cfg = config_state.read().map_err(|_| "Failed to read security config")?.clone();
-    run_blocking_fs(move || search_files_with_progress_with_cfg(options_clone, app, cfg)).await
+    let config = config_state.get_config()?;
+    run_blocking_fs(move || search_sync(&options, &config, Some(app))).await
 }
 
-fn search_files_with_progress_with_cfg(
-    options: SearchOptions,
-    app: AppHandle,
-    cfg: SecurityConfig,
- ) -> FsResult<Vec<SearchResult>> {
-    tracing::debug!(query = %options.query, path = %options.search_path, "search_files_with_progress start");
-    let search_path = validate_path_sandboxed_with_cfg(&options.search_path, &cfg)?;
-
+fn search_sync(
+    options: &SearchOptions,
+    config: &SecurityConfig,
+    app: Option<AppHandle>,
+) -> FsResult<Vec<SearchResult>> {
+    let search_path = validate_sandboxed(&options.search_path, config)?;
     let max_results = options.max_results.unwrap_or(500) as usize;
-    let max_depth = 10; // Ограничиваем глубину поиска
-    // Hard cap to avoid OOM when walking huge directory trees.
-    const MAX_WALK_ENTRIES: usize = limits::MAX_WALK_ENTRIES;
 
     let scanned = Arc::new(AtomicUsize::new(0));
     let found = Arc::new(AtomicUsize::new(0));
     let should_stop = Arc::new(AtomicBool::new(false));
 
-    // Emit initial progress
-    let _ = app.emit(
-        "search-progress",
-        SearchProgress {
-            scanned: 0,
-            found: 0,
-            current_path: options.search_path.clone(),
-        },
-    );
+    let query_lower = if options.case_sensitive {
+        options.query.clone()
+    } else {
+        options.query.to_lowercase()
+    };
 
-    // Compute query lower once for this search run (avoid per-entry allocations)
-    let query_lower = if options.case_sensitive { options.query.clone() } else { options.query.to_lowercase() };
+    if let Some(ref app) = app {
+        let _ = app.emit(
+            "search-progress",
+            SearchProgress {
+                scanned: 0,
+                found: 0,
+                current_path: options.search_path.clone(),
+            },
+        );
+    }
 
-    // Parallel streaming walk to avoid allocating a huge Vec of entries.
-    let results: Vec<SearchResult> = WalkDir::new(search_path)
-        .max_depth(max_depth)
+    let results: Vec<SearchResult> = WalkDir::new(&search_path)
+        .max_depth(limits::DEFAULT_SEARCH_DEPTH)
         .follow_links(false)
         .into_iter()
         .filter_map(|e| e.ok())
-        .take(MAX_WALK_ENTRIES)
+        .take(limits::MAX_WALK_ENTRIES)
         .par_bridge()
         .filter_map(|entry| {
             if should_stop.load(Ordering::Relaxed) {
@@ -154,20 +122,20 @@ fn search_files_with_progress_with_cfg(
 
             let current_scanned = scanned.fetch_add(1, Ordering::Relaxed) + 1;
 
-            // Emit progress every SEARCH_PROGRESS_INTERVAL files
-            if current_scanned.is_multiple_of(limits::SEARCH_PROGRESS_INTERVAL) {
-                let _ = app.emit(
-                    "search-progress",
-                    SearchProgress {
-                        scanned: current_scanned,
-                        found: found.load(Ordering::Relaxed),
-                        current_path: entry.path().to_string_lossy().to_string(),
-                    },
-                );
+            if let Some(ref app) = app {
+                if current_scanned % limits::SEARCH_PROGRESS_INTERVAL == 0 {
+                    let _ = app.emit(
+                        "search-progress",
+                        SearchProgress {
+                            scanned: current_scanned,
+                            found: found.load(Ordering::Relaxed),
+                            current_path: entry.path().to_string_lossy().to_string(),
+                        },
+                    );
+                }
             }
 
-                // Use query_lower captured from outer scope
-                let result = process_search_entry(&entry, &options, &query_lower);
+            let result = process_entry(&entry, options, &query_lower);
 
             if result.is_some() {
                 let current_found = found.fetch_add(1, Ordering::Relaxed) + 1;
@@ -181,85 +149,30 @@ fn search_files_with_progress_with_cfg(
         .take_any_while(|_| !should_stop.load(Ordering::Relaxed))
         .collect();
 
-    // Emit final progress
-    let scanned_final = scanned.load(Ordering::Relaxed);
-    let _ = app.emit(
-        "search-progress",
-        SearchProgress {
-            scanned: scanned_final,
-            found: results.len(),
-            current_path: "".to_string(),
-        },
-    );
-
-    let _ = app.emit("search-complete", results.len());
-
-    Ok(results.into_iter().take(max_results).collect())
-}
-
-fn search_files_sync_with_cfg(options: SearchOptions, cfg: SecurityConfig) -> FsResult<Vec<SearchResult>> {
-    let search_path = validate_path_sandboxed_with_cfg(&options.search_path, &cfg)?;
-
-    let max_results = options.max_results.unwrap_or(500) as usize;
-    let max_depth = 10; // Ограничиваем глубину поиска
-    // Hard cap to avoid OOM when walking huge directory trees.
-    const MAX_WALK_ENTRIES: usize = limits::MAX_WALK_ENTRIES;
-
-    let found_count = Arc::new(AtomicUsize::new(0));
-    let should_stop = Arc::new(AtomicBool::new(false));
-
-    // Compute query lower once
-    let query_lower = if options.case_sensitive { options.query.clone() } else { options.query.to_lowercase() };
-
-    // Parallel streaming walk.
-    let results: Vec<SearchResult> = WalkDir::new(search_path)
-        .max_depth(max_depth)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .take(MAX_WALK_ENTRIES)
-        .par_bridge()
-        .filter_map(|entry| {
-            if should_stop.load(Ordering::Relaxed) {
-                return None;
-            }
-
-            let result = process_search_entry(&entry, &options, &query_lower);
-
-            if result.is_some() {
-                let count = found_count.fetch_add(1, Ordering::Relaxed) + 1;
-                if count >= max_results {
-                    should_stop.store(true, Ordering::Relaxed);
-                }
-            }
-
-            result
-        })
-        .take_any_while(|_| !should_stop.load(Ordering::Relaxed))
-        .collect();
+    if let Some(ref app) = app {
+        let _ = app.emit(
+            "search-progress",
+            SearchProgress {
+                scanned: scanned.load(Ordering::Relaxed),
+                found: results.len(),
+                current_path: String::new(),
+            },
+        );
+        let _ = app.emit("search-complete", results.len());
+    }
 
     Ok(results.into_iter().take(max_results).collect())
 }
 
-// Removed legacy wrapper search_files_sync — use search_files_sync_with_cfg(options, cfg) directly.
-
-/// Process a single entry for search
-fn process_search_entry(
+fn process_entry(
     entry: &walkdir::DirEntry,
     options: &SearchOptions,
     query_lower: &str,
 ) -> Option<SearchResult> {
     let path = entry.path();
-    // `query_lower` is computed outside to avoid allocations per entry
-
-    let name = path
-        .file_name()
-        .and_then(|n| n.to_str())
-        .unwrap_or("")
-        .to_string();
+    let name = path.file_name()?.to_str()?.to_string();
     let name_lower = name.to_lowercase();
 
-    // Filter by extension if specified
     if let Some(ref extensions) = options.file_extensions {
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             if !extensions.iter().any(|e| e.eq_ignore_ascii_case(ext)) {
@@ -270,59 +183,17 @@ fn process_search_entry(
         }
     }
 
-    // Check filename match
     let name_matches = if options.case_sensitive {
         name.contains(&options.query)
     } else {
         name_lower.contains(query_lower)
     };
 
-    let mut content_matches = Vec::new();
-
-    // Search content if enabled and it's a file
-    if options.search_content && entry.file_type().is_file() {
-        // Skip very large files to keep UX snappy (use config constant)
-        const MAX_FILE_SIZE: u64 = limits::MAX_SEARCH_FILE_SIZE;
-        if let Ok(meta) = entry.metadata()
-            && meta.len() > MAX_FILE_SIZE
-        {
-            return None;
-        }
-
-        if let Ok(file) = File::open(path) {
-            let reader = BufReader::new(file);
-            for (line_num, line) in reader.lines().enumerate() {
-                let Ok(line) = line else { continue };
-
-                let haystack_owned;
-                let haystack = if options.case_sensitive {
-                    line.as_str()
-                } else {
-                    haystack_owned = line.to_lowercase();
-                    &haystack_owned
-                };
-
-                let needle = if options.case_sensitive {
-                    options.query.as_str()
-                } else {
-                    query_lower
-                };
-
-                if let Some(start) = haystack.find(needle) {
-                    content_matches.push(ContentMatch {
-                        line_number: (line_num + 1) as u64,
-                        line_content: line,
-                        match_start: start as u64,
-                        match_end: (start + needle.len()) as u64,
-                    });
-
-                    if content_matches.len() >= 10 {
-                        break;
-                    }
-                }
-            }
-        }
-    }
+    let content_matches = if options.search_content && entry.file_type().is_file() {
+        search_file_content(path, options, query_lower)
+    } else {
+        Vec::new()
+    };
 
     if name_matches || !content_matches.is_empty() {
         Some(SearchResult {
@@ -337,28 +208,87 @@ fn process_search_entry(
     }
 }
 
+fn search_file_content(
+    path: &std::path::Path,
+    options: &SearchOptions,
+    query_lower: &str,
+) -> Vec<ContentMatch> {
+    let meta = match std::fs::metadata(path) {
+        Ok(m) => m,
+        Err(_) => return Vec::new(),
+    };
+
+    if meta.len() > limits::MAX_SEARCH_FILE_SIZE {
+        return Vec::new();
+    }
+
+    let file = match File::open(path) {
+        Ok(f) => f,
+        Err(_) => return Vec::new(),
+    };
+
+    let reader = BufReader::new(file);
+    let mut matches = Vec::new();
+
+    for (line_num, line) in reader.lines().enumerate() {
+        let line = match line {
+            Ok(l) => l,
+            Err(_) => continue,
+        };
+
+        let haystack = if options.case_sensitive {
+            line.clone()
+        } else {
+            line.to_lowercase()
+        };
+
+        let needle = if options.case_sensitive {
+            options.query.as_str()
+        } else {
+            query_lower
+        };
+
+        if let Some(start) = haystack.find(needle) {
+            matches.push(ContentMatch {
+                line_number: (line_num + 1) as u64,
+                line_content: line,
+                match_start: start as u64,
+                match_end: (start + needle.len()) as u64,
+            });
+
+            if matches.len() >= 10 {
+                break;
+            }
+        }
+    }
+
+    matches
+}
+
+/// Search by filename only.
 #[tauri::command]
 #[specta::specta]
 pub async fn search_by_name(
     search_path: String,
     query: String,
     max_results: Option<u32>,
-    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
+    config_state: State<'_, SecurityConfigState>,
 ) -> Result<Vec<SearchResult>, String> {
     search_files(
         SearchOptions {
-        query,
-        search_path,
-        search_content: false,
-        case_sensitive: false,
-        max_results,
-        file_extensions: None,
-    },
+            query,
+            search_path,
+            search_content: false,
+            case_sensitive: false,
+            max_results,
+            file_extensions: None,
+        },
         config_state,
     )
     .await
 }
 
+/// Search file contents.
 #[tauri::command]
 #[specta::specta]
 pub async fn search_content(
@@ -366,18 +296,71 @@ pub async fn search_content(
     query: String,
     extensions: Option<Vec<String>>,
     max_results: Option<u32>,
-    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
+    config_state: State<'_, SecurityConfigState>,
 ) -> Result<Vec<SearchResult>, String> {
     search_files(
         SearchOptions {
-        query,
-        search_path,
-        search_content: true,
-        case_sensitive: false,
-        max_results,
-        file_extensions: extensions,
-    },
+            query,
+            search_path,
+            search_content: true,
+            case_sensitive: false,
+            max_results,
+            file_extensions: extensions,
+        },
         config_state,
     )
     .await
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use tempfile::tempdir;
+
+    #[test]
+    fn search_finds_file_by_name() {
+        let dir = tempdir().unwrap();
+        std::fs::File::create(dir.path().join("target.txt")).unwrap();
+        std::fs::File::create(dir.path().join("other.txt")).unwrap();
+
+        let config = SecurityConfig::default().with_mounted_disks();
+        let options = SearchOptions {
+            query: "target".to_string(),
+            search_path: dir.path().to_string_lossy().to_string(),
+            search_content: false,
+            case_sensitive: false,
+            max_results: Some(10),
+            file_extensions: None,
+        };
+
+        let results = search_sync(&options, &config, None).unwrap();
+        assert_eq!(results.len(), 1);
+        assert!(results[0].name.contains("target"));
+    }
+
+    #[test]
+    fn search_finds_content() {
+        let dir = tempdir().unwrap();
+        let file = dir.path().join("test.txt");
+        let mut f = std::fs::File::create(&file).unwrap();
+        writeln!(f, "line one").unwrap();
+        writeln!(f, "needle in haystack").unwrap();
+        writeln!(f, "line three").unwrap();
+
+        let config = SecurityConfig::default().with_mounted_disks();
+        let options = SearchOptions {
+            query: "needle".to_string(),
+            search_path: dir.path().to_string_lossy().to_string(),
+            search_content: true,
+            case_sensitive: false,
+            max_results: Some(10),
+            file_extensions: None,
+        };
+
+        let results = search_sync(&options, &config, None).unwrap();
+        assert_eq!(results.len(), 1);
+        assert_eq!(results[0].matches.len(), 1);
+        assert_eq!(results[0].matches[0].line_number, 2);
+    }
 }

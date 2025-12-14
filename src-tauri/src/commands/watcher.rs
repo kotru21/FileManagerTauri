@@ -1,26 +1,28 @@
-use crate::commands::file_ops::validate_path_sandboxed_with_cfg;
-use crate::commands::config::SecurityConfig;
-use std::sync::RwLock;
+//! File system change watching.
+
+use crate::commands::{ConfigExt, SecurityConfigState};
 use crate::commands::error::FsError;
-use notify::{Event, RecursiveMode, Watcher, recommended_watcher};
+use crate::commands::validation::validate_sandboxed;
+use notify::{Event, RecommendedWatcher, RecursiveMode, Watcher};
 use serde::Serialize;
 use specta::Type;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::{Arc, Mutex, mpsc};
+use std::sync::{mpsc, Arc, Mutex};
+use std::time::Duration;
 use tauri::{AppHandle, Emitter, State};
 use tracing::instrument;
 
+/// File system change event.
 #[derive(Debug, Clone, Serialize, Type)]
 pub struct FsChangeEvent {
     pub kind: String,
     pub paths: Vec<String>,
 }
 
-/// State for managing watchers
+/// State for managing directory watchers.
 pub struct WatcherState {
-    /// Stop flags for watchers per path
-    stop_flags: Mutex<HashMap<String, Arc<AtomicBool>>>, 
+    stop_flags: Mutex<HashMap<String, Arc<AtomicBool>>>,
 }
 
 impl WatcherState {
@@ -37,121 +39,116 @@ impl Default for WatcherState {
     }
 }
 
+/// Start watching a directory for changes.
 #[tauri::command]
 #[specta::specta]
-#[instrument(skip(path, app, state))]
+#[instrument(skip(app, state, config_state))]
 pub async fn watch_directory(
     path: String,
     app: AppHandle,
     state: State<'_, Arc<WatcherState>>,
-    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
+    config_state: State<'_, SecurityConfigState>,
 ) -> Result<(), String> {
-    // Validate path
-    let cfg = config_state
-        .read()
-        .map_err(|_| FsError::Internal.to_public_string())?
-        .clone();
-    let validated_path = validate_path_sandboxed_with_cfg(&path, &cfg).map_err(|e| e.to_public_string())?;
-    let canonical_key = validated_path.to_string_lossy().to_string();
-
-    tracing::debug!(path = %canonical_key, "Starting watch for path");
-    // First stop the previous watcher for this path if one exists
+    let config = config_state.get_config()?;
+    let validated = validate_sandboxed(&path, &config)
+        .map_err(|e| e.to_public_string())?;
+    
+    let key = validated.to_string_lossy().to_string();
+    
+    tracing::debug!(path = %key, "Starting directory watch");
+    
+    // Stop existing watcher for this path
     {
-        let flags = state.stop_flags.lock().map_err(|_| FsError::Internal.to_public_string())?;
-        // We store stop flags by canonical (validated) path key.
-        if let Some(flag) = flags.get(&canonical_key) {
+        let flags = state.stop_flags.lock()
+            .map_err(|_| FsError::Internal.to_public_string())?;
+        
+        if let Some(flag) = flags.get(&key) {
             flag.store(true, Ordering::SeqCst);
         }
     }
-
+    
     let (tx, rx) = mpsc::channel::<Result<Event, notify::Error>>();
     let stop_flag = Arc::new(AtomicBool::new(false));
-
-    let mut watcher = recommended_watcher(tx).map_err(|_| FsError::Internal.to_public_string())?;
-
+    
+    let mut watcher: RecommendedWatcher = notify::recommended_watcher(tx)
+        .map_err(|_| FsError::Internal.to_public_string())?;
+    
     watcher
-        .watch(validated_path.as_path(), RecursiveMode::NonRecursive)
-        .map_err(|_| FsError::Io.to_public_string())?;
-
-    // Stop flag
+        .watch(validated.as_path(), RecursiveMode::NonRecursive)
+        .map_err(|e| FsError::io(e.to_string()).to_public_string())?;
+    
+    // Store stop flag
     {
-        let mut flags = state.stop_flags.lock().map_err(|_| FsError::Internal.to_public_string())?;
-        flags.insert(canonical_key.clone(), stop_flag.clone());
+        let mut flags = state.stop_flags.lock()
+            .map_err(|_| FsError::Internal.to_public_string())?;
+        flags.insert(key.clone(), stop_flag.clone());
     }
-
-    let path_for_cleanup = canonical_key.clone();
+    
+    let cleanup_key = key.clone();
     let state_clone = state.inner().clone();
-
-    // Watcher runs in a separate thread (blocking mpsc receiver)
+    let stop_flag_clone = stop_flag.clone();
+    
+    // Spawn watcher thread
     std::thread::spawn(move || {
-        let _watcher = watcher; // keep alive
-
+        let _watcher = watcher; // Keep alive
+        
         loop {
-            // Stop flag
             if stop_flag.load(Ordering::SeqCst) {
                 break;
             }
-
-            // recv_timeout для периодической проверки флага
-            match rx.recv_timeout(std::time::Duration::from_millis(100)) {
-                Ok(Ok(e)) => {
-                    let _ = app.emit(
-                        "fs-change",
-                        FsChangeEvent {
-                            kind: format!("{:?}", e.kind),
-                            paths: e
-                                .paths
-                                .iter()
-                                .map(|p| p.to_string_lossy().to_string())
-                                .collect(),
-                        },
-                    );
+            
+            match rx.recv_timeout(Duration::from_millis(100)) {
+                Ok(Ok(event)) => {
+                    let _ = app.emit("fs-change", FsChangeEvent {
+                        kind: format!("{:?}", event.kind),
+                        paths: event.paths
+                            .iter()
+                            .map(|p| p.to_string_lossy().to_string())
+                            .collect(),
+                    });
                 }
-                Ok(Err(_)) => {
-                    // Event error
-                }
-                Err(mpsc::RecvTimeoutError::Timeout) => {
-                    // Timeout
-                }
-                Err(mpsc::RecvTimeoutError::Disconnected) => {
-                    // Channel closed
-                    break;
+                Ok(Err(_)) => {}
+                Err(mpsc::RecvTimeoutError::Timeout) => {}
+                Err(mpsc::RecvTimeoutError::Disconnected) => break,
+            }
+        }
+        
+        // Cleanup
+        if let Ok(mut flags) = state_clone.stop_flags.lock() {
+            if let Some(current) = flags.get(&cleanup_key) {
+                if Arc::ptr_eq(current, &stop_flag_clone) {
+                    flags.remove(&cleanup_key);
                 }
             }
         }
-
-        if let Ok(mut flags) = state_clone.stop_flags.lock()
-            && let Some(current) = flags.get(&path_for_cleanup)
-            && Arc::ptr_eq(current, &stop_flag)
-        {
-            // Do not remove a newer watcher stop flag.
-            flags.remove(&path_for_cleanup);
-        }
     });
-
+    
     Ok(())
 }
 
+/// Stop watching a directory.
 #[tauri::command]
 #[specta::specta]
+#[instrument(skip(state, config_state))]
 pub async fn unwatch_directory(
     path: String,
     state: State<'_, Arc<WatcherState>>,
-    config_state: State<'_, Arc<RwLock<SecurityConfig>>>,
+    config_state: State<'_, SecurityConfigState>,
 ) -> Result<(), String> {
-    // Validate path and use canonical form to lookup
-    let cfg = config_state
-        .read()
-        .map_err(|_| FsError::Internal.to_public_string())?
-        .clone();
-    let validated = validate_path_sandboxed_with_cfg(&path, &cfg).map_err(|e| e.to_public_string())?;
+    let config = config_state.get_config()?;
+    let validated = validate_sandboxed(&path, &config)
+        .map_err(|e| e.to_public_string())?;
+    
     let key = validated.to_string_lossy().to_string();
-
-    tracing::debug!(path = %key, "unwatch_directory called");
-    let flags = state.stop_flags.lock().map_err(|e| e.to_string())?;
+    
+    tracing::debug!(path = %key, "Stopping directory watch");
+    
+    let flags = state.stop_flags.lock()
+        .map_err(|e| e.to_string())?;
+    
     if let Some(flag) = flags.get(&key) {
         flag.store(true, Ordering::SeqCst);
     }
-    // Watcher for this path not found, but it's not an error
+    
     Ok(())
 }
