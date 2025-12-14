@@ -3,6 +3,7 @@ export { FileCard } from "./ui/FileCard";
 export { FileRow } from "./ui/FileRow";
 export { FileIcon } from "./ui/FileIcon";
 export { ColumnHeader } from "./ui/ColumnHeader";
+export { InlineEditRow } from "./ui/InlineEditRow";
 
 // Model
 export {
