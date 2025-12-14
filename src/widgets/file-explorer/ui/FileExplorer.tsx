@@ -1,3 +1,4 @@
+// src/widgets/file-explorer/ui/FileExplorer.tsx
 import { useCallback, useMemo, useState, useEffect } from "react";
 import { openPath } from "@tauri-apps/plugin-opener";
 import {
@@ -6,6 +7,9 @@ import {
   useCopyEntriesParallel,
   useMoveEntries,
   useDeleteEntries,
+  useCreateDirectory,
+  useCreateFile,
+  useRenameEntry,
   sortEntries,
   filterEntries,
   useFileWatcher,
@@ -14,18 +18,16 @@ import {
 import { useSelectionStore } from "@/features/file-selection";
 import { useNavigationStore } from "@/features/navigation";
 import { useClipboardStore } from "@/features/clipboard";
+import { useInlineEditStore } from "@/features/inline-edit";
 import { FileContextMenu } from "@/features/context-menu";
 import { VirtualFileList } from "./VirtualFileList";
 import { CopyProgressDialog } from "@/widgets/progress-dialog";
 import { toast } from "@/shared/ui";
-import { cn } from "@/shared/lib";
+import { cn, joinPath } from "@/shared/lib";
 
 interface FileExplorerProps {
   showHidden?: boolean;
   sortConfig?: SortConfig;
-  onRenameRequest?: (path: string) => void;
-  onNewFolderRequest?: () => void;
-  onNewFileRequest?: () => void;
   className?: string;
 }
 
@@ -34,9 +36,6 @@ const DEFAULT_SORT: SortConfig = { field: "name", direction: "asc" };
 export function FileExplorer({
   showHidden = false,
   sortConfig = DEFAULT_SORT,
-  onRenameRequest,
-  onNewFolderRequest,
-  onNewFileRequest,
   className,
 }: FileExplorerProps) {
   const { currentPath, navigate } = useNavigationStore();
@@ -44,43 +43,52 @@ export function FileExplorer({
     selectedPaths,
     selectFile,
     selectRange,
+    toggleSelection,
     clearSelection,
-    getSelectedPaths,
     selectAll,
+    getSelectedPaths,
   } = useSelectionStore();
+
   const {
+    paths: clipboardPaths,
+    action: clipboardAction,
     copy,
     cut,
-    paths: clipboardPaths,
-    action,
-    clear,
+    clear: clearClipboard,
     hasContent,
   } = useClipboardStore();
+  const {
+    mode,
+    startNewFolder,
+    startNewFile,
+    startRename,
+    cancel: cancelInlineEdit,
+  } = useInlineEditStore();
 
   // Progress dialog state
   const [showProgress, setShowProgress] = useState(false);
 
-  // Data fetching
-  const {
-    data: files = [],
-    isLoading,
-    refetch,
-  } = useDirectoryContents(currentPath);
+  // Data fetching (removed isLoading as it's unused)
+  const { data: entries = [], refetch } = useDirectoryContents(currentPath);
 
   // File watcher
   useFileWatcher(currentPath);
 
-  // Mutations
+  // Mutations with proper error handling
   const copyMutation = useCopyEntries();
   const copyParallelMutation = useCopyEntriesParallel();
   const moveMutation = useMoveEntries();
   const deleteMutation = useDeleteEntries();
 
+  const createDirMutation = useCreateDirectory();
+  const createFileMutation = useCreateFile();
+  const renameMutation = useRenameEntry();
+
   // Process files: filter and sort
   const processedFiles = useMemo(() => {
-    const filtered = filterEntries(files, { showHidden });
+    const filtered = filterEntries(entries, { showHidden });
     return sortEntries(filtered, sortConfig);
-  }, [files, showHidden, sortConfig]);
+  }, [entries, showHidden, sortConfig]);
 
   // Selection handlers
   const handleSelect = useCallback(
@@ -90,12 +98,12 @@ export function FileExplorer({
         const lastSelected = Array.from(selectedPaths).pop()!;
         selectRange(lastSelected, path, allPaths);
       } else if (e.ctrlKey || e.metaKey) {
-        selectFile(path, true);
+        toggleSelection(path);
       } else {
-        selectFile(path, false);
+        selectFile(path);
       }
     },
-    [processedFiles, selectedPaths, selectFile, selectRange]
+    [processedFiles, selectedPaths, selectFile, selectRange, toggleSelection]
   );
 
   const handleOpen = useCallback(
@@ -120,14 +128,16 @@ export function FileExplorer({
       if (sources.length === 0) return;
 
       try {
-        // Use parallel copy for multiple files
         if (sources.length > 3) {
           setShowProgress(true);
-          await copyParallelMutation.mutateAsync({ sources, destination });
+          await copyParallelMutation.mutateAsync({
+            sources,
+            destination,
+          });
         } else {
           await copyMutation.mutateAsync({ sources, destination });
         }
-        toast.success(`Скопировано ${sources.length} элемент(ов)`);
+        toast.success(`Скопировано ${sources.length} элементов`);
       } catch (error) {
         toast.error(`Ошибка копирования: ${error}`);
       } finally {
@@ -137,22 +147,65 @@ export function FileExplorer({
     [copyMutation, copyParallelMutation]
   );
 
+  // Inline create/rename handlers
+  const handleCreateFolder = useCallback(
+    async (name: string) => {
+      if (!currentPath) return;
+
+      const fullPath = joinPath(currentPath, name);
+      try {
+        await createDirMutation.mutateAsync(fullPath);
+        toast.success(`Папка "${name}" создана`);
+      } catch (error) {
+        toast.error(`Ошибка создания папки: ${error}`);
+      }
+    },
+    [currentPath, createDirMutation]
+  );
+
+  const handleCreateFile = useCallback(
+    async (name: string) => {
+      if (!currentPath) return;
+
+      const fullPath = joinPath(currentPath, name);
+      try {
+        await createFileMutation.mutateAsync(fullPath);
+        toast.success(`Файл "${name}" создан`);
+      } catch (error) {
+        toast.error(`Ошибка создания файла: ${error}`);
+      }
+    },
+    [currentPath, createFileMutation]
+  );
+
+  const handleRename = useCallback(
+    async (oldPath: string, newName: string) => {
+      try {
+        await renameMutation.mutateAsync({ oldPath, newName });
+        toast.success(`Переименовано в "${newName}"`);
+      } catch (error) {
+        toast.error(`Ошибка переименования: ${error}`);
+      }
+    },
+    [renameMutation]
+  );
+
   // Clipboard operations
   const handleCopy = useCallback(() => {
     const paths = getSelectedPaths();
     if (paths.length > 0) {
       copy(paths);
-      toast.info(`Скопировано в буфер: ${paths.length}`);
+      toast.info(`Скопировано в буфер: ${paths.length} элементов`);
     }
-  }, [copy, getSelectedPaths]);
+  }, [getSelectedPaths, copy]);
 
   const handleCut = useCallback(() => {
     const paths = getSelectedPaths();
     if (paths.length > 0) {
       cut(paths);
-      toast.info(`Вырезано: ${paths.length}`);
+      toast.info(`Вырезано: ${paths.length} элементов`);
     }
-  }, [cut, getSelectedPaths]);
+  }, [getSelectedPaths, cut]);
 
   const handlePaste = useCallback(async () => {
     if (!currentPath || !hasContent()) return;
@@ -162,14 +215,7 @@ export function FileExplorer({
         setShowProgress(true);
       }
 
-      if (action === "cut") {
-        await moveMutation.mutateAsync({
-          sources: clipboardPaths,
-          destination: currentPath,
-        });
-        clear();
-        toast.success("Перемещено");
-      } else {
+      if (clipboardAction === "copy") {
         if (clipboardPaths.length > 3) {
           await copyParallelMutation.mutateAsync({
             sources: clipboardPaths,
@@ -181,22 +227,29 @@ export function FileExplorer({
             destination: currentPath,
           });
         }
-        toast.success("Вставлено");
+        toast.success(`Вставлено ${clipboardPaths.length} элементов`);
+      } else if (clipboardAction === "cut") {
+        await moveMutation.mutateAsync({
+          sources: clipboardPaths,
+          destination: currentPath,
+        });
+        clearClipboard();
+        toast.success(`Перемещено ${clipboardPaths.length} элементов`);
       }
     } catch (error) {
-      toast.error(`Ошибка: ${error}`);
+      toast.error(`Ошибка вставки: ${error}`);
     } finally {
       setShowProgress(false);
     }
   }, [
     currentPath,
     clipboardPaths,
-    action,
+    clipboardAction,
     hasContent,
     copyMutation,
     copyParallelMutation,
     moveMutation,
-    clear,
+    clearClipboard,
   ]);
 
   const handleDelete = useCallback(async () => {
@@ -206,41 +259,51 @@ export function FileExplorer({
     try {
       await deleteMutation.mutateAsync({ paths, permanent: false });
       clearSelection();
-      toast.success(`Удалено: ${paths.length}`);
+      toast.success(`Удалено ${paths.length} элементов`);
     } catch (error) {
       toast.error(`Ошибка удаления: ${error}`);
     }
-  }, [deleteMutation, getSelectedPaths, clearSelection]);
+  }, [getSelectedPaths, deleteMutation, clearSelection]);
 
-  const handleRename = useCallback(() => {
+  const handleRenameRequest = useCallback(() => {
     const paths = getSelectedPaths();
-    if (paths.length === 1 && onRenameRequest) {
-      onRenameRequest(paths[0]);
+    if (paths.length === 1) {
+      startRename(paths[0]);
     }
-  }, [getSelectedPaths, onRenameRequest]);
+  }, [getSelectedPaths, startRename]);
 
-  const handleRefresh = useCallback(() => {
-    refetch();
-    toast.info("Обновлено");
-  }, [refetch]);
+  const handleNewFolder = useCallback(() => {
+    if (currentPath) {
+      startNewFolder(currentPath);
+    }
+  }, [currentPath, startNewFolder]);
 
-  const handleSelectAll = useCallback(() => {
-    selectAll(processedFiles.map((f) => f.path));
-  }, [selectAll, processedFiles]);
+  const handleNewFile = useCallback(() => {
+    if (currentPath) {
+      startNewFile(currentPath);
+    }
+  }, [currentPath, startNewFile]);
 
   // Keyboard shortcuts
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      const target = e.target as HTMLElement;
+      // Ignore if in inline edit mode
+      if (mode !== null) {
+        if (e.key === "Escape") {
+          cancelInlineEdit();
+        }
+        return;
+      }
+
+      // Ignore if focus is in input
       if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
+        document.activeElement?.tagName === "INPUT" ||
+        document.activeElement?.tagName === "TEXTAREA"
       ) {
         return;
       }
 
-      if ((e.ctrlKey || e.metaKey) && !e.shiftKey && !e.altKey) {
+      if (e.ctrlKey || e.metaKey) {
         switch (e.key.toLowerCase()) {
           case "c":
             e.preventDefault();
@@ -256,33 +319,50 @@ export function FileExplorer({
             break;
           case "a":
             e.preventDefault();
-            handleSelectAll();
+            selectAll(processedFiles.map((f) => f.path));
             break;
         }
-      } else if (e.key === "Delete") {
-        e.preventDefault();
-        handleDelete();
-      } else if (e.key === "F5") {
-        e.preventDefault();
-        handleRefresh();
+      } else {
+        switch (e.key) {
+          case "Delete":
+            e.preventDefault();
+            handleDelete();
+            break;
+          case "F2":
+            e.preventDefault();
+            handleRenameRequest();
+            break;
+          case "F5":
+            e.preventDefault();
+            refetch();
+            break;
+        }
       }
     };
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
   }, [
+    mode,
+    cancelInlineEdit,
     handleCopy,
     handleCut,
     handlePaste,
     handleDelete,
-    handleSelectAll,
-    handleRefresh,
+    handleRenameRequest,
+    selectAll,
+    processedFiles,
+    refetch,
   ]);
 
-  if (isLoading) {
+  if (!currentPath) {
     return (
-      <div className={cn("flex items-center justify-center h-full", className)}>
-        <div className="animate-pulse text-muted-foreground">Загрузка...</div>
+      <div
+        className={cn(
+          "flex items-center justify-center h-full text-muted-foreground",
+          className
+        )}>
+        Выберите диск или папку
       </div>
     );
   }
@@ -295,10 +375,10 @@ export function FileExplorer({
         onCut={handleCut}
         onPaste={handlePaste}
         onDelete={handleDelete}
-        onRename={handleRename}
-        onNewFolder={onNewFolderRequest ?? (() => {})}
-        onNewFile={onNewFileRequest ?? (() => {})}
-        onRefresh={handleRefresh}
+        onRename={handleRenameRequest}
+        onNewFolder={handleNewFolder}
+        onNewFile={handleNewFile}
+        onRefresh={() => refetch()}
         canPaste={hasContent()}>
         <VirtualFileList
           files={processedFiles}
@@ -307,14 +387,20 @@ export function FileExplorer({
           onOpen={handleOpen}
           onDrop={handleDrop}
           getSelectedPaths={getSelectedPaths}
-          className={className}
+          onCreateFolder={handleCreateFolder}
+          onCreateFile={handleCreateFile}
+          onRename={handleRename}
+          className={cn("h-full", className)}
         />
       </FileContextMenu>
 
       <CopyProgressDialog
         open={showProgress}
         onCancel={() => setShowProgress(false)}
-        onComplete={() => setShowProgress(false)}
+        onComplete={() => {
+          setShowProgress(false);
+          refetch();
+        }}
       />
     </>
   );

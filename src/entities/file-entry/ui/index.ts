@@ -1,3 +1,5 @@
+export { FileCard } from "./FileCard";
 export { FileIcon } from "./FileIcon";
 export { FileRow } from "./FileRow";
-export { FileCard } from "./FileCard";
+export { ColumnHeader } from "./ColumnHeader";
+export { InlineEditRow } from "./InlineEditRow";
