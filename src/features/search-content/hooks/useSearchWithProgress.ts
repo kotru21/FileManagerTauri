@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { commands, type SearchOptions } from "@/shared/api/tauri";
-import { useSearchStore, type SearchProgress } from "../model/store";
+import { useSearchStore } from "../model/store";
 import { toast } from "@/shared/ui";
 
 interface SearchProgressEvent {
@@ -22,7 +22,6 @@ export function useSearchWithProgress() {
     setIsSearching,
     setResults,
     setProgress,
-    shouldCancel,
   } = useSearchStore();
 
   // Очистка слушателя при размонтировании
