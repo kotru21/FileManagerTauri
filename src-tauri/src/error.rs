@@ -4,28 +4,13 @@ use serde::Serialize;
 use thiserror::Error;
 
 /// Application-level errors with descriptive messages.
-#[derive(Debug, Error)]
+#[derive(Error, Debug)]
 pub enum FileManagerError {
-    #[error("Directory does not exist: {0}")]
+    #[error("Directory not found: {0}")]
     DirectoryNotFound(String),
 
     #[error("Path is not a directory: {0}")]
     NotADirectory(String),
-
-    #[error("Path must be absolute: {0}")]
-    NotAbsolutePath(String),
-
-    #[error("Path is empty")]
-    EmptyPath,
-
-    #[error("Invalid source path")]
-    InvalidSourcePath,
-
-    #[error("Invalid path: {0}")]
-    InvalidPath(String),
-
-    #[error("Search path does not exist: {0}")]
-    SearchPathNotFound(String),
 
     #[error("Failed to read directory: {0}")]
     ReadDirError(String),
@@ -51,14 +36,32 @@ pub enum FileManagerError {
     #[error("Failed to read file: {0}")]
     ReadFileError(String),
 
-    #[error("IO error: {0}")]
-    Io(#[from] std::io::Error),
+    #[error("Invalid path: {0}")]
+    InvalidPath(String),
 
-    #[error("Task join error: {0}")]
+    #[error("Invalid source path")]
+    InvalidSourcePath,
+
+    #[error("Path must be absolute: {0}")]
+    NotAbsolutePath(String),
+
+    #[error("Empty path provided")]
+    EmptyPath,
+
+    #[error("Search path not found: {0}")]
+    SearchPathNotFound(String),
+
+    #[error("Join error: {0}")]
     JoinError(String),
 
-    #[error("Watcher error: {0}")]
-    WatcherError(String),
+    #[error("Watch error: {0}")]
+    WatchError(String),
+
+    #[error("Operation cancelled")]
+    Cancelled,
+
+    #[error("IO error: {0}")]
+    IoError(String),
 }
 
 impl Serialize for FileManagerError {
@@ -70,10 +73,15 @@ impl Serialize for FileManagerError {
     }
 }
 
-/// Converts `FileManagerError` to `String` for Tauri command compatibility.
 impl From<FileManagerError> for String {
     fn from(err: FileManagerError) -> Self {
         err.to_string()
+    }
+}
+
+impl From<std::io::Error> for FileManagerError {
+    fn from(err: std::io::Error) -> Self {
+        FileManagerError::IoError(err.to_string())
     }
 }
 

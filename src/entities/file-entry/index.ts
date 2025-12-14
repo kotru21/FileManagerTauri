@@ -1,14 +1,16 @@
 // UI
-export { FileIcon, FileRow, FileCard } from "./ui";
+export { FileCard } from "./ui/FileCard";
+export { FileRow } from "./ui/FileRow";
+export { FileIcon } from "./ui/FileIcon";
 export { ColumnHeader } from "./ui/ColumnHeader";
 
 // Model
 export {
   sortEntries,
   filterEntries,
+  type SortConfig,
   type SortField,
   type SortDirection,
-  type SortConfig,
 } from "./model/types";
 
 // API
@@ -23,4 +25,6 @@ export {
   useCopyEntries,
   useCopyEntriesParallel,
   useMoveEntries,
-} from "./api";
+} from "./api/queries";
+export { useFileWatcher } from "./api/useFileWatcher";
+export { useStreamingDirectory } from "./api/useStreamingDirectory";

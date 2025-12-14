@@ -64,10 +64,6 @@ async createFile(path: string) : Promise<Result<null, string>> {
 },
 /**
  * Deletes files or directories.
- * 
- * # Arguments
- * * `paths` - List of paths to delete
- * * `permanent` - If true, permanently delete; otherwise move to trash (TODO)
  */
 async deleteEntries(paths: string[], permanent: boolean) : Promise<Result<null, string>> {
     try {
@@ -78,9 +74,7 @@ async deleteEntries(paths: string[], permanent: boolean) : Promise<Result<null, 
 }
 },
 /**
- * Renames a file or directory.
- * 
- * Returns the new path after renaming.
+ * Renames a file or directory. Returns the new path.
  */
 async renameEntry(oldPath: string, newName: string) : Promise<Result<string, string>> {
     try {
@@ -223,14 +217,22 @@ async watchDirectory(path: string) : Promise<Result<null, string>> {
 }
 },
 /**
- * Stops watching directories.
- * 
- * Note: Currently a placeholder. State management for watchers
- * should be implemented for proper cleanup.
+ * Stops watching a specific directory.
  */
-async unwatchDirectory() : Promise<Result<null, string>> {
+async unwatchDirectory(path: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("unwatch_directory") };
+    return { status: "ok", data: await TAURI_INVOKE("unwatch_directory", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Stops watching all directories. Called on app cleanup.
+ */
+async unwatchAll() : Promise<Result<null, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("unwatch_all") };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
