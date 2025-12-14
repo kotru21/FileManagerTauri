@@ -1,9 +1,10 @@
-import { useCallback, useState, useEffect } from "react";
+import { useCallback, useState, useEffect, useRef } from "react";
 import { Search, X, FileText, Loader2, StopCircle } from "lucide-react";
 import { Input, Button } from "@/shared/ui";
 import { cn } from "@/shared/lib";
 import { useSearchStore } from "../model/store";
 import { useSearchWithProgress } from "../hooks/useSearchWithProgress";
+import { useNavigationStore } from "@/features/navigation";
 
 interface SearchBarProps {
   onSearch?: () => void;
@@ -11,131 +12,150 @@ interface SearchBarProps {
 }
 
 export function SearchBar({ onSearch, className }: SearchBarProps) {
-  const { query, searchContent, setQuery, setSearchContent, reset } =
-    useSearchStore();
+  const [localQuery, setLocalQuery] = useState("");
+  const inputRef = useRef<HTMLInputElement>(null);
 
-  const { startSearch, cancelSearch, isSearching, progress } =
-    useSearchWithProgress();
+  const {
+    query,
+    searchContent,
+    isSearching,
+    progress,
+    setQuery,
+    setSearchPath,
+    setSearchContent,
+    cancelSearch,
+    reset,
+  } = useSearchStore();
 
-  const [input, setInput] = useState(query);
+  const { currentPath } = useNavigationStore();
+  const { search } = useSearchWithProgress();
 
-  // Debounce для автоматического поиска
+  // Синхронизируем searchPath с currentPath
   useEffect(() => {
-    if (input.length < 2) return;
+    if (currentPath) {
+      setSearchPath(currentPath);
+    }
+  }, [currentPath, setSearchPath]);
 
-    const timer = setTimeout(() => {
-      setQuery(input);
-      startSearch();
-    }, 500);
+  // Синхронизируем localQuery с query из store
+  useEffect(() => {
+    setLocalQuery(query);
+  }, [query]);
 
-    return () => clearTimeout(timer);
-  }, [input, setQuery, startSearch]);
+  const handleSearch = useCallback(() => {
+    if (!localQuery.trim() || !currentPath) return;
 
-  const handleChange = useCallback(
-    (value: string) => {
-      setInput(value);
-      if (value.length < 2) {
+    setQuery(localQuery.trim());
+    search();
+    onSearch?.();
+  }, [localQuery, currentPath, setQuery, search, onSearch]);
+
+  const handleKeyDown = useCallback(
+    (e: React.KeyboardEvent) => {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        handleSearch();
+      } else if (e.key === "Escape") {
+        setLocalQuery("");
         reset();
+        inputRef.current?.blur();
       }
     },
-    [reset]
-  );
-
-  const handleSubmit = useCallback(
-    (e: React.FormEvent) => {
-      e.preventDefault();
-      if (input.length >= 2) {
-        setQuery(input);
-        startSearch();
-        onSearch?.();
-      }
-    },
-    [input, setQuery, startSearch, onSearch]
+    [handleSearch, reset]
   );
 
   const handleClear = useCallback(() => {
-    setInput("");
-    cancelSearch();
+    setLocalQuery("");
     reset();
-  }, [reset, cancelSearch]);
+    inputRef.current?.focus();
+  }, [reset]);
 
   const handleCancel = useCallback(() => {
     cancelSearch();
   }, [cancelSearch]);
 
   // Сокращаем путь для отображения
-  const shortPath = progress?.currentPath
-    ? progress.currentPath.length > 50
-      ? "..." + progress.currentPath.slice(-47)
-      : progress.currentPath
-    : "";
+  const shortenPath = (path: string, maxLength: number = 30) => {
+    if (path.length <= maxLength) return path;
+    const parts = path.split(/[/\\]/);
+    if (parts.length <= 2) return path;
+    return `${parts[0]}\\...\\${parts[parts.length - 1]}`;
+  };
 
   return (
-    <div className={cn("flex flex-col gap-1", className)}>
-      <form onSubmit={handleSubmit} className="flex items-center gap-2">
+    <div className={cn("flex flex-col gap-2", className)}>
+      <div className="flex items-center gap-2">
         <div className="relative flex-1">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted-foreground pointer-events-none" />
           <Input
-            value={input}
-            onChange={(e) => handleChange(e.target.value)}
+            ref={inputRef}
+            value={localQuery}
+            onChange={(e) => setLocalQuery(e.target.value)}
+            onKeyDown={handleKeyDown}
             placeholder={
-              searchContent ? "Поиск по содержимому..." : "Поиск файлов..."
+              currentPath ? "Поиск файлов..." : "Выберите папку для поиска"
             }
-            className="pl-9 pr-8"
-            disabled={isSearching}
+            disabled={!currentPath}
+            className="pl-9 pr-9 border-0 bg-muted/50 focus:bg-muted"
           />
-          {isSearching && (
-            <Loader2 className="absolute right-10 top-1/2 -translate-y-1/2 w-4 h-4 animate-spin text-muted-foreground" />
-          )}
-          {input && !isSearching && (
+          {localQuery && !isSearching && (
             <button
-              type="button"
               onClick={handleClear}
-              className="absolute right-3 top-1/2 -translate-y-1/2">
-              <X className="h-4 w-4 text-muted-foreground hover:text-foreground" />
+              className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground">
+              <X className="h-4 w-4" />
             </button>
+          )}
+          {isSearching && (
+            <Loader2 className="absolute right-3 top-1/2 -translate-y-1/2 h-4 w-4 animate-spin text-muted-foreground" />
           )}
         </div>
 
+        <Button
+          variant="ghost"
+          size="icon"
+          onClick={() => setSearchContent(!searchContent)}
+          className={cn(
+            "shrink-0",
+            searchContent && "bg-primary/20 text-primary"
+          )}
+          title={
+            searchContent
+              ? "Поиск по содержимому (вкл)"
+              : "Поиск по содержимому (выкл)"
+          }>
+          <FileText className="h-4 w-4" />
+        </Button>
+
         {isSearching ? (
           <Button
-            type="button"
-            variant="destructive"
+            variant="ghost"
             size="icon"
             onClick={handleCancel}
-            title="Отменить поиск">
+            className="shrink-0 text-destructive hover:text-destructive"
+            title="Остановить поиск">
             <StopCircle className="h-4 w-4" />
           </Button>
         ) : (
           <Button
-            type="button"
-            variant={searchContent ? "default" : "outline"}
+            variant="ghost"
             size="icon"
-            onClick={() => setSearchContent(!searchContent)}
-            title={searchContent ? "Поиск по содержимому" : "Поиск по имени"}>
-            <FileText className="h-4 w-4" />
+            onClick={handleSearch}
+            disabled={!localQuery.trim() || !currentPath}
+            className="shrink-0"
+            title="Начать поиск">
+            <Search className="h-4 w-4" />
           </Button>
         )}
-      </form>
+      </div>
 
       {/* Индикатор прогресса поиска */}
       {isSearching && progress && (
-        <div className="flex flex-col gap-0.5 text-xs text-muted-foreground px-1 animate-in fade-in duration-200">
-          <div className="flex items-center justify-between">
-            <span>
-              Просканировано:{" "}
-              <strong>{progress.scanned.toLocaleString()}</strong> файлов
-            </span>
-            <span>
-              Найдено:{" "}
-              <strong className="text-primary">{progress.found}</strong>
-            </span>
-          </div>
-          {shortPath && (
-            <div className="truncate opacity-70" title={progress.currentPath}>
-              {shortPath}
-            </div>
-          )}
+        <div className="text-xs text-muted-foreground px-1">
+          <span>Найдено: {progress.found}</span>
+          <span className="mx-2">•</span>
+          <span>Просканировано: {progress.scanned}</span>
+          <span className="mx-2">•</span>
+          <span className="truncate">{shortenPath(progress.currentPath)}</span>
         </div>
       )}
     </div>

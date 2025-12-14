@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from "react";
 import { listen } from "@tauri-apps/api/event";
 import { commands, type SearchOptions } from "@/shared/api/tauri";
 import { useSearchStore, type SearchProgress } from "../model/store";
-import { toast, useToastStore } from "@/shared/ui";
+import { toast } from "@/shared/ui";
 
 interface SearchProgressEvent {
   scanned: number;
@@ -11,23 +11,19 @@ interface SearchProgressEvent {
 }
 
 export function useSearchWithProgress() {
+  const unlistenRef = useRef<(() => void) | null>(null);
+  const lastUpdateRef = useRef<number>(0);
+
   const {
-    searchPath,
     query,
+    searchPath,
     searchContent,
     caseSensitive,
-    isSearching,
-    progress,
-    results,
     setIsSearching,
-    setProgress,
     setResults,
+    setProgress,
+    shouldCancel,
   } = useSearchStore();
-
-  const abortRef = useRef(false);
-  const unlistenRef = useRef<(() => void) | null>(null);
-  const lastUpdateRef = useRef(0);
-  const searchingToastRef = useRef<string | null>(null);
 
   // Очистка слушателя при размонтировании
   useEffect(() => {
@@ -39,45 +35,44 @@ export function useSearchWithProgress() {
     };
   }, []);
 
-  const startSearch = useCallback(async () => {
-    if (!searchPath || query.length < 2) return;
+  const search = useCallback(async () => {
+    if (!query.trim() || !searchPath) {
+      console.log("Search cancelled: no query or path", { query, searchPath });
+      return;
+    }
 
-    abortRef.current = false;
-    setIsSearching(true);
-    setProgress({ scanned: 0, found: 0, currentPath: "" });
-    setResults([]);
-
-    // Показываем toast о начале поиска
-    searchingToastRef.current = toast.info(`Поиск "${query}"...`, 0);
+    console.log("Starting search:", { query, searchPath, searchContent });
 
     // Удаляем предыдущий слушатель
     if (unlistenRef.current) {
       unlistenRef.current();
+      unlistenRef.current = null;
     }
 
-    // Подписываемся на события прогресса с throttle
-    unlistenRef.current = await listen<SearchProgressEvent>(
-      "search-progress",
-      (event) => {
-        if (abortRef.current) return;
-
-        // Throttle: обновляем UI максимум раз в 200ms
-        const now = Date.now();
-        if (now - lastUpdateRef.current < 200) return;
-        lastUpdateRef.current = now;
-
-        const prog: SearchProgress = {
-          scanned: event.payload.scanned,
-          found: event.payload.found,
-          currentPath: event.payload.current_path,
-        };
-        setProgress(prog);
-      }
-    );
+    setIsSearching(true);
+    setProgress({ scanned: 0, found: 0, currentPath: searchPath });
+    setResults([]);
 
     try {
+      // Подписываемся на события прогресса с throttle
+      unlistenRef.current = await listen<SearchProgressEvent>(
+        "search-progress",
+        (event) => {
+          const now = Date.now();
+          // Throttle: обновляем UI максимум раз в 100ms
+          if (now - lastUpdateRef.current > 100) {
+            lastUpdateRef.current = now;
+            setProgress({
+              scanned: event.payload.scanned,
+              found: event.payload.found,
+              currentPath: event.payload.current_path,
+            });
+          }
+        }
+      );
+
       const options: SearchOptions = {
-        query,
+        query: query.trim(),
         search_path: searchPath,
         search_content: searchContent,
         case_sensitive: caseSensitive,
@@ -85,71 +80,41 @@ export function useSearchWithProgress() {
         file_extensions: null,
       };
 
+      console.log("Calling searchFilesStream with options:", options);
+
       const result = await commands.searchFilesStream(options);
 
-      // Удаляем toast о поиске
-      if (searchingToastRef.current) {
-        useToastStore.getState().removeToast(searchingToastRef.current);
-        searchingToastRef.current = null;
-      }
+      console.log("Search result:", result);
 
-      if (result.status === "ok" && !abortRef.current) {
+      if (result.status === "ok") {
         setResults(result.data);
-
-        // Показываем toast с результатом
-        if (result.data.length === 0) {
-          toast.info("Ничего не найдено", 3000);
-        } else {
-          toast.success(`Найдено ${result.data.length} результатов`, 2000);
-        }
-      } else if (result.status === "error") {
+        toast.success(`Найдено ${result.data.length} файлов`);
+      } else {
         console.error("Search error:", result.error);
-        toast.error("Ошибка поиска", 3000);
+        toast.error(`Ошибка поиска: ${result.error}`);
       }
     } catch (error) {
-      console.error("Search failed:", error);
-      toast.error("Ошибка поиска", 3000);
-
-      if (searchingToastRef.current) {
-        useToastStore.getState().removeToast(searchingToastRef.current);
-        searchingToastRef.current = null;
-      }
+      console.error("Search exception:", error);
+      toast.error(`Ошибка поиска: ${String(error)}`);
     } finally {
       setIsSearching(false);
       setProgress(null);
 
+      // Очищаем слушатель
       if (unlistenRef.current) {
         unlistenRef.current();
         unlistenRef.current = null;
       }
     }
   }, [
-    searchPath,
     query,
+    searchPath,
     searchContent,
     caseSensitive,
     setIsSearching,
-    setProgress,
     setResults,
+    setProgress,
   ]);
 
-  const cancelSearch = useCallback(() => {
-    abortRef.current = true;
-    setIsSearching(false);
-    setProgress(null);
-
-    if (searchingToastRef.current) {
-      useToastStore.getState().removeToast(searchingToastRef.current);
-      searchingToastRef.current = null;
-    }
-    toast.warning("Поиск отменён", 2000);
-  }, [setIsSearching, setProgress]);
-
-  return {
-    startSearch,
-    cancelSearch,
-    isSearching,
-    progress,
-    results,
-  };
+  return { search };
 }

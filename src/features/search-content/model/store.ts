@@ -16,7 +16,6 @@ interface SearchState {
   results: SearchResult[];
   progress: SearchProgress | null;
   shouldCancel: boolean;
-
   setQuery: (query: string) => void;
   setSearchPath: (path: string) => void;
   setSearchContent: (value: boolean) => void;
@@ -28,7 +27,7 @@ interface SearchState {
   reset: () => void;
 }
 
-export const useSearchStore = create<SearchState>((set) => ({
+export const useSearchStore = create<SearchState>((set, get) => ({
   query: "",
   searchPath: "",
   searchContent: false,
@@ -45,15 +44,15 @@ export const useSearchStore = create<SearchState>((set) => ({
   setIsSearching: (isSearching) => set({ isSearching }),
   setResults: (results) => set({ results }),
   setProgress: (progress) => set({ progress }),
-  cancelSearch: () => set({ shouldCancel: true }),
+
+  cancelSearch: () => set({ shouldCancel: true, isSearching: false }),
+
   reset: () =>
     set({
       query: "",
-      searchContent: false,
-      caseSensitive: false,
-      isSearching: false,
       results: [],
       progress: null,
+      isSearching: false,
       shouldCancel: false,
     }),
 }));
