@@ -7,6 +7,9 @@
 
 
 export const commands = {
+/**
+ * Reads the contents of a directory.
+ */
 async readDirectory(path: string) : Promise<Result<FileEntry[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("read_directory", { path }) };
@@ -16,7 +19,7 @@ async readDirectory(path: string) : Promise<Result<FileEntry[], string>> {
 }
 },
 /**
- * Стриминг директории пакетами для больших директорий
+ * Streams directory contents in batches for large directories.
  */
 async readDirectoryStream(path: string) : Promise<Result<null, string>> {
     try {
@@ -26,6 +29,9 @@ async readDirectoryStream(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Returns a list of available drives on the system.
+ */
 async getDrives() : Promise<Result<DriveInfo[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_drives") };
@@ -34,6 +40,9 @@ async getDrives() : Promise<Result<DriveInfo[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Creates a new directory at the specified path.
+ */
 async createDirectory(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_directory", { path }) };
@@ -42,6 +51,9 @@ async createDirectory(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Creates a new empty file at the specified path.
+ */
 async createFile(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_file", { path }) };
@@ -50,6 +62,13 @@ async createFile(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Deletes files or directories.
+ * 
+ * # Arguments
+ * * `paths` - List of paths to delete
+ * * `permanent` - If true, permanently delete; otherwise move to trash (TODO)
+ */
 async deleteEntries(paths: string[], permanent: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("delete_entries", { paths, permanent }) };
@@ -58,6 +77,11 @@ async deleteEntries(paths: string[], permanent: boolean) : Promise<Result<null, 
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Renames a file or directory.
+ * 
+ * Returns the new path after renaming.
+ */
 async renameEntry(oldPath: string, newName: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("rename_entry", { oldPath, newName }) };
@@ -66,6 +90,9 @@ async renameEntry(oldPath: string, newName: string) : Promise<Result<string, str
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Copies files or directories to a destination.
+ */
 async copyEntries(sources: string[], destination: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("copy_entries", { sources, destination }) };
@@ -75,7 +102,7 @@ async copyEntries(sources: string[], destination: string) : Promise<Result<null,
 }
 },
 /**
- * Параллельное копирование файлов с прогрессом
+ * Copies files in parallel with progress events.
  */
 async copyEntriesParallel(sources: string[], destination: string) : Promise<Result<null, string>> {
     try {
@@ -85,6 +112,9 @@ async copyEntriesParallel(sources: string[], destination: string) : Promise<Resu
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Moves files or directories to a destination.
+ */
 async moveEntries(sources: string[], destination: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("move_entries", { sources, destination }) };
@@ -93,6 +123,9 @@ async moveEntries(sources: string[], destination: string) : Promise<Result<null,
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Reads the content of a text file.
+ */
 async getFileContent(path: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_file_content", { path }) };
@@ -101,6 +134,9 @@ async getFileContent(path: string) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Returns the parent directory of a path.
+ */
 async getParentPath(path: string) : Promise<Result<string | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_parent_path", { path }) };
@@ -109,6 +145,9 @@ async getParentPath(path: string) : Promise<Result<string | null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Checks if a path exists.
+ */
 async pathExists(path: string) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("path_exists", { path }) };
@@ -117,6 +156,9 @@ async pathExists(path: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Searches for files matching the given options.
+ */
 async searchFiles(options: SearchOptions) : Promise<Result<SearchResult[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search_files", { options }) };
@@ -126,7 +168,7 @@ async searchFiles(options: SearchOptions) : Promise<Result<SearchResult[], strin
 }
 },
 /**
- * Стриминг поиска с прогрессом
+ * Streaming search with progress events.
  */
 async searchFilesStream(options: SearchOptions) : Promise<Result<SearchResult[], string>> {
     try {
@@ -136,6 +178,9 @@ async searchFilesStream(options: SearchOptions) : Promise<Result<SearchResult[],
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Searches for files by name only.
+ */
 async searchByName(searchPath: string, query: string, maxResults: number | null) : Promise<Result<SearchResult[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search_by_name", { searchPath, query, maxResults }) };
@@ -144,6 +189,9 @@ async searchByName(searchPath: string, query: string, maxResults: number | null)
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Searches file contents.
+ */
 async searchContent(searchPath: string, query: string, extensions: string[] | null, maxResults: number | null) : Promise<Result<SearchResult[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search_content", { searchPath, query, extensions, maxResults }) };
@@ -152,6 +200,20 @@ async searchContent(searchPath: string, query: string, extensions: string[] | nu
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Generates a preview for a file.
+ */
+async getFilePreview(path: string) : Promise<Result<FilePreview, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_file_preview", { path }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
+ * Starts watching a directory for filesystem changes.
+ */
 async watchDirectory(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("watch_directory", { path }) };
@@ -160,17 +222,15 @@ async watchDirectory(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
+/**
+ * Stops watching directories.
+ * 
+ * Note: Currently a placeholder. State management for watchers
+ * should be implemented for proper cleanup.
+ */
 async unwatchDirectory() : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("unwatch_directory") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-async getFilePreview(path: string) : Promise<Result<FilePreview, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_file_preview", { path }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -188,11 +248,29 @@ async getFilePreview(path: string) : Promise<Result<FilePreview, string>> {
 
 /** user-defined types **/
 
+/**
+ * A content match within a file (line-based).
+ */
 export type ContentMatch = { line_number: number; line_content: string; match_start: number; match_end: number }
+/**
+ * Represents a drive/volume on the system.
+ */
 export type DriveInfo = { name: string; path: string; total_space: number; free_space: number; drive_type: string }
+/**
+ * Represents a file or directory entry in the filesystem.
+ */
 export type FileEntry = { name: string; path: string; is_dir: boolean; is_hidden: boolean; size: number; modified: number | null; created: number | null; extension: string | null }
+/**
+ * File preview content types.
+ */
 export type FilePreview = { type: "Text"; content: string; truncated: boolean } | { type: "Image"; base64: string; mime: string } | { type: "Unsupported"; mime: string }
+/**
+ * Options for file search operations.
+ */
 export type SearchOptions = { query: string; search_path: string; search_content: boolean; case_sensitive: boolean; max_results: number | null; file_extensions: string[] | null }
+/**
+ * A search result entry.
+ */
 export type SearchResult = { path: string; name: string; is_dir: boolean; matches: ContentMatch[] }
 
 /** tauri-specta globals **/

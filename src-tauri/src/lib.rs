@@ -1,36 +1,44 @@
-mod commands;
+//! File Manager Tauri Application Library
+//!
+//! This crate provides the backend functionality for the file manager,
+//! including file operations, search, preview, and filesystem watching.
 
-use commands::{
-    copy_entries, copy_entries_parallel, create_directory, create_file, delete_entries,
-    get_drives, get_file_content, get_file_preview, get_parent_path, move_entries, path_exists,
-    read_directory, read_directory_stream, rename_entry, search_by_name, search_content,
-    search_files, search_files_stream, unwatch_directory, watch_directory,
-};
+mod commands;
+mod constants;
+mod error;
+mod models;
+mod utils;
+
 use tauri_specta::{collect_commands, Builder};
 
+/// Runs the Tauri application.
 pub fn run() {
     let builder = Builder::<tauri::Wry>::new()
         .commands(collect_commands![
-            read_directory,
-            read_directory_stream,
-            get_drives,
-            create_directory,
-            create_file,
-            delete_entries,
-            rename_entry,
-            copy_entries,
-            copy_entries_parallel,
-            move_entries,
-            get_file_content,
-            get_parent_path,
-            path_exists,
-            search_files,
-            search_files_stream,
-            search_by_name,
-            search_content,
-            watch_directory,
-            unwatch_directory,
-            get_file_preview,
+            // File operations
+            commands::read_directory,
+            commands::read_directory_stream,
+            commands::get_drives,
+            commands::create_directory,
+            commands::create_file,
+            commands::delete_entries,
+            commands::rename_entry,
+            commands::copy_entries,
+            commands::copy_entries_parallel,
+            commands::move_entries,
+            commands::get_file_content,
+            commands::get_parent_path,
+            commands::path_exists,
+            // Search
+            commands::search_files,
+            commands::search_files_stream,
+            commands::search_by_name,
+            commands::search_content,
+            // Preview
+            commands::get_file_preview,
+            // Watcher
+            commands::watch_directory,
+            commands::unwatch_directory,
         ]);
 
     #[cfg(debug_assertions)]
@@ -53,4 +61,3 @@ pub fn run() {
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
-
