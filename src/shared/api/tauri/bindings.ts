@@ -7,9 +7,6 @@
 
 
 export const commands = {
-/**
- * Read directory contents.
- */
 async readDirectory(path: string) : Promise<Result<FileEntry[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("read_directory", { path }) };
@@ -18,9 +15,6 @@ async readDirectory(path: string) : Promise<Result<FileEntry[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Get directory statistics.
- */
 async getDirectoryStats(path: string) : Promise<Result<DirectoryStats, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_directory_stats", { path }) };
@@ -29,9 +23,6 @@ async getDirectoryStats(path: string) : Promise<Result<DirectoryStats, string>> 
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Stream directory entries in batches.
- */
 async readDirectoryStream(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("read_directory_stream", { path }) };
@@ -40,9 +31,6 @@ async readDirectoryStream(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Get available drives/volumes.
- */
 async getDrives() : Promise<Result<DriveInfo[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_drives") };
@@ -51,9 +39,6 @@ async getDrives() : Promise<Result<DriveInfo[], string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Create a new directory.
- */
 async createDirectory(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_directory", { path }) };
@@ -62,9 +47,6 @@ async createDirectory(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Create a new file.
- */
 async createFile(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("create_file", { path }) };
@@ -73,11 +55,6 @@ async createFile(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Delete files or directories.
- * 
- * If `permanent` is false, entries are moved to the system trash/recycle bin.
- */
 async deleteEntries(paths: string[], permanent: boolean) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("delete_entries", { paths, permanent }) };
@@ -86,9 +63,6 @@ async deleteEntries(paths: string[], permanent: boolean) : Promise<Result<null, 
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Rename a file or directory.
- */
 async renameEntry(oldPath: string, newName: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("rename_entry", { oldPath, newName }) };
@@ -97,9 +71,6 @@ async renameEntry(oldPath: string, newName: string) : Promise<Result<string, str
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Copy entries to a destination directory.
- */
 async copyEntries(sources: string[], destination: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("copy_entries", { sources, destination }) };
@@ -108,9 +79,6 @@ async copyEntries(sources: string[], destination: string) : Promise<Result<null,
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Parallel copy with progress events.
- */
 async copyEntriesParallel(sources: string[], destination: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("copy_entries_parallel", { sources, destination }) };
@@ -119,9 +87,6 @@ async copyEntriesParallel(sources: string[], destination: string) : Promise<Resu
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Move entries to a destination directory.
- */
 async moveEntries(sources: string[], destination: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("move_entries", { sources, destination }) };
@@ -130,9 +95,6 @@ async moveEntries(sources: string[], destination: string) : Promise<Result<null,
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Get file content as string.
- */
 async getFileContent(path: string) : Promise<Result<string, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_file_content", { path }) };
@@ -141,9 +103,6 @@ async getFileContent(path: string) : Promise<Result<string, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Get parent path.
- */
 async getParentPath(path: string) : Promise<Result<string | null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_parent_path", { path }) };
@@ -152,9 +111,6 @@ async getParentPath(path: string) : Promise<Result<string | null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Check if path exists.
- */
 async pathExists(path: string) : Promise<Result<boolean, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("path_exists", { path }) };
@@ -163,9 +119,6 @@ async pathExists(path: string) : Promise<Result<boolean, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Search files by name and optionally content.
- */
 async searchFiles(options: SearchOptions) : Promise<Result<SearchResult[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search_files", { options }) };
@@ -174,9 +127,6 @@ async searchFiles(options: SearchOptions) : Promise<Result<SearchResult[], strin
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Search with progress streaming.
- */
 async searchFilesStream(options: SearchOptions) : Promise<Result<SearchResult[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search_files_stream", { options }) };
@@ -185,9 +135,6 @@ async searchFilesStream(options: SearchOptions) : Promise<Result<SearchResult[],
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Search by filename only.
- */
 async searchByName(searchPath: string, query: string, maxResults: number | null) : Promise<Result<SearchResult[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search_by_name", { searchPath, query, maxResults }) };
@@ -196,9 +143,6 @@ async searchByName(searchPath: string, query: string, maxResults: number | null)
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Search file contents.
- */
 async searchContent(searchPath: string, query: string, extensions: string[] | null, maxResults: number | null) : Promise<Result<SearchResult[], string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("search_content", { searchPath, query, extensions, maxResults }) };
@@ -207,31 +151,6 @@ async searchContent(searchPath: string, query: string, extensions: string[] | nu
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Update the runtime security configuration.
- */
-async setSecurityConfig(cfg: SecurityConfig) : Promise<Result<null, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("set_security_config", { cfg }) };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Get the current security configuration.
- */
-async getSecurityConfig() : Promise<Result<SecurityConfig, string>> {
-    try {
-    return { status: "ok", data: await TAURI_INVOKE("get_security_config") };
-} catch (e) {
-    if(e instanceof Error) throw e;
-    else return { status: "error", error: e  as any };
-}
-},
-/**
- * Start watching a directory for changes.
- */
 async watchDirectory(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("watch_directory", { path }) };
@@ -240,9 +159,6 @@ async watchDirectory(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Stop watching a directory.
- */
 async unwatchDirectory(path: string) : Promise<Result<null, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("unwatch_directory", { path }) };
@@ -251,9 +167,6 @@ async unwatchDirectory(path: string) : Promise<Result<null, string>> {
     else return { status: "error", error: e  as any };
 }
 },
-/**
- * Get file preview content.
- */
 async getFilePreview(path: string) : Promise<Result<FilePreview, string>> {
     try {
     return { status: "ok", data: await TAURI_INVOKE("get_file_preview", { path }) };
@@ -274,9 +187,6 @@ async getFilePreview(path: string) : Promise<Result<FilePreview, string>> {
 
 /** user-defined types **/
 
-/**
- * A content match within a file.
- */
 export type ContentMatch = { line_number: number; line_content: string; match_start: number; match_end: number }
 /**
  * Statistics about a directory.
@@ -290,30 +200,9 @@ export type DriveInfo = { name: string; path: string; total_space: number; free_
  * Represents a file or directory entry.
  */
 export type FileEntry = { name: string; name_lower: string; path: string; is_dir: boolean; is_hidden: boolean; size: number; modified: number | null; created: number | null; extension: string | null }
-/**
- * File preview content.
- */
 export type FilePreview = { type: "Text"; content: string; truncated: boolean } | { type: "Image"; base64: string; mime: string } | { type: "Unsupported"; mime: string }
-/**
- * Search options.
- */
 export type SearchOptions = { query: string; search_path: string; search_content: boolean; case_sensitive: boolean; max_results: number | null; file_extensions: string[] | null }
-/**
- * A search result entry.
- */
 export type SearchResult = { path: string; name: string; name_lower: string; is_dir: boolean; matches: ContentMatch[] }
-/**
- * Security configuration for sandboxing file operations.
- */
-export type SecurityConfig = { 
-/**
- * Allowed root directories for file operations.
- */
-allowed_roots: string[]; 
-/**
- * Glob patterns for denied paths.
- */
-denied_patterns: string[] }
 
 /** tauri-specta globals **/
 

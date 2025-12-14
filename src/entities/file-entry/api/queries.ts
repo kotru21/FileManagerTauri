@@ -3,7 +3,7 @@ import { commands } from "@/shared/api/tauri";
 import { invoke as TAURI_INVOKE } from "@tauri-apps/api/core";
 import type { FileEntry, DriveInfo } from "@/shared/api/tauri";
 import { CACHE_TIME } from "@/shared/config";
-import { unwrapResult } from "@/shared/lib";
+import { unwrapResult, getParent } from "@/shared/lib";
 
 export const fileKeys = {
   all: ["files"] as const,
@@ -57,10 +57,7 @@ export function useDirectoryStats(path: string | null) {
 export function useCreateDirectory() {
   const queryClient = useQueryClient();
 
-  const getParent = (p: string) => {
-    const i = Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
-    return i < 0 ? p : p.slice(0, i);
-  };
+  // Use shared utility getParent
 
   return useMutation({
     mutationFn: async (path: string) =>
@@ -79,8 +76,7 @@ export function useCreateFile() {
     mutationFn: async (path: string) =>
       unwrapResult(await commands.createFile(path)),
     onSuccess: (_data, path) => {
-      const i = Math.max(path.lastIndexOf("\\"), path.lastIndexOf("/"));
-      const parent = i < 0 ? path : path.slice(0, i);
+      const parent = getParent(path);
       queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
     },
   });
@@ -98,14 +94,7 @@ export function useDeleteEntries() {
       permanent: boolean;
     }) => unwrapResult(await commands.deleteEntries(paths, permanent)),
     onSuccess: (_data, { paths }) => {
-      const parents = Array.from(
-        new Set(
-          paths.map((p) => {
-            const i = Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
-            return i < 0 ? p : p.slice(0, i);
-          })
-        )
-      );
+      const parents = Array.from(new Set(paths.map((p) => getParent(p))));
       parents.forEach((parent) => {
         queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
       });
@@ -126,8 +115,11 @@ export function useRenameEntry() {
     }) => unwrapResult(await commands.renameEntry(oldPath, newName)),
     onSuccess: (_data, { oldPath }) => {
       const i = Math.max(oldPath.lastIndexOf("\\"), oldPath.lastIndexOf("/"));
-      const parent = i < 0 ? oldPath : oldPath.slice(0, i);
-      queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
+      let parent = i < 0 ? oldPath : oldPath.slice(0, i);
+      if (/^[A-Za-z]:$/.test(parent)) parent = parent + "\\";
+      queryClient.invalidateQueries({
+        queryKey: fileKeys.directory(getParent(oldPath)),
+      });
     },
   });
 }
@@ -144,14 +136,7 @@ export function useCopyEntries() {
       destination: string;
     }) => unwrapResult(await commands.copyEntries(sources, destination)),
     onSuccess: (_data, { sources, destination }) => {
-      const parents = Array.from(
-        new Set(
-          sources.map((p) => {
-            const i = Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
-            return i < 0 ? p : p.slice(0, i);
-          })
-        )
-      );
+      const parents = Array.from(new Set(sources.map((p) => getParent(p))));
       parents.push(destination);
       parents.forEach((parent) => {
         queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });
@@ -194,14 +179,7 @@ export function useMoveEntries() {
       destination: string;
     }) => unwrapResult(await commands.moveEntries(sources, destination)),
     onSuccess: (_data, { sources, destination }) => {
-      const parents = Array.from(
-        new Set(
-          sources.map((p) => {
-            const i = Math.max(p.lastIndexOf("\\"), p.lastIndexOf("/"));
-            return i < 0 ? p : p.slice(0, i);
-          })
-        )
-      );
+      const parents = Array.from(new Set(sources.map((p) => getParent(p))));
       parents.push(destination);
       parents.forEach((parent) => {
         queryClient.invalidateQueries({ queryKey: fileKeys.directory(parent) });

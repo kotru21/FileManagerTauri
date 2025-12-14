@@ -50,9 +50,9 @@ export function useFileOperations({ currentPath }: UseFileOperationsOptions) {
   const handleCreateFolder = useCallback(async () => {
     if (!currentPath || !newFolderDialog.state.value.trim()) return;
     try {
-      await createDirectory.mutateAsync(
-        joinPath(currentPath, newFolderDialog.state.value.trim())
-      );
+      const path = joinPath(currentPath, newFolderDialog.state.value.trim());
+      console.debug("creating directory:", path);
+      await createDirectory.mutateAsync(path);
       newFolderDialog.close();
     } catch (error) {
       console.error("Failed to create folder:", error);

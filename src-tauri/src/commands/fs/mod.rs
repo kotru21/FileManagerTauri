@@ -8,7 +8,6 @@ mod write;
 use super::error::{FsError, FsResult};
 use tauri::async_runtime::spawn_blocking;
 
-// Re-export all public commands
 pub use copy_move::{copy_entries, copy_entries_parallel, move_entries};
 pub use delete::delete_entries;
 pub use read::{

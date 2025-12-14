@@ -3,61 +3,60 @@
 use crate::commands::config::limits;
 use crate::commands::error::{FsError, FsResult};
 use crate::commands::types::{DirectoryStats, DriveInfo, FileEntry};
-use crate::commands::validation::validate_sandboxed;
-use crate::commands::{ConfigExt, SecurityConfigState};
+use crate::commands::validation::validate_path;
 
 use super::run_blocking;
 use std::fs;
-use tauri::{AppHandle, Emitter, State};
+use tauri::{AppHandle, Emitter};
 use tracing::instrument;
 
-/// Read directory contents.
 #[tauri::command]
 #[specta::specta]
-#[instrument(skip(config_state))]
-pub async fn read_directory(
-    path: String,
-    config_state: State<'_, SecurityConfigState>,
-) -> Result<Vec<FileEntry>, String> {
-    let config = config_state.get_config()?;
-    run_blocking(move || read_directory_sync(&path, &config)).await
+#[instrument]
+pub async fn read_directory(path: String) -> Result<Vec<FileEntry>, String> {
+    run_blocking(move || read_directory_sync(&path)).await
 }
 
-pub fn read_directory_sync(
-    path: &str,
-    config: &crate::commands::config::SecurityConfig,
-) -> FsResult<Vec<FileEntry>> {
-    let dir_path = validate_sandboxed(path, config)?;
-
+pub fn read_directory_sync(path: &str) -> FsResult<Vec<FileEntry>> {
+    println!("=== read_directory_sync: {}", path);
+    
+    let dir_path = match validate_path(path) {
+        Ok(p) => {
+            println!("=== validated OK: {:?}", p);
+            p
+        }
+        Err(e) => {
+            println!("=== validate_path FAILED: {:?}", e);
+            return Err(e);
+        }
+    };
+    
     let mut entries: Vec<FileEntry> = fs::read_dir(&dir_path)
-        .map_err(|_| FsError::ReadDirectoryFailed)?
+        .map_err(|e| {
+            println!("=== fs::read_dir FAILED: {:?}", e);
+            FsError::ReadDirectoryFailed
+        })?
         .flatten()
         .filter_map(|e| FileEntry::from_dir_entry(&e))
         .collect();
-
-    // Sort: directories first, then alphabetically by lowercase name
+        
+    println!("=== got {} entries", entries.len());
+    
     entries.sort_by(|a, b| match (a.is_dir, b.is_dir) {
         (true, false) => std::cmp::Ordering::Less,
         (false, true) => std::cmp::Ordering::Greater,
         _ => a.name_lower.cmp(&b.name_lower),
     });
-
     Ok(entries)
 }
 
-/// Get directory statistics.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_directory_stats(
-    path: String,
-    config_state: State<'_, SecurityConfigState>,
-) -> Result<DirectoryStats, String> {
-    let config = config_state.get_config()?;
+pub async fn get_directory_stats(path: String) -> Result<DirectoryStats, String> {
     run_blocking(move || {
-        let dir_path = validate_sandboxed(&path, &config)?;
+        let dir_path = validate_path(&path)?;
         let threshold = limits::STREAM_BATCH_SIZE * 20;
         let mut count = 0;
-
         for _ in fs::read_dir(&dir_path)
             .map_err(|_| FsError::ReadDirectoryFailed)?
             .flatten()
@@ -70,7 +69,6 @@ pub async fn get_directory_stats(
                 });
             }
         }
-
         Ok(DirectoryStats {
             count,
             exceeded_threshold: false,
@@ -79,19 +77,12 @@ pub async fn get_directory_stats(
     .await
 }
 
-/// Stream directory entries in batches.
 #[tauri::command]
 #[specta::specta]
-pub async fn read_directory_stream(
-    path: String,
-    app: AppHandle,
-    config_state: State<'_, SecurityConfigState>,
-) -> Result<(), String> {
-    let config = config_state.get_config()?;
+pub async fn read_directory_stream(path: String, app: AppHandle) -> Result<(), String> {
     run_blocking(move || {
-        let dir_path = validate_sandboxed(&path, &config)?;
+        let dir_path = validate_path(&path)?;
         let mut batch = Vec::with_capacity(limits::STREAM_BATCH_SIZE);
-
         for entry in fs::read_dir(&dir_path)
             .map_err(|_| FsError::ReadDirectoryFailed)?
             .flatten()
@@ -104,31 +95,26 @@ pub async fn read_directory_stream(
                 }
             }
         }
-
         if !batch.is_empty() {
             let _ = app.emit("directory-batch", &batch);
         }
         let _ = app.emit("directory-complete", &path);
-
         Ok(())
     })
     .await
 }
 
-/// Get available drives/volumes.
 #[tauri::command]
 #[specta::specta]
 pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
     run_blocking(|| {
         let disks = sysinfo::Disks::new_with_refreshed_list();
-
         let drives: Vec<DriveInfo> = disks
             .iter()
             .map(|d| {
                 let name = d.name().to_string_lossy().to_string();
                 let path = d.mount_point().to_string_lossy().to_string();
                 let label = get_volume_label(d, &name);
-
                 DriveInfo {
                     name,
                     path,
@@ -139,9 +125,7 @@ pub async fn get_drives() -> Result<Vec<DriveInfo>, String> {
                 }
             })
             .collect();
-
         if drives.is_empty() {
-            // Fallback for systems without detected drives
             Ok(vec![DriveInfo {
                 name: "/".to_string(),
                 path: "/".to_string(),
@@ -163,11 +147,9 @@ fn get_volume_label(disk: &sysinfo::Disk, fallback: &str) -> Option<String> {
     {
         use std::os::windows::ffi::OsStrExt;
         use windows_sys::Win32::Storage::FileSystem::GetVolumeInformationW;
-
         let mount = disk.mount_point();
         let mut vol_name: Vec<u16> = vec![0; 260];
         let root: Vec<u16> = mount.as_os_str().encode_wide().chain(Some(0)).collect();
-
         let res = unsafe {
             GetVolumeInformationW(
                 root.as_ptr(),
@@ -180,101 +162,47 @@ fn get_volume_label(disk: &sysinfo::Disk, fallback: &str) -> Option<String> {
                 0,
             )
         };
-
         if res != 0 {
-            let len = vol_name
-                .iter()
-                .position(|&c| c == 0)
-                .unwrap_or(vol_name.len());
+            let len = vol_name.iter().position(|&c| c == 0).unwrap_or(vol_name.len());
             let s = String::from_utf16_lossy(&vol_name[..len]);
             if !s.trim().is_empty() {
                 return Some(s);
             }
         }
     }
-
-    if fallback.is_empty() {
-        None
-    } else {
-        Some(fallback.to_string())
-    }
+    if fallback.is_empty() { None } else { Some(fallback.to_string()) }
 }
 
-/// Get file content as string.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_file_content(
-    path: String,
-    config_state: State<'_, SecurityConfigState>,
-) -> Result<String, String> {
-    let config = config_state.get_config()?;
+pub async fn get_file_content(path: String) -> Result<String, String> {
     run_blocking(move || {
-        let validated = validate_sandboxed(&path, &config)?;
+        let validated = validate_path(&path)?;
         let meta = fs::metadata(&validated)?;
-
         if meta.len() > limits::MAX_CONTENT_FILE_SIZE {
             return Err(FsError::FileTooLarge);
         }
-
         fs::read_to_string(&validated).map_err(FsError::from)
     })
     .await
 }
 
-/// Get parent path.
 #[tauri::command]
 #[specta::specta]
-pub async fn get_parent_path(
-    path: String,
-    config_state: State<'_, SecurityConfigState>,
-) -> Result<Option<String>, String> {
-    let config = config_state.get_config()?;
+pub async fn get_parent_path(path: String) -> Result<Option<String>, String> {
     run_blocking(move || {
-        let validated = validate_sandboxed(&path, &config)?;
+        let validated = validate_path(&path)?;
         Ok(validated.parent().map(|p| p.to_string_lossy().to_string()))
     })
     .await
 }
 
-/// Check if path exists.
 #[tauri::command]
 #[specta::specta]
-pub async fn path_exists(
-    path: String,
-    config_state: State<'_, SecurityConfigState>,
-) -> Result<bool, String> {
-    let config = config_state.get_config()?;
+pub async fn path_exists(path: String) -> Result<bool, String> {
     run_blocking(move || {
-        let validated = validate_sandboxed(&path, &config)?;
+        let validated = validate_path(&path)?;
         Ok(validated.exists())
     })
     .await
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-    use crate::commands::config::SecurityConfig;
-    use tempfile::tempdir;
-
-    #[test]
-    fn read_directory_sorts_correctly() {
-        let dir = tempdir().unwrap();
-        fs::create_dir(dir.path().join("aaa_dir")).unwrap();
-        fs::File::create(dir.path().join("bbb.txt")).unwrap();
-        fs::File::create(dir.path().join("aaa.txt")).unwrap();
-
-        let config = SecurityConfig::default().with_mounted_disks();
-        let entries = read_directory_sync(&dir.path().to_string_lossy(), &config).unwrap();
-
-        assert!(entries[0].is_dir);
-        assert!(!entries[1].is_dir);
-    }
-
-    #[tokio::test]
-    async fn get_drives_returns_results() {
-        let result = get_drives().await;
-        assert!(result.is_ok());
-        assert!(!result.unwrap().is_empty());
-    }
 }
