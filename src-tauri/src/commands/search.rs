@@ -2,8 +2,10 @@
 
 use crate::commands::config::{limits, SecurityConfig};
 use crate::commands::error::FsResult;
-use crate::commands::file_ops::{run_blocking_fs, ConfigExt, SecurityConfigState};
+use crate::commands::fs::run_blocking;
 use crate::commands::validation::validate_sandboxed;
+use crate::commands::{ConfigExt, SecurityConfigState};
+
 use rayon::iter::ParallelBridge;
 use rayon::prelude::*;
 use serde::{Deserialize, Serialize};
@@ -63,7 +65,7 @@ pub async fn search_files(
     config_state: State<'_, SecurityConfigState>,
 ) -> Result<Vec<SearchResult>, String> {
     let config = config_state.get_config()?;
-    run_blocking_fs(move || search_sync(&options, &config, None)).await
+    run_blocking(move || search_sync(&options, &config, None)).await
 }
 
 /// Search with progress streaming.
@@ -76,7 +78,7 @@ pub async fn search_files_stream(
     config_state: State<'_, SecurityConfigState>,
 ) -> Result<Vec<SearchResult>, String> {
     let config = config_state.get_config()?;
-    run_blocking_fs(move || search_sync(&options, &config, Some(app))).await
+    run_blocking(move || search_sync(&options, &config, Some(app))).await
 }
 
 fn search_sync(
@@ -173,6 +175,7 @@ fn process_entry(
     let name = path.file_name()?.to_str()?.to_string();
     let name_lower = name.to_lowercase();
 
+    // Filter by extension if specified
     if let Some(ref extensions) = options.file_extensions {
         if let Some(ext) = path.extension().and_then(|e| e.to_str()) {
             if !extensions.iter().any(|e| e.eq_ignore_ascii_case(ext)) {
@@ -229,6 +232,7 @@ fn search_file_content(
 
     let reader = BufReader::new(file);
     let mut matches = Vec::new();
+    const MAX_MATCHES_PER_FILE: usize = 10;
 
     for (line_num, line) in reader.lines().enumerate() {
         let line = match line {
@@ -256,7 +260,7 @@ fn search_file_content(
                 match_end: (start + needle.len()) as u64,
             });
 
-            if matches.len() >= 10 {
+            if matches.len() >= MAX_MATCHES_PER_FILE {
                 break;
             }
         }
@@ -362,5 +366,24 @@ mod tests {
         assert_eq!(results.len(), 1);
         assert_eq!(results[0].matches.len(), 1);
         assert_eq!(results[0].matches[0].line_number, 2);
+    }
+
+    #[test]
+    fn search_case_insensitive() {
+        let dir = tempdir().unwrap();
+        std::fs::File::create(dir.path().join("UPPERCASE.txt")).unwrap();
+
+        let config = SecurityConfig::default().with_mounted_disks();
+        let options = SearchOptions {
+            query: "uppercase".to_string(),
+            search_path: dir.path().to_string_lossy().to_string(),
+            search_content: false,
+            case_sensitive: false,
+            max_results: Some(10),
+            file_extensions: None,
+        };
+
+        let results = search_sync(&options, &config, None).unwrap();
+        assert_eq!(results.len(), 1);
     }
 }

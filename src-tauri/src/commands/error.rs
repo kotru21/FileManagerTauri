@@ -49,6 +49,9 @@ pub enum FsError {
 
     #[error("Operation cancelled")]
     Cancelled,
+
+    #[error("Invalid symlink")]
+    InvalidSymlink,
 }
 
 impl FsError {
@@ -63,28 +66,29 @@ impl FsError {
         }
     }
 
-    /// Create an Io error with context
+    /// Create an Io error with context.
     pub fn io(msg: impl Into<String>) -> Self {
         FsError::Io(msg.into())
-    }
-
-    /// Create an Io error from std::io::Error
-    pub fn from_io(err: io::Error) -> Self {
-        #[cfg(debug_assertions)]
-        {
-            FsError::Io(err.to_string())
-        }
-        #[cfg(not(debug_assertions))]
-        {
-            let _ = err;
-            FsError::Io("operation failed".to_string())
-        }
     }
 }
 
 impl From<io::Error> for FsError {
     fn from(err: io::Error) -> Self {
-        Self::from_io(err)
+        match err.kind() {
+            io::ErrorKind::NotFound => FsError::NotFound,
+            io::ErrorKind::PermissionDenied => FsError::AccessDenied,
+            io::ErrorKind::AlreadyExists => FsError::AlreadyExists,
+            _ => {
+                #[cfg(debug_assertions)]
+                {
+                    FsError::Io(err.to_string())
+                }
+                #[cfg(not(debug_assertions))]
+                {
+                    FsError::Io("operation failed".to_string())
+                }
+            }
+        }
     }
 }
 

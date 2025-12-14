@@ -75,6 +75,8 @@ async createFile(path: string) : Promise<Result<null, string>> {
 },
 /**
  * Delete files or directories.
+ * 
+ * If `permanent` is false, entries are moved to the system trash/recycle bin.
  */
 async deleteEntries(paths: string[], permanent: boolean) : Promise<Result<null, string>> {
     try {
@@ -303,7 +305,15 @@ export type SearchResult = { path: string; name: string; name_lower: string; is_
 /**
  * Security configuration for sandboxing file operations.
  */
-export type SecurityConfig = { allowed_roots: string[]; denied_patterns: string[] }
+export type SecurityConfig = { 
+/**
+ * Allowed root directories for file operations.
+ */
+allowed_roots: string[]; 
+/**
+ * Glob patterns for denied paths.
+ */
+denied_patterns: string[] }
 
 /** tauri-specta globals **/
 
