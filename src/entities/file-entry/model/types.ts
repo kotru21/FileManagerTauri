@@ -1,5 +1,3 @@
-export type { DriveInfo, FileEntry } from "@/shared/api/tauri"
-
 import type { FileEntry } from "@/shared/api/tauri"
 
 export type SortField = "name" | "size" | "modified" | "type"
@@ -11,18 +9,19 @@ export interface SortConfig {
 }
 
 export function sortEntries(entries: FileEntry[], config: SortConfig): FileEntry[] {
-  return [...entries].sort((a, b) => {
+  const sorted = [...entries]
+
+  sorted.sort((a, b) => {
     // Folders always first
-    if (a.is_dir && !b.is_dir) return -1
-    if (!a.is_dir && b.is_dir) return 1
+    if (a.is_dir !== b.is_dir) {
+      return a.is_dir ? -1 : 1
+    }
 
     let comparison = 0
 
     switch (config.field) {
       case "name":
-        comparison = a.name.localeCompare(b.name, "ru", {
-          sensitivity: "base",
-        })
+        comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase())
         break
       case "size":
         comparison = a.size - b.size
@@ -37,6 +36,8 @@ export function sortEntries(entries: FileEntry[], config: SortConfig): FileEntry
 
     return config.direction === "asc" ? comparison : -comparison
   })
+
+  return sorted
 }
 
 export function filterEntries(
@@ -47,17 +48,30 @@ export function filterEntries(
     searchQuery?: string
   },
 ): FileEntry[] {
-  return entries.filter((entry) => {
-    if (!options.showHidden && entry.is_hidden) return false
+  const { showHidden = false, extensions, searchQuery } = options
 
-    if (options.extensions?.length && !entry.is_dir) {
-      const ext = entry.extension?.toLowerCase()
-      if (!ext || !options.extensions.includes(ext)) return false
+  return entries.filter((entry) => {
+    // Filter hidden files (default: hide them)
+    if (!showHidden && entry.is_hidden) {
+      return false
     }
 
-    if (options.searchQuery) {
-      const query = options.searchQuery.toLowerCase()
-      if (!entry.name.toLowerCase().includes(query)) return false
+    // Filter by extensions (case-insensitive, folders always pass)
+    if (extensions && extensions.length > 0) {
+      if (!entry.is_dir) {
+        const entryExt = entry.extension?.toLowerCase()
+        const hasMatchingExt = extensions.some((ext) => ext.toLowerCase() === entryExt)
+        if (!hasMatchingExt) {
+          return false
+        }
+      }
+    }
+
+    // Filter by search query (case-insensitive)
+    if (searchQuery?.trim()) {
+      if (!entry.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+        return false
+      }
     }
 
     return true

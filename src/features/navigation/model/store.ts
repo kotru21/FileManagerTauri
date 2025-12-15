@@ -6,7 +6,6 @@ interface NavigationState {
   currentPath: string | null
   history: string[]
   historyIndex: number
-
   navigate: (path: string) => void
   goBack: () => void
   goForward: () => void
@@ -22,9 +21,16 @@ export const useNavigationStore = create<NavigationState>()(
       history: [],
       historyIndex: -1,
 
-      navigate: (path) => {
-        const state = get()
-        const newHistory = state.history.slice(0, state.historyIndex + 1)
+      navigate: (path: string) => {
+        const { currentPath, history, historyIndex } = get()
+
+        // Don't navigate to the same path
+        if (currentPath === path) {
+          return
+        }
+
+        // Truncate forward history if navigating from middle
+        const newHistory = history.slice(0, historyIndex + 1)
         newHistory.push(path)
 
         set({
@@ -35,51 +41,56 @@ export const useNavigationStore = create<NavigationState>()(
       },
 
       goBack: () => {
-        const state = get()
-        if (state.historyIndex > 0) {
-          const newIndex = state.historyIndex - 1
+        const { history, historyIndex } = get()
+        if (historyIndex > 0) {
+          const newIndex = historyIndex - 1
           set({
-            currentPath: state.history[newIndex],
+            currentPath: history[newIndex],
             historyIndex: newIndex,
           })
         }
       },
 
       goForward: () => {
-        const state = get()
-        if (state.historyIndex < state.history.length - 1) {
-          const newIndex = state.historyIndex + 1
+        const { history, historyIndex } = get()
+        if (historyIndex < history.length - 1) {
+          const newIndex = historyIndex + 1
           set({
-            currentPath: state.history[newIndex],
+            currentPath: history[newIndex],
             historyIndex: newIndex,
           })
         }
       },
 
       goUp: async () => {
-        const state = get()
-        if (!state.currentPath) return
+        const { currentPath, navigate } = get()
+        if (!currentPath) return
 
         try {
-          const result = await commands.getParentPath(state.currentPath)
+          const result = await commands.getParentPath(currentPath)
           if (result.status === "ok" && result.data) {
-            get().navigate(result.data)
+            navigate(result.data)
           }
         } catch (error) {
-          console.error("Failed to get parent path:", error)
+          console.error("Failed to navigate up:", error)
         }
       },
 
-      canGoBack: () => get().historyIndex > 0,
+      canGoBack: () => {
+        return get().historyIndex > 0
+      },
+
       canGoForward: () => {
-        const state = get()
-        return state.historyIndex < state.history.length - 1
+        const { history, historyIndex } = get()
+        return historyIndex < history.length - 1
       },
     }),
     {
       name: "navigation-storage",
       partialize: (state) => ({
         currentPath: state.currentPath,
+        history: state.history,
+        historyIndex: state.historyIndex,
       }),
     },
   ),

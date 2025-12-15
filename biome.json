@@ -33,6 +33,31 @@
       }
     }
   },
+  "overrides": [
+    {
+      "includes": ["**/__tests__/**", "**/*.test.*", "**/*.spec.*", "test/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noNonNullAssertion": "off"
+          }
+        }
+      },
+      "javascript": {
+        "globals": [
+          "describe",
+          "it",
+          "test",
+          "expect",
+          "vi",
+          "beforeEach",
+          "afterEach",
+          "beforeAll",
+          "afterAll"
+        ]
+      }
+    }
+  ],
   "javascript": {
     "formatter": {
       "quoteStyle": "double",

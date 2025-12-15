@@ -146,7 +146,7 @@ describe("useSelectionStore", () => {
   describe("selectAll", () => {
     it("should select all provided paths", () => {
       const paths = ["/a.txt", "/b.txt", "/c.txt"]
-      
+
       act(() => {
         useSelectionStore.getState().selectAll(paths)
       })

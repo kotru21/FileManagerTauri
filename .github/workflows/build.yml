@@ -62,9 +62,11 @@ jobs:
       
       - name: Clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+      - name: Run Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets --all-features
 
   build:
-    needs: [lint, rust-checks]
+    needs: [lint, rust-checks, test]
     strategy:
       fail-fast: false
       matrix:
@@ -75,6 +77,24 @@ jobs:
     timeout-minutes: 45
     steps:
       - uses: actions/checkout@v5
+
+  test:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - name: Run JS tests (Vitest)
+        run: npm run test:coverage
+      - name: Upload coverage artifact
+        uses: actions/upload-artifact@v6
+        with:
+          name: coverage
+          path: coverage
 
       - uses: actions/setup-node@v5
         with:

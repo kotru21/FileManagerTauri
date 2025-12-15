@@ -34,8 +34,6 @@ describe("cn", () => {
   })
 
   it("should handle complex tailwind merging", () => {
-    expect(cn("bg-red-500 hover:bg-red-600", "bg-blue-500")).toBe(
-      "hover:bg-red-600 bg-blue-500"
-    )
+    expect(cn("bg-red-500 hover:bg-red-600", "bg-blue-500")).toBe("hover:bg-red-600 bg-blue-500")
   })
 })
