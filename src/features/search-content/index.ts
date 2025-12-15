@@ -1,16 +1,14 @@
 // UI
-export { SearchBar, SearchResultItem } from "./ui";
-
-// Model
-export { useSearchStore, type SearchProgress } from "./model/store";
 
 // API
 export {
   searchKeys,
+  useSearch,
   useSearchByName,
   useSearchContent,
-  useSearch,
-} from "./api/queries";
-
+} from "./api/queries"
 // Hooks
-export { useSearchWithProgress } from "./hooks";
+export { useSearchWithProgress } from "./hooks"
+// Model
+export { type SearchProgress, useSearchStore } from "./model/store"
+export { SearchBar, SearchResultItem } from "./ui"

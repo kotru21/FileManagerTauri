@@ -1,21 +1,21 @@
-import { memo, useState, useCallback, useRef, useEffect } from "react";
-import type { FileEntry } from "@/shared/api/tauri";
-import { formatBytes, formatDate, cn } from "@/shared/lib";
-import { FileIcon } from "./FileIcon";
+import { memo, useCallback, useEffect, useRef, useState } from "react"
+import type { FileEntry } from "@/shared/api/tauri"
+import { cn, formatBytes, formatDate } from "@/shared/lib"
+import { FileIcon } from "./FileIcon"
 
 interface FileRowProps {
-  file: FileEntry;
-  isSelected: boolean;
-  isFocused?: boolean;
-  onSelect: (e: React.MouseEvent) => void;
-  onOpen: () => void;
-  onDrop?: (sources: string[], destination: string) => void;
-  getSelectedPaths?: () => string[];
+  file: FileEntry
+  isSelected: boolean
+  isFocused?: boolean
+  onSelect: (e: React.MouseEvent) => void
+  onOpen: () => void
+  onDrop?: (sources: string[], destination: string) => void
+  getSelectedPaths?: () => string[]
   columnWidths?: {
-    size: number;
-    date: number;
-    padding: number;
-  };
+    size: number
+    date: number
+    padding: number
+  }
 }
 
 export const FileRow = memo(
@@ -29,77 +29,77 @@ export const FileRow = memo(
     getSelectedPaths,
     columnWidths = { size: 100, date: 150, padding: 16 },
   }: FileRowProps) {
-    const [isDragOver, setIsDragOver] = useState(false);
-    const rowRef = useRef<HTMLDivElement>(null);
+    const [isDragOver, setIsDragOver] = useState(false)
+    const rowRef = useRef<HTMLDivElement>(null)
 
     // Scroll into view when focused
     useEffect(() => {
       if (isFocused && rowRef.current) {
-        rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" });
+        rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" })
       }
-    }, [isFocused]);
+    }, [isFocused])
 
     const handleDragStart = useCallback(
       (e: React.DragEvent) => {
-        const paths = getSelectedPaths?.() ?? [];
+        const paths = getSelectedPaths?.() ?? []
         if (!paths.includes(file.path)) {
-          paths.push(file.path);
+          paths.push(file.path)
         }
-        e.dataTransfer.setData("application/json", JSON.stringify(paths));
-        e.dataTransfer.effectAllowed = "copyMove";
+        e.dataTransfer.setData("application/json", JSON.stringify(paths))
+        e.dataTransfer.effectAllowed = "copyMove"
       },
-      [file.path, getSelectedPaths]
-    );
+      [file.path, getSelectedPaths],
+    )
 
     const handleDragOver = useCallback(
       (e: React.DragEvent) => {
-        if (!file.is_dir) return;
-        e.preventDefault();
-        e.dataTransfer.dropEffect = "copy";
-        setIsDragOver(true);
+        if (!file.is_dir) return
+        e.preventDefault()
+        e.dataTransfer.dropEffect = "copy"
+        setIsDragOver(true)
       },
-      [file.is_dir]
-    );
+      [file.is_dir],
+    )
 
     const handleDragLeave = useCallback(() => {
-      setIsDragOver(false);
-    }, []);
+      setIsDragOver(false)
+    }, [])
 
     const handleDrop = useCallback(
       (e: React.DragEvent) => {
-        e.preventDefault();
-        setIsDragOver(false);
+        e.preventDefault()
+        setIsDragOver(false)
 
-        if (!file.is_dir || !onDrop) return;
+        if (!file.is_dir || !onDrop) return
 
         try {
-          const data = e.dataTransfer.getData("application/json");
-          const sources: string[] = JSON.parse(data);
+          const data = e.dataTransfer.getData("application/json")
+          const sources: string[] = JSON.parse(data)
 
           // Don't drop onto self
-          if (sources.includes(file.path)) return;
+          if (sources.includes(file.path)) return
 
-          onDrop(sources, file.path);
+          onDrop(sources, file.path)
         } catch {
           // Ignore parse errors
         }
       },
-      [file.is_dir, file.path, onDrop]
-    );
+      [file.is_dir, file.path, onDrop],
+    )
 
     const handleDoubleClick = useCallback(() => {
-      onOpen();
-    }, [onOpen]);
+      onOpen()
+    }, [onOpen])
 
     const handleKeyDown = useCallback(
       (e: React.KeyboardEvent) => {
         if (e.key === "Enter") {
-          e.preventDefault();
-          onOpen();
+          e.preventDefault()
+          onOpen()
         }
       },
-      [onOpen]
-    );
+      [onOpen],
+    )
 
     return (
       <div
@@ -109,7 +109,7 @@ export const FileRow = memo(
           "hover:bg-accent/50 transition-colors duration-75",
           isSelected && "bg-accent text-accent-foreground",
           isFocused && "ring-1 ring-inset ring-primary",
-          isDragOver && file.is_dir && "bg-primary/20 ring-2 ring-primary"
+          isDragOver && file.is_dir && "bg-primary/20 ring-2 ring-primary",
         )}
         onClick={onSelect}
         onDoubleClick={handleDoubleClick}
@@ -121,7 +121,8 @@ export const FileRow = memo(
         onDrop={handleDrop}
         tabIndex={isFocused ? 0 : -1}
         role="row"
-        aria-selected={isSelected}>
+        aria-selected={isSelected}
+      >
         <FileIcon
           extension={file.extension}
           isDir={file.is_dir}
@@ -135,19 +136,21 @@ export const FileRow = memo(
 
         <span
           className="text-sm text-muted-foreground text-right shrink-0"
-          style={{ width: columnWidths.size }}>
+          style={{ width: columnWidths.size }}
+        >
           {file.is_dir ? "" : formatBytes(file.size)}
         </span>
 
         <span
           className="text-sm text-muted-foreground text-right shrink-0"
-          style={{ width: columnWidths.date }}>
+          style={{ width: columnWidths.date }}
+        >
           {formatDate(file.modified)}
         </span>
 
         <span style={{ width: columnWidths.padding }} />
       </div>
-    );
+    )
   },
   // Custom comparison - rerender only when these props change
   (prevProps, nextProps) => {
@@ -159,6 +162,6 @@ export const FileRow = memo(
       prevProps.columnWidths?.size === nextProps.columnWidths?.size &&
       prevProps.columnWidths?.date === nextProps.columnWidths?.date &&
       prevProps.columnWidths?.padding === nextProps.columnWidths?.padding
-    );
-  }
-);
+    )
+  },
+)

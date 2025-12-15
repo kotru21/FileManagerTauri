@@ -1,1 +1,1 @@
-export { useClipboardStore } from "./model/store";
+export { useClipboardStore } from "./model/store"

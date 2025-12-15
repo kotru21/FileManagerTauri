@@ -1,17 +1,17 @@
-import { useDrives } from "@/entities/file-entry";
-import { DriveItem } from "@/entities/drive";
-import { useNavigationStore } from "@/features/navigation";
-import { ScrollArea, Separator } from "@/shared/ui";
-import { cn } from "@/shared/lib";
+import { DriveItem } from "@/entities/drive"
+import { useDrives } from "@/entities/file-entry"
+import { useNavigationStore } from "@/features/navigation"
+import { cn } from "@/shared/lib"
+import { ScrollArea, Separator } from "@/shared/ui"
 
 interface SidebarProps {
-  className?: string;
+  className?: string
 }
 
 export function Sidebar({ className }: SidebarProps) {
-  const { data: drives = [] } = useDrives();
-  const currentPath = useNavigationStore((s) => s.currentPath);
-  const navigate = useNavigationStore((s) => s.navigate);
+  const { data: drives = [] } = useDrives()
+  const currentPath = useNavigationStore((s) => s.currentPath)
+  const navigate = useNavigationStore((s) => s.navigate)
 
   return (
     <aside className={cn("flex flex-col border-r", className)}>
@@ -30,5 +30,5 @@ export function Sidebar({ className }: SidebarProps) {
         </div>
       </ScrollArea>
     </aside>
-  );
+  )
 }

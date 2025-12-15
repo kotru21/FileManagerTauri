@@ -1,89 +1,83 @@
 // src/pages/file-browser/ui/FileBrowserPage.tsx
-import { useState, useCallback, useEffect } from "react";
-import { useQueryClient } from "@tanstack/react-query";
+
+import { useQueryClient } from "@tanstack/react-query"
+import { openPath } from "@tauri-apps/plugin-opener"
+import { useCallback, useEffect, useState } from "react"
+import { fileKeys } from "@/entities/file-entry"
+import { useInlineEditStore } from "@/features/inline-edit"
+import { useLayoutStore } from "@/features/layout"
+import { useNavigationStore } from "@/features/navigation"
+import { SearchBar, SearchResultItem, useSearchStore } from "@/features/search-content"
 import {
-  FileExplorer,
-  Breadcrumbs,
-  Toolbar,
-  Sidebar,
-  StatusBar,
-} from "@/widgets";
-import { SearchBar, useSearchStore } from "@/features/search-content";
-import { useNavigationStore } from "@/features/navigation";
-import { useLayoutStore } from "@/features/layout";
-import { useInlineEditStore } from "@/features/inline-edit";
-import { fileKeys } from "@/entities/file-entry";
-import { SearchResultItem } from "@/features/search-content";
-import { openPath } from "@tauri-apps/plugin-opener";
-import {
-  TooltipProvider,
-  ResizablePanelGroup,
-  ResizablePanel,
   ResizableHandle,
+  ResizablePanel,
+  ResizablePanelGroup,
+  TooltipProvider,
   toast,
-} from "@/shared/ui";
+} from "@/shared/ui"
+import { Breadcrumbs, FileExplorer, Sidebar, StatusBar, Toolbar } from "@/widgets"
 
 export function FileBrowserPage() {
-  const queryClient = useQueryClient();
-  const { currentPath, navigate } = useNavigationStore();
-  const { layout, setSidebarSize, setMainPanelSize } = useLayoutStore();
-  const { results, reset: resetSearch } = useSearchStore();
-  const { startNewFolder, startNewFile } = useInlineEditStore();
+  const queryClient = useQueryClient()
+  const { currentPath, navigate } = useNavigationStore()
+  const { layout, setSidebarSize, setMainPanelSize } = useLayoutStore()
+  const { results, reset: resetSearch } = useSearchStore()
+  const { startNewFolder, startNewFile } = useInlineEditStore()
 
-  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [showSearchResults, setShowSearchResults] = useState(false)
 
   // Show search results when we have results
   useEffect(() => {
     if (results.length > 0) {
-      setShowSearchResults(true);
+      setShowSearchResults(true)
     }
-  }, [results]);
+  }, [results])
 
   const handleRefresh = useCallback(() => {
     if (currentPath) {
       queryClient.invalidateQueries({
         queryKey: fileKeys.directory(currentPath),
-      });
+      })
     }
-  }, [queryClient, currentPath]);
+  }, [queryClient, currentPath])
 
   const handleNewFolder = useCallback(() => {
     if (currentPath) {
-      startNewFolder(currentPath);
+      startNewFolder(currentPath)
     }
-  }, [currentPath, startNewFolder]);
+  }, [currentPath, startNewFolder])
 
   const handleNewFile = useCallback(() => {
     if (currentPath) {
-      startNewFile(currentPath);
+      startNewFile(currentPath)
     }
-  }, [currentPath, startNewFile]);
+  }, [currentPath, startNewFile])
 
   const handleSearch = useCallback(() => {
-    setShowSearchResults(true);
-  }, []);
+    setShowSearchResults(true)
+  }, [])
 
   const handleCloseSearch = useCallback(() => {
-    setShowSearchResults(false);
-    resetSearch();
-  }, [resetSearch]);
+    setShowSearchResults(false)
+    resetSearch()
+  }, [resetSearch])
 
   const handleSelectSearchResult = useCallback(
     async (path: string) => {
       try {
         // Navigate to parent directory and highlight file
-        const parentPath = path.substring(0, path.lastIndexOf("\\"));
+        const parentPath = path.substring(0, path.lastIndexOf("\\"))
         if (parentPath && parentPath !== currentPath) {
-          navigate(parentPath);
+          navigate(parentPath)
         }
         // Try to open the file
-        await openPath(path);
+        await openPath(path)
       } catch (error) {
-        toast.error(`Не удалось открыть: ${error}`);
+        toast.error(`Не удалось открыть: ${error}`)
       }
     },
-    [currentPath, navigate]
-  );
+    [currentPath, navigate],
+  )
 
   return (
     <TooltipProvider>
@@ -112,12 +106,12 @@ export function FileBrowserPage() {
             <div className="absolute inset-0 z-10 bg-background/95 backdrop-blur-sm overflow-auto">
               <div className="p-4">
                 <div className="flex items-center justify-between mb-4">
-                  <h2 className="text-lg font-semibold">
-                    Результаты поиска ({results.length})
-                  </h2>
+                  <h2 className="text-lg font-semibold">Результаты поиска ({results.length})</h2>
                   <button
+                    type="button"
                     onClick={handleCloseSearch}
-                    className="text-muted-foreground hover:text-foreground">
+                    className="text-muted-foreground hover:text-foreground"
+                  >
                     ✕ Закрыть
                   </button>
                 </div>
@@ -141,7 +135,8 @@ export function FileBrowserPage() {
                   defaultSize={layout.sidebarSize}
                   minSize={10}
                   maxSize={30}
-                  onResize={setSidebarSize}>
+                  onResize={setSidebarSize}
+                >
                   <Sidebar className="h-full" />
                 </ResizablePanel>
                 <ResizableHandle withHandle />
@@ -151,7 +146,8 @@ export function FileBrowserPage() {
             <ResizablePanel
               defaultSize={layout.mainPanelSize}
               minSize={30}
-              onResize={setMainPanelSize}>
+              onResize={setMainPanelSize}
+            >
               <FileExplorer className="h-full" />
             </ResizablePanel>
           </ResizablePanelGroup>
@@ -161,5 +157,5 @@ export function FileBrowserPage() {
         <StatusBar className="shrink-0 border-t border-border px-2 py-1" />
       </div>
     </TooltipProvider>
-  );
+  )
 }

@@ -1,31 +1,31 @@
-import { create } from "zustand";
-import { persist } from "zustand/middleware";
+import { create } from "zustand"
+import { persist } from "zustand/middleware"
 
 export interface ColumnWidths {
-  size: number;
-  date: number;
-  padding: number;
+  size: number
+  date: number
+  padding: number
 }
 
 export interface PanelLayout {
-  sidebarSize: number;
-  mainPanelSize: number;
-  previewPanelSize: number;
-  showSidebar: boolean;
-  showPreview: boolean;
-  columnWidths: ColumnWidths;
+  sidebarSize: number
+  mainPanelSize: number
+  previewPanelSize: number
+  showSidebar: boolean
+  showPreview: boolean
+  columnWidths: ColumnWidths
 }
 
 interface LayoutState {
-  layout: PanelLayout;
-  setLayout: (layout: Partial<PanelLayout>) => void;
-  setSidebarSize: (size: number) => void;
-  setMainPanelSize: (size: number) => void;
-  setPreviewPanelSize: (size: number) => void;
-  setColumnWidth: (column: keyof ColumnWidths, width: number) => void;
-  toggleSidebar: () => void;
-  togglePreview: () => void;
-  resetLayout: () => void;
+  layout: PanelLayout
+  setLayout: (layout: Partial<PanelLayout>) => void
+  setSidebarSize: (size: number) => void
+  setMainPanelSize: (size: number) => void
+  setPreviewPanelSize: (size: number) => void
+  setColumnWidth: (column: keyof ColumnWidths, width: number) => void
+  toggleSidebar: () => void
+  togglePreview: () => void
+  resetLayout: () => void
 }
 
 const defaultLayout: PanelLayout = {
@@ -39,7 +39,7 @@ const defaultLayout: PanelLayout = {
     date: 140,
     padding: 12,
   },
-};
+}
 
 export const useLayoutStore = create<LayoutState>()(
   persist(
@@ -89,7 +89,7 @@ export const useLayoutStore = create<LayoutState>()(
     {
       name: "file-manager-layout",
       merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<LayoutState> | undefined;
+        const persisted = persistedState as Partial<LayoutState> | undefined
         return {
           ...currentState,
           layout: {
@@ -100,8 +100,8 @@ export const useLayoutStore = create<LayoutState>()(
               ...persisted?.layout?.columnWidths,
             },
           },
-        };
+        }
       },
-    }
-  )
-);
+    },
+  ),
+)

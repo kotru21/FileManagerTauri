@@ -1,1 +1,1 @@
-export { FileBrowserPage } from "./file-browser";
+export { FileBrowserPage } from "./file-browser"

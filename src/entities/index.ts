@@ -1,2 +1,2 @@
-export * from "./file-entry";
-export * from "./drive";
+export * from "./drive"
+export * from "./file-entry"

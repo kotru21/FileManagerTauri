@@ -1,34 +1,34 @@
 import {
+  Clipboard,
+  Copy,
+  FilePlus,
+  FolderPlus,
+  Pencil,
+  RefreshCw,
+  Scissors,
+  Trash2,
+} from "lucide-react"
+import {
   ContextMenu,
   ContextMenuContent,
   ContextMenuItem,
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuTrigger,
-} from "@/shared/ui";
-import {
-  Copy,
-  Scissors,
-  Clipboard,
-  Trash2,
-  Pencil,
-  FolderPlus,
-  FilePlus,
-  RefreshCw,
-} from "lucide-react";
+} from "@/shared/ui"
 
 interface FileContextMenuProps {
-  children: React.ReactNode;
-  selectedPaths: string[];
-  onCopy: () => void;
-  onCut: () => void;
-  onPaste: () => void;
-  onDelete: () => void;
-  onRename: () => void;
-  onNewFolder: () => void;
-  onNewFile: () => void;
-  onRefresh: () => void;
-  canPaste: boolean;
+  children: React.ReactNode
+  selectedPaths: string[]
+  onCopy: () => void
+  onCut: () => void
+  onPaste: () => void
+  onDelete: () => void
+  onRename: () => void
+  onNewFolder: () => void
+  onNewFile: () => void
+  onRefresh: () => void
+  canPaste: boolean
 }
 
 export function FileContextMenu({
@@ -44,8 +44,8 @@ export function FileContextMenu({
   onRefresh,
   canPaste,
 }: FileContextMenuProps) {
-  const hasSelection = selectedPaths.length > 0;
-  const singleSelection = selectedPaths.length === 1;
+  const hasSelection = selectedPaths.length > 0
+  const singleSelection = selectedPaths.length === 1
 
   return (
     <ContextMenu>
@@ -114,5 +114,5 @@ export function FileContextMenu({
         </ContextMenuItem>
       </ContextMenuContent>
     </ContextMenu>
-  );
+  )
 }

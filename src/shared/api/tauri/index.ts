@@ -1,9 +1,9 @@
-export { commands } from "./bindings";
 export type {
-  FileEntry,
-  DriveInfo,
-  SearchResult,
   ContentMatch,
-  SearchOptions,
+  DriveInfo,
+  FileEntry,
   Result,
-} from "./bindings";
+  SearchOptions,
+  SearchResult,
+} from "./bindings"
+export { commands } from "./bindings"
