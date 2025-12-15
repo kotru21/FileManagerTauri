@@ -16,7 +16,7 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: 24
+  NODE_VERSION: "24" 
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
@@ -87,7 +87,6 @@ jobs:
 
       - run: npm ci
 
-      # Clippy и тесты Rust на Windows (где доступны все зависимости)
       - name: Clippy
         run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
       
@@ -96,8 +95,10 @@ jobs:
 
       - name: Get version
         id: version
+        shell: bash
         run: |
-          node -e "const fs=require('fs'); const v=require('./package.json').version; fs.appendFileSync(process.env.GITHUB_OUTPUT, `value=${v}\n`)"
+          VERSION=$(node -p "require('./package.json').version")
+          echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
 
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0.6
@@ -110,7 +111,8 @@ jobs:
           prerelease: false
           args: --target ${{ env.TARGET }}
 
-      - uses: actions/upload-artifact@v6
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v6
         if: github.event_name != 'pull_request'
         with:
           name: windows-binaries-v${{ steps.version.outputs.value }}
@@ -118,3 +120,4 @@ jobs:
             src-tauri/target/${{ env.TARGET }}/release/bundle/msi/*.msi
             src-tauri/target/${{ env.TARGET }}/release/bundle/nsis/*.exe
           retention-days: 14
+          if-no-files-found: error  
