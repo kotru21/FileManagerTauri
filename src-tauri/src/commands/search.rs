@@ -44,7 +44,10 @@ pub async fn search_files_stream(
 }
 
 /// Search with progress reporting.
-fn search_files_with_progress(options: &SearchOptions, app: &AppHandle) -> Result<Vec<SearchResult>> {
+fn search_files_with_progress(
+    options: &SearchOptions,
+    app: &AppHandle,
+) -> Result<Vec<SearchResult>> {
     let search_path = Path::new(&options.search_path);
 
     if !search_path.exists() {
@@ -53,7 +56,9 @@ fn search_files_with_progress(options: &SearchOptions, app: &AppHandle) -> Resul
         ));
     }
 
-    let max_results = options.max_results.unwrap_or(DEFAULT_MAX_SEARCH_RESULTS as u32) as usize;
+    let max_results = options
+        .max_results
+        .unwrap_or(DEFAULT_MAX_SEARCH_RESULTS as u32) as usize;
 
     // Collect entries with depth limit
     let entries: Vec<_> = WalkDir::new(search_path)
@@ -139,7 +144,9 @@ fn search_files_sync(options: &SearchOptions) -> Result<Vec<SearchResult>> {
         ));
     }
 
-    let max_results = options.max_results.unwrap_or(DEFAULT_MAX_SEARCH_RESULTS as u32) as usize;
+    let max_results = options
+        .max_results
+        .unwrap_or(DEFAULT_MAX_SEARCH_RESULTS as u32) as usize;
     let found_count = Arc::new(AtomicUsize::new(0));
 
     let results: Vec<SearchResult> = WalkDir::new(search_path)
@@ -167,7 +174,10 @@ fn search_files_sync(options: &SearchOptions) -> Result<Vec<SearchResult>> {
 }
 
 /// Processes a single entry for search matching.
-fn process_search_entry(entry: &walkdir::DirEntry, options: &SearchOptions) -> Option<SearchResult> {
+fn process_search_entry(
+    entry: &walkdir::DirEntry,
+    options: &SearchOptions,
+) -> Option<SearchResult> {
     let path = entry.path();
     let name = path.file_name()?.to_str()?.to_string();
 
@@ -186,8 +196,7 @@ fn process_search_entry(entry: &walkdir::DirEntry, options: &SearchOptions) -> O
     let name_matches = if options.case_sensitive {
         name.contains(&options.query)
     } else {
-        name.to_lowercase()
-            .contains(&options.query.to_lowercase())
+        name.to_lowercase().contains(&options.query.to_lowercase())
     };
 
     // Search content if enabled and it's a file

@@ -35,26 +35,25 @@ fn read_directory_sync(path: &str) -> Result<Vec<FileEntry>> {
         return Err(FileManagerError::NotADirectory(path.to_string()));
     }
 
-    let read_dir = fs::read_dir(dir_path)
-        .map_err(|e| FileManagerError::ReadDirError(e.to_string()))?;
+    let read_dir =
+        fs::read_dir(dir_path).map_err(|e| FileManagerError::ReadDirError(e.to_string()))?;
 
     let mut entries: Vec<FileEntry> = read_dir
         .flatten()
         .filter_map(|entry| {
             let entry_path = entry.path();
-            entry.metadata().ok().map(|metadata| {
-                FileEntry::from_path(&entry_path, &metadata)
-            })
+            entry
+                .metadata()
+                .ok()
+                .map(|metadata| FileEntry::from_path(&entry_path, &metadata))
         })
         .collect();
 
     // Sort: directories first, then alphabetically (case-insensitive)
-    entries.sort_unstable_by(|a, b| {
-        match (a.is_dir, b.is_dir) {
-            (true, false) => std::cmp::Ordering::Less,
-            (false, true) => std::cmp::Ordering::Greater,
-            _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
-        }
+    entries.sort_unstable_by(|a, b| match (a.is_dir, b.is_dir) {
+        (true, false) => std::cmp::Ordering::Less,
+        (false, true) => std::cmp::Ordering::Greater,
+        _ => a.name.to_lowercase().cmp(&b.name.to_lowercase()),
     });
 
     Ok(entries)
@@ -68,16 +67,16 @@ pub async fn read_directory_stream(
     app: AppHandle,
 ) -> std::result::Result<(), String> {
     let path_clone = path.clone();
-    
+
     spawn_blocking(move || -> Result<()> {
         let dir_path = Path::new(&path_clone);
-        
+
         if !dir_path.exists() {
             return Err(FileManagerError::DirectoryNotFound(path_clone));
         }
 
-        let read_dir = fs::read_dir(dir_path)
-            .map_err(|e| FileManagerError::ReadDirError(e.to_string()))?;
+        let read_dir =
+            fs::read_dir(dir_path).map_err(|e| FileManagerError::ReadDirError(e.to_string()))?;
 
         let mut batch = Vec::with_capacity(DIRECTORY_BATCH_SIZE);
 
@@ -88,7 +87,7 @@ pub async fn read_directory_stream(
                 .map(|m| FileEntry::from_path(&entry.path(), &m))
             {
                 batch.push(file_entry);
-                
+
                 if batch.len() >= DIRECTORY_BATCH_SIZE {
                     let _ = app.emit("directory-batch", &batch);
                     batch.clear();
@@ -121,7 +120,7 @@ pub async fn get_drives() -> std::result::Result<Vec<DriveInfo>, String> {
                 if !Path::new(&path).exists() {
                     return None;
                 }
-                
+
                 Some(DriveInfo {
                     name: format!("{}:", letter as char),
                     path,
@@ -170,7 +169,7 @@ pub async fn create_directory(path: String) -> std::result::Result<(), String> {
 #[specta::specta]
 pub async fn create_file(path: String) -> std::result::Result<(), String> {
     let file_path = Path::new(&path);
-    
+
     if !file_path.is_absolute() {
         return Err(FileManagerError::NotAbsolutePath(path).to_string());
     }
@@ -198,7 +197,7 @@ pub async fn delete_entries(
 ) -> std::result::Result<(), String> {
     for path in paths {
         let entry_path = Path::new(&path);
-        
+
         if !entry_path.exists() {
             continue;
         }
@@ -228,8 +227,7 @@ pub async fn rename_entry(
         .ok_or_else(|| FileManagerError::InvalidPath(old_path.clone()))?
         .join(&new_name);
 
-    fs::rename(old, &new_path)
-        .map_err(|e| FileManagerError::RenameError(e.to_string()))?;
+    fs::rename(old, &new_path).map_err(|e| FileManagerError::RenameError(e.to_string()))?;
 
     Ok(new_path.to_string_lossy().to_string())
 }
@@ -301,12 +299,12 @@ pub async fn copy_entries_parallel(
         set.spawn(async move {
             let result = copy_single_entry(&source, &dest).await;
             let current = counter.fetch_add(1, Ordering::SeqCst) + 1;
-            
+
             let file_name = Path::new(&source)
                 .file_name()
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_default();
-            
+
             let _ = app.emit(
                 "copy-progress",
                 CopyProgress {
@@ -320,9 +318,7 @@ pub async fn copy_entries_parallel(
     }
 
     while let Some(result) = set.join_next().await {
-        result
-            .map_err(|e| e.to_string())?
-            .map_err(|e: String| e)?;
+        result.map_err(|e| e.to_string())?.map_err(|e: String| e)?;
     }
 
     Ok(())

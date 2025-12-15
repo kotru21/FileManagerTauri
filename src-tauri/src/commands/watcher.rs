@@ -33,10 +33,10 @@ impl Default for WatcherState {
 #[specta::specta]
 pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Result<(), String> {
     let watch_path = path.clone();
-    
+
     // Get watcher state
     let state = app.state::<WatcherState>();
-    
+
     // Check if already watching this path
     {
         let watchers = state.watchers.lock().map_err(|e| e.to_string())?;
@@ -44,19 +44,19 @@ pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Resul
             return Ok(()); // Already watching
         }
     }
-    
+
     let app_clone = app.clone();
-    
+
     let mut watcher = recommended_watcher(move |res: std::result::Result<Event, notify::Error>| {
         if let Ok(event) = res {
             // Debounce rapid events by checking event kind
             let kind_str = format!("{:?}", event.kind);
-            
+
             // Skip noisy events
             if kind_str.contains("Access") {
                 return;
             }
-            
+
             let _ = app_clone.emit(
                 "fs-change",
                 FsChangeEvent {
@@ -71,17 +71,17 @@ pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Resul
         }
     })
     .map_err(|e| e.to_string())?;
-    
+
     watcher
         .watch(Path::new(&watch_path), RecursiveMode::NonRecursive)
         .map_err(|e| e.to_string())?;
-    
+
     // Store watcher in state
     {
         let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
         watchers.insert(path, watcher);
     }
-    
+
     Ok(())
 }
 
@@ -91,11 +91,11 @@ pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Resul
 pub async fn unwatch_directory(path: String, app: AppHandle) -> std::result::Result<(), String> {
     let state = app.state::<WatcherState>();
     let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
-    
+
     if let Some(mut watcher) = watchers.remove(&path) {
         let _ = watcher.unwatch(Path::new(&path));
     }
-    
+
     Ok(())
 }
 

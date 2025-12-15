@@ -6,7 +6,9 @@ use std::path::Path;
 use base64::engine::general_purpose::STANDARD;
 use base64::Engine;
 
-use crate::constants::{IMAGE_EXTENSIONS, MAX_PREVIEW_FILE_SIZE, MAX_TEXT_PREVIEW_LENGTH, TEXT_EXTENSIONS};
+use crate::constants::{
+    IMAGE_EXTENSIONS, MAX_PREVIEW_FILE_SIZE, MAX_TEXT_PREVIEW_LENGTH, TEXT_EXTENSIONS,
+};
 use crate::models::FilePreview;
 use crate::utils::get_extension;
 
