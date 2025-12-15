@@ -89,7 +89,7 @@ fn search_files_with_progress(options: &SearchOptions, app: &AppHandle) -> Resul
             let current_scanned = scanned.fetch_add(1, Ordering::Relaxed);
 
             // Emit progress periodically
-            if current_scanned % SEARCH_PROGRESS_INTERVAL == 0 {
+            if current_scanned.is_multiple_of(SEARCH_PROGRESS_INTERVAL) {
                 let _ = app.emit(
                     "search-progress",
                     SearchProgress {

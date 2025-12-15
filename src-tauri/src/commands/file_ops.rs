@@ -247,7 +247,7 @@ pub async fn copy_entries(
         let src_path = Path::new(&source);
         let file_name = src_path
             .file_name()
-            .ok_or_else(|| FileManagerError::InvalidSourcePath)?;
+            .ok_or(FileManagerError::InvalidSourcePath)?;
         let target = dest_path.join(file_name);
 
         if src_path.is_dir() {
@@ -334,7 +334,7 @@ async fn copy_single_entry(source: &str, destination: &str) -> std::result::Resu
     let dest_path = Path::new(destination);
     let file_name = src_path
         .file_name()
-        .ok_or_else(|| FileManagerError::InvalidSourcePath.to_string())?;
+        .ok_or(FileManagerError::InvalidSourcePath.to_string())?;
     let target = dest_path.join(file_name);
 
     if src_path.is_dir() {
@@ -359,7 +359,7 @@ pub async fn move_entries(
         let src_path = Path::new(&source);
         let file_name = src_path
             .file_name()
-            .ok_or_else(|| FileManagerError::InvalidSourcePath)?;
+            .ok_or(FileManagerError::InvalidSourcePath)?;
         let target = dest_path.join(file_name);
 
         // Try rename first (fast path for same filesystem)
