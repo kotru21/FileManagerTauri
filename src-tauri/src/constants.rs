@@ -30,9 +30,9 @@ pub const FILE_ATTRIBUTE_HIDDEN: u32 = 0x2;
 
 /// Text file extensions for preview.
 pub const TEXT_EXTENSIONS: &[&str] = &[
-    "txt", "md", "json", "xml", "html", "css", "js", "ts", "tsx", "jsx",
-    "rs", "py", "go", "java", "c", "cpp", "h", "hpp", "toml", "yaml",
-    "yml", "ini", "cfg", "conf", "sh", "bat", "ps1", "log", "csv",
+    "txt", "md", "json", "xml", "html", "css", "js", "ts", "tsx", "jsx", "rs", "py", "go", "java",
+    "c", "cpp", "h", "hpp", "toml", "yaml", "yml", "ini", "cfg", "conf", "sh", "bat", "ps1", "log",
+    "csv",
 ];
 
 /// Image extensions for preview.

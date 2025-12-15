@@ -14,34 +14,33 @@ use tauri_specta::{collect_commands, Builder};
 
 /// Runs the Tauri application.
 pub fn run() {
-    let builder = Builder::<tauri::Wry>::new()
-        .commands(collect_commands![
-            // File operations
-            commands::file_ops::read_directory,
-            commands::file_ops::read_directory_stream,
-            commands::file_ops::get_drives,
-            commands::file_ops::create_directory,
-            commands::file_ops::create_file,
-            commands::file_ops::delete_entries,
-            commands::file_ops::rename_entry,
-            commands::file_ops::copy_entries,
-            commands::file_ops::copy_entries_parallel,
-            commands::file_ops::move_entries,
-            commands::file_ops::get_file_content,
-            commands::file_ops::get_parent_path,
-            commands::file_ops::path_exists,
-            // Search
-            commands::search::search_files,
-            commands::search::search_files_stream,
-            commands::search::search_by_name,
-            commands::search::search_content,
-            // Preview
-            commands::preview::get_file_preview,
-            // Watcher
-            commands::watcher::watch_directory,
-            commands::watcher::unwatch_directory,
-            commands::watcher::unwatch_all,
-        ]);
+    let builder = Builder::<tauri::Wry>::new().commands(collect_commands![
+        // File operations
+        commands::file_ops::read_directory,
+        commands::file_ops::read_directory_stream,
+        commands::file_ops::get_drives,
+        commands::file_ops::create_directory,
+        commands::file_ops::create_file,
+        commands::file_ops::delete_entries,
+        commands::file_ops::rename_entry,
+        commands::file_ops::copy_entries,
+        commands::file_ops::copy_entries_parallel,
+        commands::file_ops::move_entries,
+        commands::file_ops::get_file_content,
+        commands::file_ops::get_parent_path,
+        commands::file_ops::path_exists,
+        // Search
+        commands::search::search_files,
+        commands::search::search_files_stream,
+        commands::search::search_by_name,
+        commands::search::search_content,
+        // Preview
+        commands::preview::get_file_preview,
+        // Watcher
+        commands::watcher::watch_directory,
+        commands::watcher::unwatch_directory,
+        commands::watcher::unwatch_all,
+    ]);
 
     #[cfg(debug_assertions)]
     builder

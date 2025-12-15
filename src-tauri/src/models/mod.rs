@@ -100,7 +100,11 @@ impl FileEntry {
             path: path.to_string_lossy().to_string(),
             is_dir: metadata.is_dir(),
             is_hidden: is_hidden(path),
-            size: if metadata.is_file() { metadata.len() } else { 0 },
+            size: if metadata.is_file() {
+                metadata.len()
+            } else {
+                0
+            },
             modified: metadata.modified().ok().and_then(system_time_to_timestamp),
             created: metadata.created().ok().and_then(system_time_to_timestamp),
             extension: get_extension(path),
