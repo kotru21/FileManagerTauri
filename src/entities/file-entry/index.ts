@@ -12,7 +12,7 @@ export {
   useDrives,
   useMoveEntries,
   useRenameEntry,
-} from "./api/queries"
+} from "./api"
 export { useFileWatcher } from "./api/useFileWatcher"
 export { useStreamingDirectory } from "./api/useStreamingDirectory"
 // Model

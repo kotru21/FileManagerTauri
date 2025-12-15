@@ -27,18 +27,22 @@ export function InlineEditRow({
 
   useEffect(() => {
     if (inputRef.current) {
-      inputRef.current.focus()
-      // Для переименования выделяем имя без расширения
-      if (mode === "rename" && initialName) {
-        const dotIndex = initialName.lastIndexOf(".")
-        if (dotIndex > 0) {
-          inputRef.current.setSelectionRange(0, dotIndex)
+      // Defer focus to the next animation frame to ensure the element is visible
+      requestAnimationFrame(() => {
+        if (!inputRef.current) return
+        inputRef.current.focus()
+        // Для переименования выделяем имя без расширения
+        if (mode === "rename" && initialName) {
+          const dotIndex = initialName.lastIndexOf(".")
+          if (dotIndex > 0) {
+            inputRef.current.setSelectionRange(0, dotIndex)
+          } else {
+            inputRef.current.select()
+          }
         } else {
           inputRef.current.select()
         }
-      } else {
-        inputRef.current.select()
-      }
+      })
     }
   }, [mode, initialName])
 
