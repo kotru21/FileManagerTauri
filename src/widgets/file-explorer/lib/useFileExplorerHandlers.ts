@@ -1,10 +1,10 @@
-import { useCallback } from "react"
 import { openPath } from "@tauri-apps/plugin-opener"
-import type { FileEntry } from "@/shared/api/tauri"
+import { useCallback } from "react"
 import { useClipboardStore } from "@/features/clipboard"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
+import type { FileEntry } from "@/shared/api/tauri"
 import { joinPath } from "@/shared/lib"
 import { toast } from "@/shared/ui"
 

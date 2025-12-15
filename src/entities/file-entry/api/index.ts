@@ -1,4 +1,3 @@
-export { fileKeys, useDirectoryContents, useDrives } from "./queries"
 export {
   useCopyEntries,
   useCopyEntriesParallel,
@@ -8,5 +7,6 @@ export {
   useMoveEntries,
   useRenameEntry,
 } from "./mutations"
+export { fileKeys, useDirectoryContents, useDrives } from "./queries"
 export { useFileWatcher } from "./useFileWatcher"
 export { useStreamingDirectory } from "./useStreamingDirectory"
