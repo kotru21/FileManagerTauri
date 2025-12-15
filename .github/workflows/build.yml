@@ -2,104 +2,99 @@ name: Build & Release
 
 on:
   push:
-    branches:
-      - main
-    tags:
-      - "v*"
+    branches: [main]
+    tags: ["v*"]
   pull_request:
-    branches:
-      - main
+    branches: [main]
   workflow_dispatch:
 
 permissions:
   contents: write
 
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NODE_VERSION: 24
+  CARGO_TERM_COLOR: always
+
 jobs:
+  lint:
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
+      - run: npm ci
+      - run: npm run check
+
+  rust-checks:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+      - uses: Swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+      - name: Format check
+        run: cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
+
   build:
+    needs: [lint, rust-checks]
     strategy:
       fail-fast: false
       matrix:
         include:
           - platform: windows-latest
             target: x86_64-pc-windows-msvc
-
     runs-on: ${{ matrix.platform }}
-
+    timeout-minutes: 45
     steps:
-      - name: Checkout
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-      - name: Setup Node.js
-        uses: actions/setup-node@v6.1.0
+      - uses: actions/setup-node@v4
         with:
-          node-version: 24
-          cache: "npm"
+          node-version: ${{ env.NODE_VERSION }}
+          cache: npm
 
-      - name: Setup Rust
-        uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}
 
-      - name: Rust cache
-        uses: Swatinem/rust-cache@v2.8.2
+      - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
 
-      - name: Install dependencies
-        run: npm ci
+      - run: npm ci
 
-      - name: "Biome: Check code (biome check)"
-        run: npm run check
-
-      - name: "Biome: Lint (biome lint)"
-        run: npm run lint
-
-      - name: Install rustfmt and clippy
-        run: rustup component add clippy rustfmt
-
-      - name: Rust: fmt check (cargo fmt)
-        run: cd src-tauri && cargo fmt --all -- --check
-
-      - name: Rust: Clippy (cargo clippy)
-        run: cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings
-
-      - name: Read app version
+      - name: Get app version
         id: version
-        shell: pwsh
-        run: |
-          $version = node -p "require('./package.json').version"
-          echo "app_version=$version" | Out-File -FilePath $env:GITHUB_OUTPUT -Encoding utf8 -Append
-          echo "Resolved app version: $version"
+        shell: bash
+        run: echo "value=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
 
-      # Сборка с релизом только для тегов
-      - name: Build Tauri app (Release)
-        if: startsWith(github.ref, 'refs/tags/')
-        uses: tauri-apps/tauri-action@v0.6.0
+      - name: Build Tauri app
+        uses: tauri-apps/tauri-action@v0
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          tagName: ${{ github.ref_name }}
-          releaseName: "File Manager ${{ github.ref_name }}"
-          releaseBody: |
-            Автоматическая сборка File Manager.
-
-            ## Установка
-            - **Windows**: Скачайте `.msi` или `.exe` установщик
-          releaseDraft: true
+          tagName: ${{ startsWith(github.ref, 'refs/tags/') && github.ref_name || '' }}
+          releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('File Manager {0}', github.ref_name) || '' }}
+          releaseDraft: ${{ startsWith(github.ref, 'refs/tags/') }}
           prerelease: false
           args: --target ${{ matrix.target }}
 
-      # Обычная сборка для коммитов (без релиза)
-      - name: Build Tauri app
-        if: ${{ !startsWith(github.ref, 'refs/tags/') }}
-        uses: tauri-apps/tauri-action@v0.6.0
+      - uses: actions/upload-artifact@v4
         with:
-          args: --target ${{ matrix.target }}
-
-      - name: Upload artifacts
-        uses: actions/upload-artifact@v5.0.0
-        with:
-          name: binaries-${{ matrix.platform }}-v${{ steps.version.outputs.app_version }}
+          name: binaries-${{ matrix.platform }}-v${{ steps.version.outputs.value }}
           path: |
             src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
             src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
