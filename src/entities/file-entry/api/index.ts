@@ -1,14 +1,14 @@
 export {
   fileKeys,
-  useDirectoryContents,
-  useDrives,
+  useCopyEntries,
+  useCopyEntriesParallel,
   useCreateDirectory,
   useCreateFile,
   useDeleteEntries,
-  useRenameEntry,
-  useCopyEntries,
-  useCopyEntriesParallel,
+  useDirectoryContents,
+  useDrives,
   useMoveEntries,
-} from "./queries";
-export { useFileWatcher } from "./useFileWatcher";
-export { useStreamingDirectory } from "./useStreamingDirectory";
+  useRenameEntry,
+} from "./queries"
+export { useFileWatcher } from "./useFileWatcher"
+export { useStreamingDirectory } from "./useStreamingDirectory"

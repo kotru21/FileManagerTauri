@@ -1,1 +1,1 @@
-export { StatusBar } from "./ui/StatusBar";
+export { StatusBar } from "./ui/StatusBar"

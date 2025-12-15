@@ -1,20 +1,17 @@
-import { useState, useEffect, useCallback, useRef } from "react";
-import type { FileEntry } from "@/shared/api/tauri";
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { FileEntry } from "@/shared/api/tauri"
 
 interface UseKeyboardNavigationOptions {
-  files: FileEntry[];
-  selectedPaths: Set<string>;
-  onSelect: (
-    path: string,
-    e: { ctrlKey?: boolean; shiftKey?: boolean }
-  ) => void;
-  onOpen: (path: string, isDir: boolean) => void;
-  enabled?: boolean;
+  files: FileEntry[]
+  selectedPaths: Set<string>
+  onSelect: (path: string, e: { ctrlKey?: boolean; shiftKey?: boolean }) => void
+  onOpen: (path: string, isDir: boolean) => void
+  enabled?: boolean
 }
 
 interface UseKeyboardNavigationResult {
-  focusedIndex: number;
-  setFocusedIndex: (index: number) => void;
+  focusedIndex: number
+  setFocusedIndex: (index: number) => void
 }
 
 export function useKeyboardNavigation({
@@ -24,148 +21,141 @@ export function useKeyboardNavigation({
   onOpen,
   enabled = true,
 }: UseKeyboardNavigationOptions): UseKeyboardNavigationResult {
-  const [focusedIndex, setFocusedIndex] = useState(-1);
-  const filesRef = useRef(files);
-  const lastSelectionRef = useRef<string | null>(null);
+  const [focusedIndex, setFocusedIndex] = useState(-1)
+  const filesRef = useRef(files)
+  const lastSelectionRef = useRef<string | null>(null)
 
   // Update ref when files change
   useEffect(() => {
-    filesRef.current = files;
-  }, [files]);
+    filesRef.current = files
+  }, [files])
 
   // Sync focused index with selection
   useEffect(() => {
     if (selectedPaths.size === 1) {
-      const selectedPath = Array.from(selectedPaths)[0];
+      const selectedPath = Array.from(selectedPaths)[0]
       if (selectedPath !== lastSelectionRef.current) {
-        const index = files.findIndex((f) => f.path === selectedPath);
+        const index = files.findIndex((f) => f.path === selectedPath)
         if (index !== -1) {
-          setFocusedIndex(index);
-          lastSelectionRef.current = selectedPath;
+          setFocusedIndex(index)
+          lastSelectionRef.current = selectedPath
         }
       }
     } else if (selectedPaths.size === 0) {
-      lastSelectionRef.current = null;
+      lastSelectionRef.current = null
     }
-  }, [selectedPaths, files]);
+  }, [selectedPaths, files])
 
   // Reset focus when files change significantly
   useEffect(() => {
     if (focusedIndex >= files.length) {
-      setFocusedIndex(files.length > 0 ? files.length - 1 : -1);
+      setFocusedIndex(files.length > 0 ? files.length - 1 : -1)
     }
-  }, [files.length, focusedIndex]);
+  }, [files.length, focusedIndex])
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      if (!enabled) return;
+      if (!enabled) return
 
       // Ignore if focus is in input
-      const target = e.target as HTMLElement;
-      if (
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
-      ) {
-        return;
+      const target = e.target as HTMLElement
+      if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
+        return
       }
 
-      const currentFiles = filesRef.current;
-      if (currentFiles.length === 0) return;
+      const currentFiles = filesRef.current
+      if (currentFiles.length === 0) return
 
       switch (e.key) {
         case "ArrowDown": {
-          e.preventDefault();
-          const nextIndex = Math.min(focusedIndex + 1, currentFiles.length - 1);
-          setFocusedIndex(nextIndex);
-          const file = currentFiles[nextIndex];
+          e.preventDefault()
+          const nextIndex = Math.min(focusedIndex + 1, currentFiles.length - 1)
+          setFocusedIndex(nextIndex)
+          const file = currentFiles[nextIndex]
           if (file) {
-            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey });
+            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey })
           }
-          break;
+          break
         }
 
         case "ArrowUp": {
-          e.preventDefault();
-          const prevIndex = Math.max(focusedIndex - 1, 0);
-          setFocusedIndex(prevIndex);
-          const file = currentFiles[prevIndex];
+          e.preventDefault()
+          const prevIndex = Math.max(focusedIndex - 1, 0)
+          setFocusedIndex(prevIndex)
+          const file = currentFiles[prevIndex]
           if (file) {
-            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey });
+            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey })
           }
-          break;
+          break
         }
 
         case "Home": {
-          e.preventDefault();
-          setFocusedIndex(0);
-          const file = currentFiles[0];
+          e.preventDefault()
+          setFocusedIndex(0)
+          const file = currentFiles[0]
           if (file) {
-            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey });
+            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey })
           }
-          break;
+          break
         }
 
         case "End": {
-          e.preventDefault();
-          const lastIndex = currentFiles.length - 1;
-          setFocusedIndex(lastIndex);
-          const file = currentFiles[lastIndex];
+          e.preventDefault()
+          const lastIndex = currentFiles.length - 1
+          setFocusedIndex(lastIndex)
+          const file = currentFiles[lastIndex]
           if (file) {
-            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey });
+            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey })
           }
-          break;
+          break
         }
 
         case "PageDown": {
-          e.preventDefault();
-          const pageSize = 10;
-          const nextIndex = Math.min(
-            focusedIndex + pageSize,
-            currentFiles.length - 1
-          );
-          setFocusedIndex(nextIndex);
-          const file = currentFiles[nextIndex];
+          e.preventDefault()
+          const pageSize = 10
+          const nextIndex = Math.min(focusedIndex + pageSize, currentFiles.length - 1)
+          setFocusedIndex(nextIndex)
+          const file = currentFiles[nextIndex]
           if (file) {
-            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey });
+            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey })
           }
-          break;
+          break
         }
 
         case "PageUp": {
-          e.preventDefault();
-          const pageSize = 10;
-          const prevIndex = Math.max(focusedIndex - pageSize, 0);
-          setFocusedIndex(prevIndex);
-          const file = currentFiles[prevIndex];
+          e.preventDefault()
+          const pageSize = 10
+          const prevIndex = Math.max(focusedIndex - pageSize, 0)
+          setFocusedIndex(prevIndex)
+          const file = currentFiles[prevIndex]
           if (file) {
-            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey });
+            onSelect(file.path, { ctrlKey: e.ctrlKey, shiftKey: e.shiftKey })
           }
-          break;
+          break
         }
 
         case "Enter": {
-          e.preventDefault();
-          const file = currentFiles[focusedIndex];
+          e.preventDefault()
+          const file = currentFiles[focusedIndex]
           if (file) {
-            onOpen(file.path, file.is_dir);
+            onOpen(file.path, file.is_dir)
           }
-          break;
+          break
         }
       }
     },
-    [enabled, focusedIndex, onSelect, onOpen]
-  );
+    [enabled, focusedIndex, onSelect, onOpen],
+  )
 
   useEffect(() => {
-    if (!enabled) return;
+    if (!enabled) return
 
-    document.addEventListener("keydown", handleKeyDown);
-    return () => document.removeEventListener("keydown", handleKeyDown);
-  }, [enabled, handleKeyDown]);
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
+  }, [enabled, handleKeyDown])
 
   return {
     focusedIndex,
     setFocusedIndex,
-  };
+  }
 }

@@ -2,46 +2,36 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
-  RefreshCw,
-  FolderPlus,
   FilePlus,
+  FolderPlus,
+  RefreshCw,
   Search,
-} from "lucide-react";
-import { Button, Tooltip, TooltipTrigger, TooltipContent } from "@/shared/ui";
-import { useNavigationStore } from "@/features/navigation";
-import { cn } from "@/shared/lib";
+} from "lucide-react"
+import { useNavigationStore } from "@/features/navigation"
+import { cn } from "@/shared/lib"
+import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
 
 interface ToolbarProps {
-  onRefresh: () => void;
-  onNewFolder: () => void;
-  onNewFile: () => void;
-  onSearch: () => void;
-  className?: string;
+  onRefresh: () => void
+  onNewFolder: () => void
+  onNewFile: () => void
+  onSearch: () => void
+  className?: string
 }
 
-export function Toolbar({
-  onRefresh,
-  onNewFolder,
-  onNewFile,
-  onSearch,
-  className,
-}: ToolbarProps) {
-  const goBack = useNavigationStore((s) => s.goBack);
-  const goForward = useNavigationStore((s) => s.goForward);
-  const goUp = useNavigationStore((s) => s.goUp);
-  const canGoBack = useNavigationStore((s) => s.canGoBack());
-  const canGoForward = useNavigationStore((s) => s.canGoForward());
-  const currentPath = useNavigationStore((s) => s.currentPath);
+export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className }: ToolbarProps) {
+  const goBack = useNavigationStore((s) => s.goBack)
+  const goForward = useNavigationStore((s) => s.goForward)
+  const goUp = useNavigationStore((s) => s.goUp)
+  const canGoBack = useNavigationStore((s) => s.canGoBack())
+  const canGoForward = useNavigationStore((s) => s.canGoForward())
+  const currentPath = useNavigationStore((s) => s.currentPath)
 
   return (
     <div className={cn("flex items-center gap-1", className)}>
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={goBack}
-            disabled={!canGoBack}>
+          <Button variant="ghost" size="icon" onClick={goBack} disabled={!canGoBack}>
             <ArrowLeft className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
@@ -50,11 +40,7 @@ export function Toolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={goForward}
-            disabled={!canGoForward}>
+          <Button variant="ghost" size="icon" onClick={goForward} disabled={!canGoForward}>
             <ArrowRight className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
@@ -63,11 +49,7 @@ export function Toolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button
-            variant="ghost"
-            size="icon"
-            onClick={goUp}
-            disabled={!currentPath}>
+          <Button variant="ghost" size="icon" onClick={goUp} disabled={!currentPath}>
             <ArrowUp className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
@@ -116,5 +98,5 @@ export function Toolbar({
         <TooltipContent>Поиск (Ctrl+F)</TooltipContent>
       </Tooltip>
     </div>
-  );
+  )
 }

@@ -14,7 +14,7 @@ export const HOTKEYS = {
   forward: "alt+right",
   up: "alt+up",
   addressBar: "ctrl+l",
-} as const;
+} as const
 
 export const FILE_ICONS_BY_EXTENSION: Record<string, string> = {
   // Images
@@ -44,17 +44,17 @@ export const FILE_ICONS_BY_EXTENSION: Record<string, string> = {
   "7z": "archive",
   tar: "archive",
   gz: "archive",
-};
+}
 
 export const DEFAULT_SORT = {
   field: "name" as const,
   direction: "asc" as const,
-};
+}
 
 export const VIEW_MODES = {
   list: "list",
   grid: "grid",
   details: "details",
-} as const;
+} as const
 
-export type ViewMode = (typeof VIEW_MODES)[keyof typeof VIEW_MODES];
+export type ViewMode = (typeof VIEW_MODES)[keyof typeof VIEW_MODES]

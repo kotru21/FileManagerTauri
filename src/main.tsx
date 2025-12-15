@@ -1,2 +1,2 @@
-export {} from "@/app";
-import "@/app";
+export {} from "@/app"
+import "@/app"

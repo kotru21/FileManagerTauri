@@ -27,7 +27,7 @@ const EXTENSION_MAP: Record<string, string[]> = {
   ],
   archive: ["zip", "rar", "7z", "tar", "gz", "bz2"],
   executable: ["exe", "msi", "bat", "cmd", "sh"],
-};
+}
 
 export type FileType =
   | "folder"
@@ -39,34 +39,31 @@ export type FileType =
   | "code"
   | "archive"
   | "executable"
-  | "unknown";
+  | "unknown"
 
-export function getFileType(
-  extension: string | null,
-  isDir: boolean
-): FileType {
-  if (isDir) return "folder";
-  if (!extension) return "unknown";
+export function getFileType(extension: string | null, isDir: boolean): FileType {
+  if (isDir) return "folder"
+  if (!extension) return "unknown"
 
-  const ext = extension.toLowerCase();
+  const ext = extension.toLowerCase()
   for (const [type, extensions] of Object.entries(EXTENSION_MAP)) {
-    if (extensions.includes(ext)) return type as FileType;
+    if (extensions.includes(ext)) return type as FileType
   }
-  return "unknown";
+  return "unknown"
 }
 
 export function getExtension(filename: string): string | null {
-  const parts = filename.split(".");
-  if (parts.length < 2) return null;
-  return parts[parts.length - 1].toLowerCase();
+  const parts = filename.split(".")
+  if (parts.length < 2) return null
+  return parts[parts.length - 1].toLowerCase()
 }
 
 export function getBasename(path: string): string {
-  const normalized = path.replace(/\\/g, "/");
-  const parts = normalized.split("/").filter(Boolean);
-  return parts[parts.length - 1] || path;
+  const normalized = path.replace(/\\/g, "/")
+  const parts = normalized.split("/").filter(Boolean)
+  return parts[parts.length - 1] || path
 }
 
 export function joinPath(...parts: string[]): string {
-  return parts.join("\\").replace(/\\+/g, "\\");
+  return parts.join("\\").replace(/\\+/g, "\\")
 }

@@ -1,2 +1,2 @@
-export { ToastContainer } from "./ToastContainer";
-export { useToastStore, toast, type Toast, type ToastType } from "./store";
+export { type Toast, type ToastType, toast, useToastStore } from "./store"
+export { ToastContainer } from "./ToastContainer"

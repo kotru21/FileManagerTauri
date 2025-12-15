@@ -1,2 +1,2 @@
-export { DriveItem } from "./ui";
-export type { DriveInfo } from "@/shared/api/tauri";
+export type { DriveInfo } from "@/shared/api/tauri"
+export { DriveItem } from "./ui"

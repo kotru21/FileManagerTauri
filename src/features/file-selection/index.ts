@@ -1,1 +1,1 @@
-export { useSelectionStore } from "./model/store";
+export { useSelectionStore } from "./model/store"

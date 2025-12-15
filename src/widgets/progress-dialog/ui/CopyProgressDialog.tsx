@@ -1,55 +1,46 @@
-import { useEffect, useState } from "react";
-import { listen } from "@tauri-apps/api/event";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-} from "@/shared/ui/dialog";
-import { Button } from "@/shared/ui/button";
-import { X } from "lucide-react";
+import { listen } from "@tauri-apps/api/event"
+import { X } from "lucide-react"
+import { useEffect, useState } from "react"
+import { Button } from "@/shared/ui/button"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog"
 
 interface CopyProgress {
-  current: number;
-  total: number;
-  file: string;
+  current: number
+  total: number
+  file: string
 }
 
 interface CopyProgressDialogProps {
-  open: boolean;
-  onCancel?: () => void;
-  onComplete?: () => void;
+  open: boolean
+  onCancel?: () => void
+  onComplete?: () => void
 }
 
-export function CopyProgressDialog({
-  open,
-  onCancel,
-  onComplete,
-}: CopyProgressDialogProps) {
-  const [progress, setProgress] = useState<CopyProgress | null>(null);
+export function CopyProgressDialog({ open, onCancel, onComplete }: CopyProgressDialogProps) {
+  const [progress, setProgress] = useState<CopyProgress | null>(null)
 
   useEffect(() => {
-    if (!open) return;
+    if (!open) return
 
     const unlisten = listen<CopyProgress>("copy-progress", (e) => {
-      setProgress(e.payload);
+      setProgress(e.payload)
       if (e.payload.current === e.payload.total) {
         setTimeout(() => {
-          onComplete?.();
-          setProgress(null);
-        }, 500);
+          onComplete?.()
+          setProgress(null)
+        }, 500)
       }
-    });
+    })
 
     return () => {
-      unlisten.then((fn) => fn());
-    };
-  }, [open, onComplete]);
+      unlisten.then((fn) => fn())
+    }
+  }, [open, onComplete])
 
-  if (!open || !progress) return null;
+  if (!open || !progress) return null
 
-  const percent = Math.round((progress.current / progress.total) * 100);
-  const fileName = progress.file.split(/[/\\]/).pop() || progress.file;
+  const percent = Math.round((progress.current / progress.total) * 100)
+  const fileName = progress.file.split(/[/\\]/).pop() || progress.file
 
   return (
     <Dialog open={open}>
@@ -73,9 +64,7 @@ export function CopyProgressDialog({
             />
           </div>
 
-          <p
-            className="text-xs text-muted-foreground truncate"
-            title={fileName}>
+          <p className="text-xs text-muted-foreground truncate" title={fileName}>
             {fileName}
           </p>
 
@@ -88,5 +77,5 @@ export function CopyProgressDialog({
         </div>
       </DialogContent>
     </Dialog>
-  );
+  )
 }
