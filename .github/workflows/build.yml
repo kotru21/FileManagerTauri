@@ -48,9 +48,6 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
-      - name: "Biome: Check formatting"
-        run: npx biome format . --check
-
       - name: "Biome: Check code (biome check)"
         run: npm run check
 
