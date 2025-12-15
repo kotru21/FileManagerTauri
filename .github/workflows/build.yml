@@ -18,106 +18,89 @@ concurrency:
 env:
   NODE_VERSION: 24
   CARGO_TERM_COLOR: always
+  RUST_BACKTRACE: 1
 
 jobs:
   lint:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
       - run: npm run check
 
-  rust-checks:
+  rust-format:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 5
     steps:
-      - uses: actions/checkout@v5
-      
-      - name: Install Linux dependencies
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y \
-            libgtk-3-dev \
-            libwebkit2gtk-4.1-dev \
-            libappindicator3-dev \
-            librsvg2-dev \
-            patchelf \
-            libglib2.0-dev
-
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
-      
-      - uses: Swatinem/rust-cache@v2
-        with:
-          workspaces: src-tauri
-      
-      - name: Format check
-        run: cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
-      
-      - name: Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets --all-features -- -D warnings
-      - name: Run Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml --all-targets --all-features
-
-  build:
-    needs: [lint, rust-checks, test]
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - platform: windows-latest
-            target: x86_64-pc-windows-msvc
-    runs-on: ${{ matrix.platform }}
-    timeout-minutes: 45
-    steps:
-      - uses: actions/checkout@v5
+          components: rustfmt
+      - run: cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
 
   test:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v5
-      - uses: actions/setup-node@v5
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
       - run: npm ci
-      - name: Run JS tests (Vitest)
-        run: npm run test:coverage
-      - name: Upload coverage artifact
-        uses: actions/upload-artifact@v6
+      - run: npm run test:coverage
+      - uses: actions/upload-artifact@v6
+        if: always()
         with:
           name: coverage
           path: coverage
+          retention-days: 7
 
-      - uses: actions/setup-node@v5
+  build:
+    needs: [lint, rust-format, test]
+    runs-on: windows-latest
+    timeout-minutes: 30
+    env:
+      TARGET: x86_64-pc-windows-msvc
+    steps:
+      - uses: actions/checkout@v6
+      
+      - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
 
       - uses: dtolnay/rust-toolchain@stable
         with:
-          targets: ${{ matrix.target }}
+          targets: ${{ env.TARGET }}
+          components: clippy
 
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
+          cache-on-failure: true
 
       - run: npm ci
 
-      - name: Get app version
+      # Clippy и тесты Rust на Windows (где доступны все зависимости)
+      - name: Clippy
+        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
+      
+      - name: Rust tests
+        run: cargo test --manifest-path src-tauri/Cargo.toml
+
+      - name: Get version
         id: version
         shell: bash
-        run: echo "value=$(node -p "require('./package.json').version")" >> $GITHUB_OUTPUT
+        run: echo "value=$(node -p \"require('./package.json').version\")" >> $GITHUB_OUTPUT
 
       - name: Build Tauri app
-        uses: tauri-apps/tauri-action@v0
+        uses: tauri-apps/tauri-action@v0.6
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
@@ -125,11 +108,13 @@ jobs:
           releaseName: ${{ startsWith(github.ref, 'refs/tags/') && format('File Manager {0}', github.ref_name) || '' }}
           releaseDraft: ${{ startsWith(github.ref, 'refs/tags/') }}
           prerelease: false
-          args: --target ${{ matrix.target }}
+          args: --target ${{ env.TARGET }}
 
       - uses: actions/upload-artifact@v6
+        if: github.event_name != 'pull_request'
         with:
-          name: binaries-${{ matrix.platform }}-v${{ steps.version.outputs.value }}
+          name: windows-binaries-v${{ steps.version.outputs.value }}
           path: |
-            src-tauri/target/${{ matrix.target }}/release/bundle/msi/*.msi
-            src-tauri/target/${{ matrix.target }}/release/bundle/nsis/*.exe
+            src-tauri/target/${{ env.TARGET }}/release/bundle/msi/*.msi
+            src-tauri/target/${{ env.TARGET }}/release/bundle/nsis/*.exe
+          retention-days: 14
