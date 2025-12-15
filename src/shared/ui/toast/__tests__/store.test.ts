@@ -43,7 +43,7 @@ describe("useToastStore", () => {
     })
 
     it("should return toast id", () => {
-      let id: string
+      let id: string | undefined
       act(() => {
         id = useToastStore.getState().addToast({
           message: "Test",
@@ -51,8 +51,9 @@ describe("useToastStore", () => {
         })
       })
 
-      expect(id!).toBeDefined()
-      expect(typeof id!).toBe("string")
+      expect(id).toBeDefined()
+      if (!id) throw new Error("toast id was not returned")
+      expect(typeof id).toBe("string")
     })
 
     it("should auto-remove toast after duration", () => {
@@ -94,7 +95,7 @@ describe("useToastStore", () => {
 
   describe("removeToast", () => {
     it("should remove toast by id", () => {
-      let id: string
+      let id: string | undefined
       act(() => {
         id = useToastStore.getState().addToast({
           message: "Test",
@@ -102,8 +103,12 @@ describe("useToastStore", () => {
         })
       })
 
+      if (!id) throw new Error("toast id was not returned")
+
+      const idStr = id
+
       act(() => {
-        useToastStore.getState().removeToast(id!)
+        useToastStore.getState().removeToast(idStr)
       })
 
       expect(useToastStore.getState().toasts).toHaveLength(0)
