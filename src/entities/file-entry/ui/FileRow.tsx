@@ -112,6 +112,11 @@ export const FileRow = memo(
           isDragOver && file.is_dir && "bg-primary/20 ring-2 ring-primary",
         )}
         onClick={onSelect}
+        onContextMenu={(e) => {
+          // Select item on right-click so context menu actions apply to it
+          // Do not prevent default — allow the context menu trigger to handle opening
+          onSelect(e as unknown as React.MouseEvent)
+        }}
         onDoubleClick={handleDoubleClick}
         onKeyDown={handleKeyDown}
         draggable

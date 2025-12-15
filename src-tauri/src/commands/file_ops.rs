@@ -308,8 +308,8 @@ pub async fn copy_entries_parallel(
             let _ = app.emit(
                 "copy-progress",
                 CopyProgress {
-                    current,
-                    total,
+                    current: u32::try_from(current).unwrap_or(u32::MAX),
+                    total: u32::try_from(total).unwrap_or(u32::MAX),
                     file: file_name,
                 },
             );

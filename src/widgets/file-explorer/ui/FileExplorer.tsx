@@ -1,13 +1,9 @@
-// src/widgets/file-explorer/ui/FileExplorer.tsx
-
-import { openPath } from "@tauri-apps/plugin-opener"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useMemo, useState } from "react"
 import {
   filterEntries,
   type SortConfig,
   sortEntries,
   useCopyEntries,
-  useCopyEntriesParallel,
   useCreateDirectory,
   useCreateFile,
   useDeleteEntries,
@@ -21,9 +17,9 @@ import { FileContextMenu } from "@/features/context-menu"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
-import { cn, joinPath } from "@/shared/lib"
-import { toast } from "@/shared/ui"
+import { cn } from "@/shared/lib"
 import { CopyProgressDialog } from "@/widgets/progress-dialog"
+import { useFileExplorerHandlers, useFileExplorerKeyboard } from "../lib"
 import { VirtualFileList } from "./VirtualFileList"
 
 interface FileExplorerProps {
@@ -32,376 +28,123 @@ interface FileExplorerProps {
   className?: string
 }
 
-const DEFAULT_SORT: SortConfig = { field: "name", direction: "asc" }
-
 export function FileExplorer({
   showHidden = false,
-  sortConfig = DEFAULT_SORT,
+  sortConfig = { field: "name", direction: "asc" },
   className,
 }: FileExplorerProps) {
-  const { currentPath, navigate } = useNavigationStore()
-  const {
-    selectedPaths,
-    selectFile,
-    selectRange,
-    toggleSelection,
-    clearSelection,
-    selectAll,
-    getSelectedPaths,
-  } = useSelectionStore()
-
-  const {
-    paths: clipboardPaths,
-    action: clipboardAction,
-    copy,
-    cut,
-    clear: clearClipboard,
-    hasContent,
-  } = useClipboardStore()
-  const {
-    mode,
-    startNewFolder,
-    startNewFile,
-    startRename,
-    cancel: cancelInlineEdit,
-  } = useInlineEditStore()
+  const { currentPath } = useNavigationStore()
+  const { selectedPaths } = useSelectionStore()
+  const { startNewFolder } = useInlineEditStore()
+  const { hasContent: hasClipboardContent } = useClipboardStore()
 
   // Progress dialog state
-  const [showProgress, setShowProgress] = useState(false)
+  const [copyProgress, setCopyProgress] = useState<{
+    open: boolean
+    sources: string[]
+    destination: string
+  }>({ open: false, sources: [], destination: "" })
 
-  // Data fetching (removed isLoading as it's unused)
+  // Data fetching
   const { data: entries = [], refetch } = useDirectoryContents(currentPath)
 
   // File watcher
   useFileWatcher(currentPath)
 
-  // Mutations with proper error handling
-  const copyMutation = useCopyEntries()
-  const copyParallelMutation = useCopyEntriesParallel()
-  const moveMutation = useMoveEntries()
-  const deleteMutation = useDeleteEntries()
-
-  const createDirMutation = useCreateDirectory()
+  // Mutations
+  const createDirectoryMutation = useCreateDirectory()
   const createFileMutation = useCreateFile()
   const renameMutation = useRenameEntry()
+  const deleteMutation = useDeleteEntries()
+  const copyMutation = useCopyEntries()
+  const moveMutation = useMoveEntries()
 
-  // Process files: filter and sort
+  // Process files
   const processedFiles = useMemo(() => {
     const filtered = filterEntries(entries, { showHidden })
     return sortEntries(filtered, sortConfig)
   }, [entries, showHidden, sortConfig])
 
-  // Selection handlers
-  const handleSelect = useCallback(
-    (path: string, e: React.MouseEvent) => {
-      if (e.shiftKey && selectedPaths.size > 0) {
-        const allPaths = processedFiles.map((f) => f.path)
-        const lastSelected = Array.from(selectedPaths).pop()
-        if (!lastSelected) return
-        selectRange(lastSelected, path, allPaths)
-      } else if (e.ctrlKey || e.metaKey) {
-        toggleSelection(path)
-      } else {
-        selectFile(path)
-      }
+  // Handlers
+  const handlers = useFileExplorerHandlers({
+    files: processedFiles,
+    createDirectory: async (path: string) => {
+      await createDirectoryMutation.mutateAsync(path)
     },
-    [processedFiles, selectedPaths, selectFile, selectRange, toggleSelection],
-  )
-
-  const handleOpen = useCallback(
-    async (path: string, isDir: boolean) => {
-      if (isDir) {
-        clearSelection()
-        navigate(path)
-      } else {
-        try {
-          await openPath(path)
-        } catch (error) {
-          toast.error(`Не удалось открыть файл: ${error}`)
-        }
-      }
+    createFile: async (path: string) => {
+      await createFileMutation.mutateAsync(path)
     },
-    [navigate, clearSelection],
-  )
-
-  // Drag & drop handler
-  const handleDrop = useCallback(
-    async (sources: string[], destination: string) => {
-      if (sources.length === 0) return
-
-      try {
-        if (sources.length > 3) {
-          setShowProgress(true)
-          await copyParallelMutation.mutateAsync({
-            sources,
-            destination,
-          })
-        } else {
-          await copyMutation.mutateAsync({ sources, destination })
-        }
-        toast.success(`Скопировано ${sources.length} элементов`)
-      } catch (error) {
-        toast.error(`Ошибка копирования: ${error}`)
-      } finally {
-        setShowProgress(false)
-      }
+    renameEntry: async (params: { oldPath: string; newName: string }) => {
+      await renameMutation.mutateAsync(params)
     },
-    [copyMutation, copyParallelMutation],
-  )
-
-  // Inline create/rename handlers
-  const handleCreateFolder = useCallback(
-    async (name: string) => {
-      if (!currentPath) return
-
-      const fullPath = joinPath(currentPath, name)
-      try {
-        await createDirMutation.mutateAsync(fullPath)
-        toast.success(`Папка "${name}" создана`)
-      } catch (error) {
-        toast.error(`Ошибка создания папки: ${error}`)
-      }
+    deleteEntries: async (params: { paths: string[]; permanent: boolean }) => {
+      await deleteMutation.mutateAsync(params)
     },
-    [currentPath, createDirMutation],
-  )
-
-  const handleCreateFile = useCallback(
-    async (name: string) => {
-      if (!currentPath) return
-
-      const fullPath = joinPath(currentPath, name)
-      try {
-        await createFileMutation.mutateAsync(fullPath)
-        toast.success(`Файл "${name}" создан`)
-      } catch (error) {
-        toast.error(`Ошибка создания файла: ${error}`)
-      }
+    copyEntries: async (params: { sources: string[]; destination: string }) => {
+      await copyMutation.mutateAsync(params)
     },
-    [currentPath, createFileMutation],
-  )
-
-  const handleRename = useCallback(
-    async (oldPath: string, newName: string) => {
-      try {
-        await renameMutation.mutateAsync({ oldPath, newName })
-        toast.success(`Переименовано в "${newName}"`)
-      } catch (error) {
-        toast.error(`Ошибка переименования: ${error}`)
-      }
+    moveEntries: async (params: { sources: string[]; destination: string }) => {
+      await moveMutation.mutateAsync(params)
     },
-    [renameMutation],
-  )
-
-  // Clipboard operations
-  const handleCopy = useCallback(() => {
-    const paths = getSelectedPaths()
-    if (paths.length > 0) {
-      copy(paths)
-      toast.info(`Скопировано в буфер: ${paths.length} элементов`)
-    }
-  }, [getSelectedPaths, copy])
-
-  const handleCut = useCallback(() => {
-    const paths = getSelectedPaths()
-    if (paths.length > 0) {
-      cut(paths)
-      toast.info(`Вырезано: ${paths.length} элементов`)
-    }
-  }, [getSelectedPaths, cut])
-
-  const handlePaste = useCallback(async () => {
-    if (!currentPath || !hasContent()) return
-
-    try {
-      if (clipboardPaths.length > 3) {
-        setShowProgress(true)
-      }
-
-      if (clipboardAction === "copy") {
-        if (clipboardPaths.length > 3) {
-          await copyParallelMutation.mutateAsync({
-            sources: clipboardPaths,
-            destination: currentPath,
-          })
-        } else {
-          await copyMutation.mutateAsync({
-            sources: clipboardPaths,
-            destination: currentPath,
-          })
-        }
-        toast.success(`Вставлено ${clipboardPaths.length} элементов`)
-      } else if (clipboardAction === "cut") {
-        await moveMutation.mutateAsync({
-          sources: clipboardPaths,
-          destination: currentPath,
-        })
-        clearClipboard()
-        toast.success(`Перемещено ${clipboardPaths.length} элементов`)
-      }
-    } catch (error) {
-      toast.error(`Ошибка вставки: ${error}`)
-    } finally {
-      setShowProgress(false)
-    }
-  }, [
-    currentPath,
-    clipboardPaths,
-    clipboardAction,
-    hasContent,
-    copyMutation,
-    copyParallelMutation,
-    moveMutation,
-    clearClipboard,
-  ])
-
-  const handleDelete = useCallback(async () => {
-    const paths = getSelectedPaths()
-    if (paths.length === 0) return
-
-    try {
-      await deleteMutation.mutateAsync({ paths, permanent: false })
-      clearSelection()
-      toast.success(`Удалено ${paths.length} элементов`)
-    } catch (error) {
-      toast.error(`Ошибка удаления: ${error}`)
-    }
-  }, [getSelectedPaths, deleteMutation, clearSelection])
-
-  const handleRenameRequest = useCallback(() => {
-    const paths = getSelectedPaths()
-    if (paths.length === 1) {
-      startRename(paths[0])
-    }
-  }, [getSelectedPaths, startRename])
-
-  const handleNewFolder = useCallback(() => {
-    if (currentPath) {
-      startNewFolder(currentPath)
-    }
-  }, [currentPath, startNewFolder])
-
-  const handleNewFile = useCallback(() => {
-    if (currentPath) {
-      startNewFile(currentPath)
-    }
-  }, [currentPath, startNewFile])
+    onStartCopyWithProgress: (sources, destination) => {
+      setCopyProgress({ open: true, sources, destination })
+    },
+  })
 
   // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      // Ignore if in inline edit mode
-      if (mode !== null) {
-        if (e.key === "Escape") {
-          cancelInlineEdit()
-        }
-        return
-      }
+  useFileExplorerKeyboard({
+    onCopy: handlers.handleCopy,
+    onCut: handlers.handleCut,
+    onPaste: handlers.handlePaste,
+    onDelete: handlers.handleDelete,
+    onStartNewFolder: () => currentPath && startNewFolder(currentPath),
+    onRefresh: () => refetch(),
+    getSelectedPaths: handlers.getSelectedPaths,
+  })
 
-      // Ignore if focus is in input
-      if (
-        document.activeElement?.tagName === "INPUT" ||
-        document.activeElement?.tagName === "TEXTAREA"
-      ) {
-        return
-      }
-
-      if (e.ctrlKey || e.metaKey) {
-        switch (e.key.toLowerCase()) {
-          case "c":
-            e.preventDefault()
-            handleCopy()
-            break
-          case "x":
-            e.preventDefault()
-            handleCut()
-            break
-          case "v":
-            e.preventDefault()
-            handlePaste()
-            break
-          case "a":
-            e.preventDefault()
-            selectAll(processedFiles.map((f) => f.path))
-            break
-        }
-      } else {
-        switch (e.key) {
-          case "Delete":
-            e.preventDefault()
-            handleDelete()
-            break
-          case "F2":
-            e.preventDefault()
-            handleRenameRequest()
-            break
-          case "F5":
-            e.preventDefault()
-            refetch()
-            break
-        }
-      }
-    }
-
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [
-    mode,
-    cancelInlineEdit,
-    handleCopy,
-    handleCut,
-    handlePaste,
-    handleDelete,
-    handleRenameRequest,
-    selectAll,
-    processedFiles,
-    refetch,
-  ])
-
-  if (!currentPath) {
-    return (
-      <div
-        className={cn("flex items-center justify-center h-full text-muted-foreground", className)}
-      >
-        Выберите диск или папку
-      </div>
-    )
-  }
+  const handleCopyComplete = useCallback(() => {
+    setCopyProgress({ open: false, sources: [], destination: "" })
+    refetch()
+  }, [refetch])
 
   return (
     <>
       <FileContextMenu
-        selectedPaths={getSelectedPaths()}
-        onCopy={handleCopy}
-        onCut={handleCut}
-        onPaste={handlePaste}
-        onDelete={handleDelete}
-        onRename={handleRenameRequest}
-        onNewFolder={handleNewFolder}
-        onNewFile={handleNewFile}
+        selectedPaths={handlers.getSelectedPaths()}
+        onCopy={handlers.handleCopy}
+        onCut={handlers.handleCut}
+        onPaste={handlers.handlePaste}
+        onDelete={handlers.handleDelete}
+        onRename={() => {
+          const selected = handlers.getSelectedPaths()
+          if (selected.length === 1) {
+            useInlineEditStore.getState().startRename(selected[0])
+          }
+        }}
+        onNewFolder={() => currentPath && startNewFolder(currentPath)}
+        onNewFile={() => currentPath && useInlineEditStore.getState().startNewFile(currentPath)}
         onRefresh={() => refetch()}
-        canPaste={hasContent()}
+        canPaste={hasClipboardContent()}
       >
-        <VirtualFileList
-          files={processedFiles}
-          selectedPaths={selectedPaths}
-          onSelect={handleSelect}
-          onOpen={handleOpen}
-          onDrop={handleDrop}
-          getSelectedPaths={getSelectedPaths}
-          onCreateFolder={handleCreateFolder}
-          onCreateFile={handleCreateFile}
-          onRename={handleRename}
-          className={cn("h-full", className)}
-        />
+        <div className={cn("flex-1 overflow-hidden", className)}>
+          <VirtualFileList
+            files={processedFiles}
+            selectedPaths={selectedPaths}
+            onSelect={handlers.handleSelect}
+            onOpen={handlers.handleOpen}
+            onDrop={handlers.handleDrop}
+            getSelectedPaths={handlers.getSelectedPaths}
+            onCreateFolder={handlers.handleCreateFolder}
+            onCreateFile={handlers.handleCreateFile}
+            onRename={handlers.handleRename}
+          />
+        </div>
       </FileContextMenu>
 
       <CopyProgressDialog
-        open={showProgress}
-        onCancel={() => setShowProgress(false)}
-        onComplete={() => {
-          setShowProgress(false)
-          refetch()
-        }}
+        open={copyProgress.open}
+        onCancel={() => setCopyProgress({ open: false, sources: [], destination: "" })}
+        onComplete={handleCopyComplete}
       />
     </>
   )

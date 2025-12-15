@@ -1,7 +1,5 @@
-// src/widgets/file-explorer/ui/VirtualFileList.tsx
-
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { useCallback, useMemo, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { ColumnHeader, FileRow, InlineEditRow } from "@/entities/file-entry"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useKeyboardNavigation } from "@/features/keyboard-navigation"
@@ -96,6 +94,14 @@ export function VirtualFileList({
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
   })
+
+  // Scroll to inline edit row when editing starts so the input is visible
+  useEffect(() => {
+    if (!mode) return
+    if (inlineEditIndex < 0) return
+    // Ensure the inline edit row is visible
+    virtualizer.scrollToIndex(inlineEditIndex, { align: "start" })
+  }, [mode, inlineEditIndex, virtualizer])
 
   // Memoize handlers
   const handleColumnResize = useCallback(
