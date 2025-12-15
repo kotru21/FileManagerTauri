@@ -54,6 +54,15 @@ jobs:
       - name: "Biome: Lint (biome lint)"
         run: npm run lint
 
+      - name: Install rustfmt and clippy
+        run: rustup component add clippy rustfmt
+
+      - name: Rust: fmt check (cargo fmt)
+        run: cd src-tauri && cargo fmt --all -- --check
+
+      - name: Rust: Clippy (cargo clippy)
+        run: cd src-tauri && cargo clippy --all-targets --all-features -- -D warnings
+
       - name: Read app version
         id: version
         shell: pwsh
