@@ -103,7 +103,7 @@ function FilePreviewContent({ preview, fileName }: { preview: FilePreview; fileN
   if (preview.type === "Text") {
     return (
       <ScrollArea className="h-full">
-        <pre className="p-4 text-sm font-mono whitespace-pre-wrap break-words">
+        <pre className="p-4 text-sm font-mono whitespace-pre-wrap wrap-break-word">
           {preview.content}
           {preview.truncated && (
             <span className="text-muted-foreground italic">{"\n\n... (содержимое обрезано)"}</span>
