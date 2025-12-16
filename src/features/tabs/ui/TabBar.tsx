@@ -67,7 +67,7 @@ function TabItem({
           onDrop={handleDrop}
           onClick={onSelect}
           className={cn(
-            "group relative flex h-8 min-w-[120px] max-w-[200px] cursor-pointer items-center gap-2 border-r border-border/50 px-3 text-sm transition-colors no-drag",
+            "group relative flex h-8 min-w-30 max-w-50 cursor-pointer items-center gap-2 border-r border-border/50 px-3 text-sm transition-colors no-drag",
             isActive
               ? "bg-background text-foreground"
               : "bg-muted/30 text-muted-foreground hover:bg-muted/50",

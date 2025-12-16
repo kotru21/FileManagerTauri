@@ -177,7 +177,7 @@ export function FileBrowserPage() {
                 minSize={4}
                 maxSize={30}
                 onResize={handleSidebarResize}
-                className="min-w-[50px]"
+                className="min-w-12.5"
               >
                 <Sidebar collapsed={layout.sidebarCollapsed} className="h-full" />
               </ResizablePanel>
