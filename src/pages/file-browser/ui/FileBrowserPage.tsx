@@ -1,7 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { openPath } from "@tauri-apps/plugin-opener"
-import { useCallback, useEffect, useMemo, useRef } from "react"
-import { fileKeys, useDirectoryContents } from "@/entities/file-entry"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { fileKeys } from "@/entities/file-entry"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useLayoutStore } from "@/features/layout"
@@ -19,26 +18,29 @@ import {
 } from "@/shared/ui"
 import { Breadcrumbs, FileExplorer, PreviewPanel, Sidebar, StatusBar, Toolbar } from "@/widgets"
 
-const COLLAPSE_THRESHOLD = 8
-const COLLAPSED_SIZE = 6
-
 export function FileBrowserPage() {
   const queryClient = useQueryClient()
   const { currentPath, navigate } = useNavigationStore()
-  const { layout, setSidebarSize, setPreviewPanelSize, setSidebarCollapsed } = useLayoutStore()
+  const { layout, setSidebarSize, setMainPanelSize, setPreviewPanelSize, togglePreview, setSidebarCollapsed } =
+    useLayoutStore()
   const { tabs, activeTabId, addTab, updateTabPath } = useTabsStore()
-  const { results, isSearching, query } = useSearchStore()
+  const { results: searchResults, isSearching, query: searchQuery } = useSearchStore()
   const { clearSelection, getSelectedPaths } = useSelectionStore()
   const { startNewFolder, startNewFile } = useInlineEditStore()
 
+  // Quick Look state
+  const [quickLookFile, setQuickLookFile] = useState<FileEntry | null>(null)
+
   // Debounce refs for resize
-  const sidebarResizeTimerRef = useRef<number | null>(null)
-  const previewResizeTimerRef = useRef<number | null>(null)
+  const sidebarResizeTimer = useRef<ReturnType<typeof setTimeout>>()
+  const mainResizeTimer = useRef<ReturnType<typeof setTimeout>>()
+  const previewResizeTimer = useRef<ReturnType<typeof setTimeout>>()
 
   // Initialize first tab if none exists
   useEffect(() => {
     if (tabs.length === 0) {
-      addTab(currentPath || "C:\\")
+      const initialPath = currentPath || "C:\\"
+      addTab(initialPath)
     }
   }, [tabs.length, addTab, currentPath])
 
@@ -58,16 +60,20 @@ export function FileBrowserPage() {
   )
 
   // Get selected file for preview
-  const { data: entries } = useDirectoryContents(currentPath)
-  const selectedPaths = getSelectedPaths()
+  const selectedFile = useMemo(() => {
+    const paths = getSelectedPaths()
+    if (paths.length !== 1) return null
 
-  const selectedFile = useMemo((): FileEntry | null => {
-    if (selectedPaths.length !== 1) return null
-    return entries?.find((e) => e.path === selectedPaths[0]) || null
-  }, [selectedPaths, entries])
+    return queryClient
+      .getQueryData<FileEntry[]>(fileKeys.directory(currentPath || ""))
+      ?.find((f) => f.path === paths[0])
+  }, [currentPath, queryClient, getSelectedPaths])
+
+  // Use quick look file for preview if active, otherwise use selected file
+  const previewFile = quickLookFile || selectedFile
 
   // Show search results when we have results
-  const showSearchResults = query.length > 0 && (isSearching || results.length > 0)
+  const showSearchResults = searchResults.length > 0 || isSearching
 
   const handleSearchResultClick = async (path: string) => {
     try {
@@ -75,16 +81,114 @@ export function FileBrowserPage() {
       if (parentResult.status === "ok" && parentResult.data) {
         navigate(parentResult.data)
         clearSelection()
+        // Select the file after navigation
+        setTimeout(() => {
+          useSelectionStore.getState().selectFile(path)
+        }, 100)
       }
-    } catch (error) {
-      console.error("Failed to navigate to search result:", error)
-      try {
-        await openPath(path)
-      } catch (openError) {
-        toast.error(`Не удалось открыть файл: ${openError}`)
-      }
+    } catch {
+      toast.error("Ошибка открытия файла")
     }
   }
+
+  // Quick Look handler
+  const handleQuickLook = useCallback(
+    (file: FileEntry) => {
+      setQuickLookFile((prev) => (prev?.path === file.path ? null : file))
+      // Show preview panel if hidden
+      if (!layout.showPreview) {
+        togglePreview()
+      }
+    },
+    [layout.showPreview, togglePreview],
+  )
+
+  // Close Quick Look on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && quickLookFile) {
+        setQuickLookFile(null)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [quickLookFile])
+
+  // Debounced resize handlers
+  const COLLAPSE_THRESHOLD = 8 // percent
+  const COLLAPSED_SIZE = 4 // percent when collapsed
+
+  const handleSidebarResize = useCallback(
+    (size: number) => {
+      clearTimeout(sidebarResizeTimer.current)
+      sidebarResizeTimer.current = setTimeout(() => {
+        const collapsed = size < COLLAPSE_THRESHOLD
+
+        // Toggle collapsed flag based on threshold
+        setSidebarCollapsed(collapsed)
+
+        const newSidebarSize = collapsed ? COLLAPSED_SIZE : size
+
+        // Ensure remaining panels sum to 100% by adjusting main panel
+        const previewSize = layout.showPreview ? layout.previewPanelSize : 0
+        let newMain = Math.max(30, 100 - newSidebarSize - previewSize)
+
+        // If preview exists and main became too small, reduce preview to accommodate
+        if (layout.showPreview) {
+          const remaining = 100 - newSidebarSize - newMain
+          const newPreview = Math.max(15, remaining)
+          setPreviewPanelSize(newPreview)
+          // Recompute main if preview consumed space
+          newMain = Math.max(30, 100 - newSidebarSize - newPreview)
+        }
+
+        setSidebarSize(newSidebarSize)
+        setMainPanelSize(newMain)
+      }, 100)
+    },
+    [setSidebarSize, setSidebarCollapsed, setMainPanelSize, setPreviewPanelSize, layout.showPreview, layout.previewPanelSize],
+  )
+
+  const handleMainResize = useCallback(
+    (size: number) => {
+      clearTimeout(mainResizeTimer.current)
+      mainResizeTimer.current = setTimeout(() => {
+        setMainPanelSize(size)
+      }, 100)
+    },
+    [setMainPanelSize],
+  )
+
+  const handlePreviewResize = useCallback(
+    (size: number) => {
+      clearTimeout(previewResizeTimer.current)
+      previewResizeTimer.current = setTimeout(() => {
+        setPreviewPanelSize(size)
+      }, 100)
+    },
+    [setPreviewPanelSize],
+  )
+
+  // Normalize layout on mount / when layout changes so panels sum to 100%
+  useEffect(() => {
+    const sidebar = layout.showSidebar ? (layout.sidebarCollapsed ? COLLAPSED_SIZE : layout.sidebarSize) : 0
+    const preview = layout.showPreview ? layout.previewPanelSize : 0
+    const total = sidebar + layout.mainPanelSize + preview
+
+    if (Math.abs(total - 100) > 0.1) {
+      const newMain = Math.max(30, 100 - sidebar - preview)
+      setMainPanelSize(newMain)
+    }
+  }, [layout.showSidebar, layout.sidebarCollapsed, layout.sidebarSize, layout.mainPanelSize, layout.showPreview, layout.previewPanelSize, setMainPanelSize])
+
+  // Cleanup timers
+  useEffect(() => {
+    return () => {
+      clearTimeout(sidebarResizeTimer.current)
+      clearTimeout(mainResizeTimer.current)
+      clearTimeout(previewResizeTimer.current)
+    }
+  }, [])
 
   const handleRefresh = useCallback(() => {
     if (currentPath) {
@@ -92,120 +196,73 @@ export function FileBrowserPage() {
     }
   }, [currentPath, queryClient])
 
-  const handleNewFolder = useCallback(() => {
-    if (currentPath) {
-      startNewFolder(currentPath)
-    }
-  }, [currentPath, startNewFolder])
-
-  const handleNewFile = useCallback(() => {
-    if (currentPath) {
-      startNewFile(currentPath)
-    }
-  }, [currentPath, startNewFile])
-
-  // Debounced resize handlers
-  const handleSidebarResize = useCallback(
-    (size: number) => {
-      if (sidebarResizeTimerRef.current) {
-        cancelAnimationFrame(sidebarResizeTimerRef.current)
-      }
-      sidebarResizeTimerRef.current = requestAnimationFrame(() => {
-        const collapsed = size < COLLAPSE_THRESHOLD
-        setSidebarCollapsed(collapsed)
-        // If collapsed, set to small collapsed size; otherwise set actual size
-        setSidebarSize(collapsed ? COLLAPSED_SIZE : size)
-      })
-    },
-    [setSidebarCollapsed, setSidebarSize],
-  )
-
-  const handlePreviewResize = useCallback(
-    (size: number) => {
-      if (previewResizeTimerRef.current) {
-        cancelAnimationFrame(previewResizeTimerRef.current)
-      }
-      previewResizeTimerRef.current = requestAnimationFrame(() => {
-        setPreviewPanelSize(size)
-      })
-    },
-    [setPreviewPanelSize],
-  )
-
-  // Cleanup timers
-  useEffect(() => {
-    return () => {
-      if (sidebarResizeTimerRef.current) {
-        cancelAnimationFrame(sidebarResizeTimerRef.current)
-      }
-      if (previewResizeTimerRef.current) {
-        cancelAnimationFrame(previewResizeTimerRef.current)
-      }
-    }
-  }, [])
-
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="flex h-screen flex-col bg-background text-foreground overflow-hidden">
+      <div className="h-screen flex flex-col bg-background text-foreground overflow-hidden">
         {/* Tab Bar */}
-        <TabBar onTabChange={handleTabChange} />
+        <TabBar onTabChange={handleTabChange} className="shrink-0" />
 
         {/* Header */}
-        <header
-          data-tauri-drag-region
-          className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2"
-        >
+        <header className="shrink-0 flex flex-col border-b border-border">
           {/* Breadcrumbs */}
-          <Breadcrumbs className="flex-1 min-w-0" />
+          <div className="px-3 py-2 border-b border-border">
+            <Breadcrumbs />
+          </div>
 
           {/* Toolbar */}
           <Toolbar
             onRefresh={handleRefresh}
-            onNewFolder={handleNewFolder}
-            onNewFile={handleNewFile}
+            onNewFolder={() => currentPath && startNewFolder(currentPath)}
+            onNewFile={() => currentPath && startNewFile(currentPath)}
+            onTogglePreview={togglePreview}
             showPreview={layout.showPreview}
+            className="px-2 py-1"
           />
         </header>
 
         {/* Main Content */}
-        <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
+        <ResizablePanelGroup direction="horizontal" className="flex-1">
           {/* Sidebar */}
           {layout.showSidebar && (
             <>
               <ResizablePanel
-                defaultSize={layout.sidebarSize}
+                defaultSize={layout.sidebarCollapsed ? 4 : layout.sidebarSize}
                 minSize={4}
                 maxSize={30}
                 onResize={handleSidebarResize}
-                className="min-w-12.5"
               >
-                <Sidebar collapsed={layout.sidebarCollapsed} className="h-full" />
+                <Sidebar collapsed={layout.sidebarCollapsed} />
               </ResizablePanel>
               <ResizableHandle withHandle />
             </>
           )}
 
           {/* Main Panel */}
-          <ResizablePanel defaultSize={layout.mainPanelSize} minSize={30}>
-            <div className="relative h-full flex flex-col min-h-0">
-              <FileExplorer className="flex-1 min-h-0" />
+          <ResizablePanel
+            defaultSize={layout.mainPanelSize}
+            minSize={30}
+            onResize={handleMainResize}
+          >
+            <div className="h-full relative">
+              <FileExplorer onQuickLook={handleQuickLook} />
 
               {/* Search Results Overlay */}
               {showSearchResults && (
-                <div className="absolute inset-0 z-10 bg-background/95 backdrop-blur-sm overflow-auto">
-                  <div className="p-4">
-                    <h3 className="text-lg font-semibold mb-4">
-                      {isSearching ? "Поиск..." : `Найдено: ${results.length}`}
-                    </h3>
-                    <div className="space-y-1">
-                      {results.map((result) => (
-                        <SearchResultItem
-                          key={result.path}
-                          result={result}
-                          onSelect={handleSearchResultClick}
-                        />
-                      ))}
-                    </div>
+                <div className="absolute inset-0 bg-background/95 backdrop-blur-sm overflow-auto p-4">
+                  <div className="max-w-2xl mx-auto">
+                    <h2 className="text-lg font-semibold mb-4">
+                      {isSearching ? "Поиск..." : `Результаты поиска "${searchQuery}"`}
+                    </h2>
+                    {searchResults.map((result) => (
+                      <SearchResultItem
+                        key={result.path}
+                        result={result}
+                        onSelect={handleSearchResultClick}
+                      />
+                    ))}
+                    {!isSearching && searchResults.length === 0 && (
+                      <p className="text-muted-foreground">Ничего не найдено</p>
+                    )}
                   </div>
                 </div>
               )}
@@ -219,17 +276,25 @@ export function FileBrowserPage() {
               <ResizablePanel
                 defaultSize={layout.previewPanelSize}
                 minSize={15}
-                maxSize={40}
+                maxSize={50}
                 onResize={handlePreviewResize}
               >
-                <PreviewPanel file={selectedFile} className="h-full" />
+                <PreviewPanel
+                  file={previewFile}
+                  onClose={() => {
+                    setQuickLookFile(null)
+                    if (!selectedFile) {
+                      togglePreview()
+                    }
+                  }}
+                />
               </ResizablePanel>
             </>
           )}
         </ResizablePanelGroup>
 
         {/* Status Bar */}
-        <StatusBar />
+        <StatusBar className="shrink-0" />
       </div>
     </TooltipProvider>
   )

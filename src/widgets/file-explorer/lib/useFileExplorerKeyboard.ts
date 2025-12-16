@@ -1,6 +1,7 @@
 import { useEffect } from "react"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
+import { useQuickFilterStore } from "@/features/quick-filter"
 
 interface UseFileExplorerKeyboardOptions {
   onCopy: () => void
@@ -9,7 +10,7 @@ interface UseFileExplorerKeyboardOptions {
   onDelete: () => void
   onStartNewFolder: () => void
   onRefresh: () => void
-  getSelectedPaths: () => string[]
+  onQuickLook?: () => void
 }
 
 export function useFileExplorerKeyboard({
@@ -19,74 +20,129 @@ export function useFileExplorerKeyboard({
   onDelete,
   onStartNewFolder,
   onRefresh,
-  getSelectedPaths,
+  onQuickLook,
 }: UseFileExplorerKeyboardOptions) {
   const { goBack, goForward, goUp } = useNavigationStore()
-  const { mode: inlineEditMode, startRename } = useInlineEditStore()
+  const { mode: inlineEditMode } = useInlineEditStore()
+  const { toggle: toggleQuickFilter } = useQuickFilterStore()
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
+      // Don't handle if in input or inline edit mode
+      const target = e.target as HTMLElement
+      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA"
+
       if (inlineEditMode) return
 
-      if (
-        document.activeElement?.tagName === "INPUT" ||
-        document.activeElement?.tagName === "TEXTAREA"
-      ) {
+      // Quick filter toggle (Ctrl+Shift+F)
+      if (e.ctrlKey && e.shiftKey && e.key === "F") {
+        e.preventDefault()
+        toggleQuickFilter()
         return
       }
 
-      const isCtrl = e.ctrlKey || e.metaKey
+      // If in input (including quick filter), only handle Escape
+      if (isInput) {
+        return
+      }
 
-      if (isCtrl && e.key === "c") {
+      // Quick Look (Space)
+      if (e.code === "Space" && onQuickLook) {
+        e.preventDefault()
+        onQuickLook()
+        return
+      }
+
+      // Copy (Ctrl+C)
+      if (e.ctrlKey && e.key === "c") {
         e.preventDefault()
         onCopy()
-      } else if (isCtrl && e.key === "x") {
+        return
+      }
+
+      // Cut (Ctrl+X)
+      if (e.ctrlKey && e.key === "x") {
         e.preventDefault()
         onCut()
-      } else if (isCtrl && e.key === "v") {
+        return
+      }
+
+      // Paste (Ctrl+V)
+      if (e.ctrlKey && e.key === "v") {
         e.preventDefault()
         onPaste()
-      } else if (e.key === "Delete") {
+        return
+      }
+
+      // Delete
+      if (e.key === "Delete") {
         e.preventDefault()
         onDelete()
-      } else if (e.key === "F2") {
-        e.preventDefault()
-        const selected = getSelectedPaths()
-        if (selected.length === 1) {
-          startRename(selected[0])
-        }
-      } else if (isCtrl && e.shiftKey && e.key === "N") {
+        return
+      }
+
+      // New folder (Ctrl+Shift+N)
+      if (e.ctrlKey && e.shiftKey && e.key === "N") {
         e.preventDefault()
         onStartNewFolder()
-      } else if (e.key === "F5") {
+        return
+      }
+
+      // Refresh (F5)
+      if (e.key === "F5") {
         e.preventDefault()
         onRefresh()
-      } else if (e.key === "Backspace") {
-        e.preventDefault()
-        goUp()
-      } else if (e.altKey && e.key === "ArrowLeft") {
+        return
+      }
+
+      // Navigate back (Alt+Left or Backspace)
+      if ((e.altKey && e.key === "ArrowLeft") || e.key === "Backspace") {
         e.preventDefault()
         goBack()
-      } else if (e.altKey && e.key === "ArrowRight") {
+        return
+      }
+
+      // Navigate forward (Alt+Right)
+      if (e.altKey && e.key === "ArrowRight") {
         e.preventDefault()
         goForward()
+        return
+      }
+
+      // Navigate up (Alt+Up)
+      if (e.altKey && e.key === "ArrowUp") {
+        e.preventDefault()
+        goUp()
+        return
+      }
+
+      // Start typing to activate quick filter
+      if (
+        !e.ctrlKey &&
+        !e.altKey &&
+        !e.metaKey &&
+        e.key.length === 1 &&
+        e.key.match(/[a-zA-Z0-9а-яА-Я]/)
+      ) {
+        toggleQuickFilter()
+        return
       }
     }
 
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [
-    inlineEditMode,
     onCopy,
     onCut,
     onPaste,
     onDelete,
     onStartNewFolder,
     onRefresh,
+    onQuickLook,
     goBack,
     goForward,
     goUp,
-    getSelectedPaths,
-    startRename,
+    inlineEditMode,
+    toggleQuickFilter,
   ])
 }
