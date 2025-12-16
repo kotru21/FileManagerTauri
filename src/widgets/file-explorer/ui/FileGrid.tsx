@@ -1,5 +1,6 @@
 import { memo, useCallback } from "react"
 import { FileIcon } from "@/entities/file-entry"
+import { useClipboardStore } from "@/features/clipboard"
 import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, formatBytes } from "@/shared/lib"
@@ -13,12 +14,6 @@ interface FileGridProps {
   className?: string
 }
 
-const GRID_SIZES = {
-  small: { width: 80, height: 90, iconSize: 32 },
-  medium: { width: 110, height: 120, iconSize: 48 },
-  large: { width: 150, height: 160, iconSize: 64 },
-}
-
 export const FileGrid = memo(function FileGrid({
   files,
   selectedPaths,
@@ -28,28 +23,46 @@ export const FileGrid = memo(function FileGrid({
   className,
 }: FileGridProps) {
   const { settings } = useViewModeStore()
-  const gridSize = GRID_SIZES[settings.gridSize]
+
+  // Get clipboard state for cut indication
+  const clipboardPaths = useClipboardStore((s) => s.paths)
+  const isCutAction = useClipboardStore((s) => s.isCut())
+
+  const gridSizeConfig = {
+    small: { cols: "grid-cols-[repeat(auto-fill,minmax(80px,1fr))]", iconSize: 32, itemHeight: 80 },
+    medium: {
+      cols: "grid-cols-[repeat(auto-fill,minmax(100px,1fr))]",
+      iconSize: 48,
+      itemHeight: 100,
+    },
+    large: {
+      cols: "grid-cols-[repeat(auto-fill,minmax(120px,1fr))]",
+      iconSize: 64,
+      itemHeight: 120,
+    },
+  }
+
+  const config = gridSizeConfig[settings.gridSize]
 
   const handleDragStart = useCallback(
     (e: React.DragEvent, file: FileEntry) => {
       const paths = selectedPaths.has(file.path) ? Array.from(selectedPaths) : [file.path]
-
-      e.dataTransfer.setData("application/json", JSON.stringify({ paths }))
+      e.dataTransfer.setData("application/json", JSON.stringify({ paths, action: "move" }))
       e.dataTransfer.effectAllowed = "copyMove"
     },
     [selectedPaths],
   )
 
   const handleDrop = useCallback(
-    (e: React.DragEvent, file: FileEntry) => {
-      if (!file.is_dir || !onDrop) return
-
+    (e: React.DragEvent, targetPath: string) => {
       e.preventDefault()
+      const data = e.dataTransfer.getData("application/json")
+      if (!data || !onDrop) return
+
       try {
-        const data = JSON.parse(e.dataTransfer.getData("application/json"))
-        if (data.paths && !data.paths.includes(file.path)) {
-          onDrop(data.paths, file.path)
-        }
+        const { paths } = JSON.parse(data) as { paths: string[] }
+        if (paths.includes(targetPath)) return
+        onDrop(paths, targetPath)
       } catch {
         // Ignore parse errors
       }
@@ -57,34 +70,32 @@ export const FileGrid = memo(function FileGrid({
     [onDrop],
   )
 
-  const handleDragOver = useCallback((e: React.DragEvent, file: FileEntry) => {
-    if (file.is_dir) {
-      e.preventDefault()
-      e.dataTransfer.dropEffect = e.ctrlKey ? "copy" : "move"
-    }
-  }, [])
-
   return (
-    <div
-      className={cn("grid gap-2 p-4", className)}
-      style={{
-        gridTemplateColumns: `repeat(auto-fill, minmax(${gridSize.width}px, 1fr))`,
-      }}
-    >
-      {files.map((file) => (
-        <GridItem
-          key={file.path}
-          file={file}
-          isSelected={selectedPaths.has(file.path)}
-          iconSize={gridSize.iconSize}
-          itemHeight={gridSize.height}
-          onSelect={(e) => onSelect(file.path, e)}
-          onOpen={() => onOpen(file.path, file.is_dir)}
-          onDragStart={(e) => handleDragStart(e, file)}
-          onDrop={(e) => handleDrop(e, file)}
-          onDragOver={(e) => handleDragOver(e, file)}
-        />
-      ))}
+    <div className={cn("grid gap-2 p-2", config.cols, className)}>
+      {files.map((file) => {
+        const isCut = isCutAction && clipboardPaths.includes(file.path)
+
+        return (
+          <GridItem
+            key={file.path}
+            file={file}
+            isSelected={selectedPaths.has(file.path)}
+            isCut={isCut}
+            iconSize={config.iconSize}
+            itemHeight={config.itemHeight}
+            onSelect={(e) => onSelect(file.path, e)}
+            onOpen={() => onOpen(file.path, file.is_dir)}
+            onDragStart={(e) => handleDragStart(e, file)}
+            onDrop={(e) => handleDrop(e, file.path)}
+            onDragOver={(e) => {
+              if (file.is_dir) {
+                e.preventDefault()
+                e.dataTransfer.dropEffect = e.ctrlKey ? "copy" : "move"
+              }
+            }}
+          />
+        )
+      })}
     </div>
   )
 })
@@ -92,6 +103,7 @@ export const FileGrid = memo(function FileGrid({
 interface GridItemProps {
   file: FileEntry
   isSelected: boolean
+  isCut: boolean
   iconSize: number
   itemHeight: number
   onSelect: (e: React.MouseEvent) => void
@@ -104,6 +116,7 @@ interface GridItemProps {
 const GridItem = memo(function GridItem({
   file,
   isSelected,
+  isCut,
   iconSize,
   itemHeight,
   onSelect,
@@ -114,25 +127,34 @@ const GridItem = memo(function GridItem({
 }: GridItemProps) {
   return (
     <div
-      draggable
+      className={cn(
+        "flex flex-col items-center justify-center p-2 rounded-lg cursor-default select-none",
+        "hover:bg-accent/50 transition-colors",
+        isSelected && "bg-accent",
+        isCut && "opacity-50",
+      )}
+      style={{ height: itemHeight }}
       onClick={onSelect}
       onDoubleClick={onOpen}
       onDragStart={onDragStart}
       onDrop={onDrop}
       onDragOver={onDragOver}
-      className={cn(
-        "flex flex-col items-center justify-center rounded-lg p-2 cursor-pointer transition-colors",
-        "hover:bg-accent/50",
-        isSelected && "bg-accent ring-1 ring-primary",
-      )}
-      style={{ height: itemHeight }}
+      draggable
     >
-      <FileIcon extension={file.extension} isDir={file.is_dir} size={iconSize} className="mb-2" />
-      <span className="text-xs text-center line-clamp-2 break-all w-full" title={file.name}>
+      <FileIcon
+        extension={file.extension}
+        isDir={file.is_dir}
+        size={iconSize}
+        className={cn("mb-1", isCut && "opacity-70")}
+      />
+      <span
+        className={cn("text-xs text-center truncate w-full", isCut && "italic")}
+        title={file.name}
+      >
         {file.name}
       </span>
       {!file.is_dir && (
-        <span className="text-[10px] text-muted-foreground mt-0.5">{formatBytes(file.size)}</span>
+        <span className="text-xs text-muted-foreground">{formatBytes(file.size)}</span>
       )}
     </div>
   )

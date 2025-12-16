@@ -5,6 +5,7 @@ import {
   Eye,
   EyeOff,
   FilePlus,
+  Filter,
   FolderPlus,
   LayoutGrid,
   RefreshCw,
@@ -14,6 +15,7 @@ import {
 import { useState } from "react"
 import { useBookmarksStore } from "@/features/bookmarks"
 import { useNavigationStore } from "@/features/navigation"
+import { useQuickFilterStore } from "@/features/quick-filter"
 import { SearchBar } from "@/features/search-content"
 import { useViewModeStore, ViewModeToggle } from "@/features/view-mode"
 import { cn } from "@/shared/lib"
@@ -172,6 +174,21 @@ export function Toolbar({
       </div>
 
       <Separator orientation="vertical" className="mx-1 h-6" />
+
+      {/* Quick Filter */}
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={() => useQuickFilterStore.getState().toggle()}
+            className={cn("h-8 w-8", useQuickFilterStore.getState().isActive && "bg-accent")}
+          >
+            <Filter className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Быстрый фильтр (Ctrl+Shift+F)</TooltipContent>
+      </Tooltip>
 
       {/* Bookmark */}
       <Tooltip>

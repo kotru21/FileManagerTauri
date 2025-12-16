@@ -101,3 +101,49 @@ body {
 [data-tauri-drag-region] .no-drag {
   -webkit-app-region: no-drag;
 }
+
+/* Cut file indication */
+.cut-file {
+  opacity: 0.5;
+}
+
+.cut-file .file-name {
+  font-style: italic;
+}
+
+/* Quick filter animation */
+.quick-filter-enter {
+  animation: slideDown 0.15s ease-out;
+}
+
+@keyframes slideDown {
+  from {
+    opacity: 0;
+    transform: translateY(-8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+/* Path input focus state */
+.path-input:focus {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--color-ring);
+}
+
+/* Quick look overlay */
+.quick-look-active {
+  box-shadow: 0 0 0 2px var(--color-primary);
+}
+
+/* Breadcrumb hover state */
+.breadcrumb-segment:hover {
+  background-color: var(--color-accent);
+}
+
+/* Filter bar transition */
+.filter-bar {
+  transition: all 0.15s ease-out;
+}
