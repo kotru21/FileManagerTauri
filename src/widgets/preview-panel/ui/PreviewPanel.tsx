@@ -15,33 +15,111 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
+  // Local resolved metadata for the file (FileEntry with all fields)
+  const [fileEntry, setFileEntry] = useState<FileEntry | null>(null)
+
+  // Resolve missing metadata (name/size) when only path is provided
   useEffect(() => {
-    if (!file || file.is_dir) {
+    let cancelled = false
+
+    const resolveMetadata = async () => {
+      // Reset file entry immediately to avoid showing stale preview
+      setFileEntry(null)
+
+      if (!file) {
+        return
+      }
+
+      // If full entry provided, use as-is
+      if (file.name != null || file.size != null || file.modified != null || file.created != null) {
+        setFileEntry(file)
+        return
+      }
+
+      try {
+        const parent = await commands.getParentPath(file.path)
+        if (parent.status === "ok" && parent.data) {
+          const dir = await commands.readDirectory(parent.data)
+          if (dir.status === "ok") {
+            const found = dir.data.find((f: FileEntry) => f.path === file.path)
+            if (!cancelled) {
+              if (found) setFileEntry(found)
+              else
+                setFileEntry({
+                  ...file,
+                  name: file.path.split("\\").pop() || file.path,
+                  size: 0,
+                  is_dir: false,
+                  is_hidden: false,
+                  extension: null,
+                  modified: null,
+                  created: null,
+                })
+            }
+            return
+          }
+        }
+      } catch {
+        // ignore
+      }
+
+      if (!cancelled)
+        setFileEntry({
+          ...file,
+          name: file.path.split("\\").pop() || file.path,
+          size: 0,
+          is_dir: false,
+          is_hidden: false,
+          extension: null,
+          modified: null,
+          created: null,
+        })
+    }
+
+    resolveMetadata()
+
+    return () => {
+      cancelled = true
+    }
+  }, [file])
+
+  useEffect(() => {
+    let cancelled = false
+
+    if (!fileEntry || fileEntry.is_dir) {
       setPreview(null)
       setError(null)
       return
     }
 
     const loadPreview = async () => {
+      // Clear previous preview immediately
+      setPreview(null)
       setIsLoading(true)
       setError(null)
 
       try {
-        const result = await commands.getFilePreview(file.path)
-        if (result.status === "ok") {
-          setPreview(result.data)
-        } else {
-          setError(result.error)
+        const result = await commands.getFilePreview(fileEntry.path)
+        if (!cancelled) {
+          if (result.status === "ok") {
+            setPreview(result.data)
+          } else {
+            setError(result.error)
+          }
         }
       } catch (err) {
-        setError(String(err))
+        if (!cancelled) setError(String(err))
       } finally {
-        setIsLoading(false)
+        if (!cancelled) setIsLoading(false)
       }
     }
 
     loadPreview()
-  }, [file])
+
+    return () => {
+      cancelled = true
+    }
+  }, [fileEntry])
 
   if (!file) {
     return (
@@ -57,15 +135,17 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
     )
   }
 
+  const activeFile = fileEntry ?? file
+
   return (
     <div className={cn("flex flex-col h-full", className)}>
       {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex-1 min-w-0">
-          <h3 className="font-medium truncate">{file.name}</h3>
+          <h3 className="font-medium truncate">{activeFile?.name ?? activeFile?.path}</h3>
           <p className="text-xs text-muted-foreground">
-            {file.is_dir ? "Папка" : formatBytes(file.size)}
-            {file.modified && ` • ${formatDate(file.modified)}`}
+            {activeFile?.is_dir ? "Папка" : formatBytes(activeFile?.size)}
+            {activeFile?.modified && ` • ${formatDate(activeFile.modified)}`}
           </p>
         </div>
         {onClose && (
@@ -86,15 +166,15 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
             <FileQuestion className="h-12 w-12 mb-4" />
             <p className="text-sm text-center">{error}</p>
           </div>
-        ) : file.is_dir ? (
-          <FolderPreview file={file} />
+        ) : activeFile?.is_dir ? (
+          <FolderPreview file={activeFile} />
         ) : preview ? (
-          <FilePreviewContent preview={preview} fileName={file.name} />
+          <FilePreviewContent preview={preview} fileName={activeFile?.name ?? activeFile?.path} />
         ) : null}
       </div>
 
       {/* Metadata */}
-      <FileMetadata file={file} />
+      {activeFile && <FileMetadata file={activeFile} />}
     </div>
   )
 }
