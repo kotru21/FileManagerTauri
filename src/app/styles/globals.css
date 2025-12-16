@@ -83,3 +83,21 @@ body {
 .contain-layout {
   contain: layout;
 }
+
+/* Tauri: frameless window drag region */
+/* Apply drag region where attribute contains data-tauri-drag-region */
+[data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+/* Interactive controls inside drag region must be non-draggable so they remain clickable */
+[data-tauri-drag-region] button,
+[data-tauri-drag-region] a,
+[data-tauri-drag-region] input,
+[data-tauri-drag-region] textarea,
+[data-tauri-drag-region] select,
+[data-tauri-drag-region] .no-drag {
+  -webkit-app-region: no-drag;
+}
