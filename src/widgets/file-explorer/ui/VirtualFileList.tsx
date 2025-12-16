@@ -1,6 +1,8 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { ColumnHeader, FileRow, InlineEditRow } from "@/entities/file-entry"
+import { useBookmarksStore } from "@/features/bookmarks"
+import { useClipboardStore } from "@/features/clipboard"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useKeyboardNavigation } from "@/features/keyboard-navigation"
 import { useLayoutStore } from "@/features/layout"
@@ -32,8 +34,6 @@ function findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {
   return -1
 }
 
-const ROW_HEIGHT = 32
-
 export function VirtualFileList({
   files,
   selectedPaths,
@@ -51,79 +51,99 @@ export function VirtualFileList({
   className,
 }: VirtualFileListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
-  const { mode, targetPath, cancel, reset, startRename } = useInlineEditStore()
+  const { mode, targetPath, parentPath } = useInlineEditStore()
   const { layout, setColumnWidth } = useLayoutStore()
+  const { columnWidths } = layout
 
-  const hasInlineEdit = mode !== null
+  // Get clipboard state for cut indication
+  const clipboardPaths = useClipboardStore((s) => s.paths)
+  const isCutMode = useClipboardStore((s) => s.isCut())
+  const cutPathsSet = useMemo(
+    () => (isCutMode ? new Set(clipboardPaths) : new Set<string>()),
+    [clipboardPaths, isCutMode],
+  )
+
+  // Get bookmarks state
+  const isBookmarked = useBookmarksStore((s) => s.isBookmarked)
+  const addBookmark = useBookmarksStore((s) => s.addBookmark)
+  const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
+  const getBookmarkByPath = useBookmarksStore((s) => s.getBookmarkByPath)
 
   // Find index where inline edit row should appear
   const inlineEditIndex = useMemo(() => {
+    if (!mode) return -1
     if (mode === "rename" && targetPath) {
       return files.findIndex((f) => f.path === targetPath)
     }
-    if (mode === "new-folder") {
-      return 0
+    if ((mode === "new-folder" || mode === "new-file") && parentPath) {
+      // Insert after last folder for new items
+      const lastFolderIdx = findLastIndex(files, (f) => f.is_dir)
+      return lastFolderIdx + 1
     }
-    if (mode === "new-file") {
-      const lastFolderIndex = findLastIndex(files, (f) => f.is_dir)
-      return lastFolderIndex + 1
-    }
-    return -1
-  }, [mode, targetPath, files])
+    return 0
+  }, [mode, targetPath, parentPath, files])
 
   // Calculate total rows
-  const totalRows = files.length + (hasInlineEdit ? 1 : 0)
+  const totalRows = files.length + (mode && mode !== "rename" ? 1 : 0)
 
   // Virtualizer
   const virtualizer = useVirtualizer({
     count: totalRows,
     getScrollElement: () => parentRef.current,
-    estimateSize: () => ROW_HEIGHT,
+    estimateSize: () => 32,
     overscan: 10,
   })
 
   // Keyboard navigation
-  const handleKeyboardSelect = useCallback(
-    (path: string, e: { ctrlKey?: boolean; shiftKey?: boolean }) => {
-      const syntheticEvent = {
-        ctrlKey: e.ctrlKey || false,
-        shiftKey: e.shiftKey || false,
-        metaKey: false,
-      } as React.MouseEvent
-      onSelect(path, syntheticEvent)
-    },
-    [onSelect],
-  )
-
-  const { focusedIndex, setFocusedIndex } = useKeyboardNavigation({
+  const { focusedIndex } = useKeyboardNavigation({
     files,
     selectedPaths,
-    onSelect: handleKeyboardSelect,
-    onOpen,
-    enabled: !hasInlineEdit,
+    onSelect: (path, e) => onSelect(path, e as unknown as React.MouseEvent),
+    onOpen: (path, isDir) => onOpen(path, isDir),
+    enabled: !mode,
   })
 
   // Scroll to inline edit row
   useEffect(() => {
-    if (hasInlineEdit && inlineEditIndex >= 0) {
+    if (mode && inlineEditIndex >= 0) {
       virtualizer.scrollToIndex(inlineEditIndex, { align: "center" })
     }
-  }, [hasInlineEdit, inlineEditIndex, virtualizer])
+  }, [mode, inlineEditIndex, virtualizer])
 
   // Memoize handlers
-  const handleConfirm = useCallback(
-    (name: string) => {
-      if (mode === "new-folder" && onCreateFolder) {
-        onCreateFolder(name)
-      } else if (mode === "new-file" && onCreateFile) {
-        onCreateFile(name)
-      } else if (mode === "rename" && targetPath && onRename) {
-        onRename(targetPath, name)
-      }
-      reset()
-    },
-    [mode, targetPath, onCreateFolder, onCreateFile, onRename, reset],
+  const handleSelect = useCallback(
+    (path: string) => (e: React.MouseEvent) => onSelect(path, e),
+    [onSelect],
   )
+
+  const handleOpen = useCallback(
+    (path: string, isDir: boolean) => () => onOpen(path, isDir),
+    [onOpen],
+  )
+
+  const handleQuickLook = useCallback((file: FileEntry) => () => onQuickLook?.(file), [onQuickLook])
+
+  const handleToggleBookmark = useCallback(
+    (path: string) => () => {
+      if (isBookmarked(path)) {
+        const bookmark = getBookmarkByPath(path)
+        if (bookmark) removeBookmark(bookmark.id)
+      } else {
+        addBookmark(path)
+      }
+    },
+    [isBookmarked, getBookmarkByPath, removeBookmark, addBookmark],
+  )
+
+  // Memoize file path getter
+  const memoizedGetSelectedPaths = useCallback(() => {
+    return getSelectedPaths?.() ?? Array.from(selectedPaths)
+  }, [getSelectedPaths, selectedPaths])
+
+  // Helper to get path from element
+  const getPathFromElement = useCallback((element: Element): string | null => {
+    return element.getAttribute("data-path")
+  }, [])
 
   const handleColumnResize = useCallback(
     (column: "size" | "date" | "padding", width: number) => {
@@ -132,40 +152,34 @@ export function VirtualFileList({
     [setColumnWidth],
   )
 
-  // Memoize file path getter
-  const memoizedGetSelectedPaths = useMemo(() => {
-    return getSelectedPaths || (() => Array.from(selectedPaths))
-  }, [getSelectedPaths, selectedPaths])
-
-  // Helper to get path from element
-  const getPathFromElement = useCallback((element: Element): string | null => {
-    return element.getAttribute("data-path")
-  }, [])
-
-  // Get actual file index
-  const getFileIndex = useCallback(
-    (virtualIndex: number): number => {
-      if (!hasInlineEdit) return virtualIndex
-      if (virtualIndex === inlineEditIndex) return -1
-      if (virtualIndex < inlineEditIndex) return virtualIndex
-      return virtualIndex - 1
+  const handleInlineConfirm = useCallback(
+    (name: string) => {
+      if (mode === "new-folder") {
+        onCreateFolder?.(name)
+      } else if (mode === "new-file") {
+        onCreateFile?.(name)
+      } else if (mode === "rename" && targetPath) {
+        onRename?.(targetPath, name)
+      }
     },
-    [hasInlineEdit, inlineEditIndex],
+    [mode, targetPath, onCreateFolder, onCreateFile, onRename],
   )
 
-  const virtualItems = virtualizer.getVirtualItems()
+  const handleInlineCancel = useCallback(() => {
+    useInlineEditStore.getState().cancel()
+  }, [])
 
   return (
-    <div className={cn("flex flex-col h-full min-h-0", className)}>
+    <div className={cn("flex flex-col h-full", className)}>
       {/* Column Header */}
       <ColumnHeader
-        columnWidths={layout.columnWidths}
+        columnWidths={columnWidths}
         onColumnResize={handleColumnResize}
         className="shrink-0"
       />
 
       {/* Scrollable content */}
-      <div ref={parentRef} className="flex-1 overflow-auto min-h-0" style={{ contain: "strict" }}>
+      <div ref={parentRef} className="flex-1 overflow-auto relative">
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,
@@ -173,11 +187,12 @@ export function VirtualFileList({
             position: "relative",
           }}
         >
-          {virtualItems.map((virtualRow) => {
-            const fileIndex = getFileIndex(virtualRow.index)
-            const isInlineEditRow = fileIndex === -1
+          {virtualizer.getVirtualItems().map((virtualRow) => {
+            // Check if this is the inline edit row position
+            const isInlineEditRow =
+              mode && mode !== "rename" && virtualRow.index === inlineEditIndex
 
-            if (isInlineEditRow && mode) {
+            if (isInlineEditRow) {
               return (
                 <div
                   key="inline-edit"
@@ -191,24 +206,47 @@ export function VirtualFileList({
                   }}
                 >
                   <InlineEditRow
-                    mode={mode}
-                    initialName={
-                      mode === "rename" && targetPath ? getBasename(targetPath) : undefined
-                    }
-                    onConfirm={handleConfirm}
-                    onCancel={cancel}
-                    columnWidths={layout.columnWidths}
+                    mode={mode as "new-folder" | "new-file"}
+                    onConfirm={handleInlineConfirm}
+                    onCancel={handleInlineCancel}
+                    columnWidths={columnWidths}
                   />
                 </div>
               )
             }
 
+            // Get actual file index
+            const fileIndex =
+              mode && mode !== "rename" && virtualRow.index > inlineEditIndex
+                ? virtualRow.index - 1
+                : virtualRow.index
+
             const file = files[fileIndex]
             if (!file) return null
 
-            // Skip file being renamed
+            // Skip file being renamed (show inline edit instead)
             if (mode === "rename" && file.path === targetPath) {
-              return null
+              return (
+                <div
+                  key={file.path}
+                  style={{
+                    position: "absolute",
+                    top: 0,
+                    left: 0,
+                    width: "100%",
+                    height: `${virtualRow.size}px`,
+                    transform: `translateY(${virtualRow.start}px)`,
+                  }}
+                >
+                  <InlineEditRow
+                    mode="rename"
+                    initialName={getBasename(file.path)}
+                    onConfirm={handleInlineConfirm}
+                    onCancel={handleInlineCancel}
+                    columnWidths={columnWidths}
+                  />
+                </div>
+              )
             }
 
             return (
@@ -227,32 +265,32 @@ export function VirtualFileList({
                   file={file}
                   isSelected={selectedPaths.has(file.path)}
                   isFocused={fileIndex === focusedIndex}
-                  onSelect={(e) => {
-                    onSelect(file.path, e)
-                    setFocusedIndex(fileIndex)
-                  }}
-                  onOpen={() => onOpen(file.path, file.is_dir)}
+                  isCut={cutPathsSet.has(file.path)}
+                  isBookmarked={isBookmarked(file.path)}
+                  onSelect={handleSelect(file.path)}
+                  onOpen={handleOpen(file.path, file.is_dir)}
                   onDrop={onDrop}
                   getSelectedPaths={memoizedGetSelectedPaths}
                   onCopy={onCopy}
                   onCut={onCut}
-                  onRename={() => startRename(file.path)}
+                  onRename={() => useInlineEditStore.getState().startRename(file.path)}
                   onDelete={onDelete}
-                  onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
-                  columnWidths={layout.columnWidths}
+                  onQuickLook={onQuickLook ? handleQuickLook(file) : undefined}
+                  onToggleBookmark={handleToggleBookmark(file.path)}
+                  columnWidths={columnWidths}
                 />
               </div>
             )
           })}
         </div>
-      </div>
 
-      {/* Rubber Band Selection */}
-      <RubberBandOverlay
-        containerRef={parentRef as React.RefObject<HTMLElement>}
-        fileSelector="[data-path]"
-        getPathFromElement={getPathFromElement}
-      />
+        {/* Rubber Band Selection */}
+        <RubberBandOverlay
+          containerRef={parentRef as React.RefObject<HTMLElement>}
+          fileSelector="[data-path]"
+          getPathFromElement={getPathFromElement}
+        />
+      </div>
     </div>
   )
 }
