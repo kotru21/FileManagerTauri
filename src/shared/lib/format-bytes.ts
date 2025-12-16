@@ -1,6 +1,7 @@
 const UNITS = ["B", "KB", "MB", "GB", "TB", "PB"]
 
-export function formatBytes(bytes: number, decimals = 1): string {
+export function formatBytes(bytes: number | undefined | null, decimals = 1): string {
+  if (bytes == null || Number.isNaN(bytes)) return "—"
   if (bytes === 0) return "0 B"
   if (bytes < 0) return "—"
 
