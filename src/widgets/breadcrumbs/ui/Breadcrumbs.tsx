@@ -114,6 +114,17 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
     }, 150)
   }, [])
 
+  // Handle segment click with data attribute
+  const handleSegmentClick = useCallback(
+    (e: React.MouseEvent<HTMLButtonElement>) => {
+      const path = e.currentTarget.dataset.path
+      if (path) {
+        navigate(path)
+      }
+    },
+    [navigate],
+  )
+
   // Edit mode
   if (isEditing) {
     return (
@@ -145,47 +156,33 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
   return (
     <div
       className={cn("flex items-center gap-1 text-sm overflow-hidden", className)}
-      onClick={startEditing}
-      onKeyDown={(e) => e.key === "Enter" && startEditing()}
-      role="button"
-      tabIndex={0}
-      title="Нажмите для редактирования пути (Ctrl+L)"
+      onDoubleClick={startEditing}
     >
+      {/* Home/Root button */}
       <button
         type="button"
-        onClick={(e) => {
-          e.stopPropagation()
-          // Navigate to root/drives
-          navigate(segments[0]?.path || "C:/")
-        }}
-        className="p-1 hover:bg-accent rounded transition-colors shrink-0"
-        title="Домой"
+        className="p-1 rounded hover:bg-accent transition-colors shrink-0"
+        onClick={() => navigate("")}
       >
-        <Home className="h-4 w-4" />
+        <Home className="w-4 h-4" />
       </button>
 
       {segments.map((segment, index) => (
-        <div key={segment.path} className="flex items-center gap-1 min-w-0">
-          <ChevronRight className="h-4 w-4 text-muted-foreground shrink-0" />
+        <div key={segment.path} className="flex items-center min-w-0">
+          <ChevronRight className="w-4 h-4 text-muted-foreground shrink-0" />
           <button
             type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              navigate(segment.path)
-            }}
+            data-path={segment.path}
             className={cn(
-              "px-1.5 py-0.5 rounded hover:bg-accent transition-colors truncate max-w-37.5",
-              index === segments.length - 1 && "font-medium text-foreground",
-              index !== segments.length - 1 && "text-muted-foreground",
+              "px-1.5 py-0.5 rounded hover:bg-accent transition-colors truncate max-w-50",
+              index === segments.length - 1 && "font-medium",
             )}
-            title={segment.path}
+            onClick={handleSegmentClick}
           >
             {segment.name}
           </button>
         </div>
       ))}
-
-      {!currentPath && <span className="text-muted-foreground italic">Выберите папку</span>}
     </div>
   )
 }

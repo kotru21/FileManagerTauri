@@ -1,5 +1,5 @@
 import { Filter, X } from "lucide-react"
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { cn } from "@/shared/lib"
 import { Button, Input } from "@/shared/ui"
 import { useQuickFilterStore } from "../model/store"
@@ -11,29 +11,68 @@ interface QuickFilterBarProps {
 }
 
 export function QuickFilterBar({ totalCount, filteredCount, className }: QuickFilterBarProps) {
-  const { filter, isActive, setFilter, deactivate } = useQuickFilterStore()
+  const { filter, setFilter, deactivate, clear, isActive } = useQuickFilterStore()
   const inputRef = useRef<HTMLInputElement>(null)
+  const [localValue, setLocalValue] = useState(filter)
+  const debounceRef = useRef<number | undefined>(undefined)
 
   // Focus input when activated
   useEffect(() => {
-    if (isActive && inputRef.current) {
-      inputRef.current.focus()
+    inputRef.current?.focus()
+  }, [])
+
+  // Sync local value with store
+  useEffect(() => {
+    setLocalValue(filter)
+  }, [filter])
+
+  // Debounced filter update
+  const handleChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const value = e.target.value
+      setLocalValue(value)
+
+      // Clear previous timeout
+      if (debounceRef.current) {
+        clearTimeout(debounceRef.current)
+      }
+
+      // Debounce the actual filter update
+      debounceRef.current = window.setTimeout(() => {
+        setFilter(value)
+      }, 150)
+    },
+    [setFilter],
+  )
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (debounceRef.current) {
+        window.clearTimeout(debounceRef.current)
+      }
     }
-  }, [isActive])
+  }, [])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
-        deactivate()
+        if (localValue) {
+          clear()
+          setLocalValue("")
+        } else {
+          deactivate()
+        }
       }
     },
-    [deactivate],
+    [localValue, clear, deactivate],
   )
 
   const handleClear = useCallback(() => {
-    setFilter("")
+    clear()
+    setLocalValue("")
     inputRef.current?.focus()
-  }, [setFilter])
+  }, [clear])
 
   if (!isActive) {
     return null
@@ -49,12 +88,11 @@ export function QuickFilterBar({ totalCount, filteredCount, className }: QuickFi
       <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
       <Input
         ref={inputRef}
-        type="text"
-        placeholder="Фильтр по имени..."
-        value={filter}
-        onChange={(e) => setFilter(e.target.value)}
+        value={localValue}
+        onChange={handleChange}
         onKeyDown={handleKeyDown}
-        className="h-7 text-sm flex-1 bg-transparent border-none focus-visible:ring-0 focus-visible:ring-offset-0"
+        placeholder="Фильтр..."
+        className="h-7 text-sm flex-1 min-w-0"
       />
       {filter && (
         <span className="text-xs text-muted-foreground whitespace-nowrap">

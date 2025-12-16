@@ -36,9 +36,10 @@ import { VirtualFileList } from "./VirtualFileList"
 interface FileExplorerProps {
   className?: string
   onQuickLook?: (file: FileEntry) => void
+  onFilesChange?: (files: FileEntry[]) => void
 }
 
-export function FileExplorer({ className, onQuickLook }: FileExplorerProps) {
+export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExplorerProps) {
   const { currentPath } = useNavigationStore()
   const { settings } = useViewModeStore()
   const { sortConfig } = useSortingStore()
@@ -81,6 +82,11 @@ export function FileExplorer({ className, onQuickLook }: FileExplorerProps) {
 
     return result
   }, [files, settings.showHidden, sortConfig, quickFilter])
+
+  // Notify parent about files change
+  useEffect(() => {
+    onFilesChange?.(processedFiles)
+  }, [processedFiles, onFilesChange])
 
   // Handlers
   const handlers = useFileExplorerHandlers({
