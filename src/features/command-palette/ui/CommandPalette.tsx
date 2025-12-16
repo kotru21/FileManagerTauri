@@ -20,7 +20,7 @@ import {
   Star,
   Trash2,
 } from "lucide-react"
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { cn } from "@/shared/lib"
 import { Dialog, DialogContent, Input } from "@/shared/ui"
 import { type Command, useCommandPaletteStore } from "../model/store"
@@ -67,21 +67,34 @@ const ICON_MAP: Record<string, React.ReactNode> = {
 }
 
 export function CommandPalette() {
-  const {
-    isOpen,
-    search,
-    selectedIndex,
-    close,
-    setSearch,
-    setSelectedIndex,
-    executeCommand,
-    getFilteredCommands,
-  } = useCommandPaletteStore()
+  const { isOpen, search, selectedIndex, close, setSearch, setSelectedIndex, executeCommand } =
+    useCommandPaletteStore()
+
+  const commands = useCommandPaletteStore((s) => s.commands)
 
   const inputRef = useRef<HTMLInputElement>(null)
   const listRef = useRef<HTMLDivElement>(null)
 
-  const filteredCommands = getFilteredCommands()
+  // Memoize filtered commands
+  const filteredCommands = useMemo(() => {
+    if (!search) return commands
+
+    const lowerSearch = search.toLowerCase()
+    return commands
+      .filter((cmd) => {
+        const titleMatch = cmd.title.toLowerCase().includes(lowerSearch)
+        const descMatch = cmd.description?.toLowerCase().includes(lowerSearch)
+        const keywordsMatch = cmd.keywords?.some((k) => k.toLowerCase().includes(lowerSearch))
+        return titleMatch || descMatch || keywordsMatch
+      })
+      .sort((a, b) => {
+        const aTitle = a.title.toLowerCase().startsWith(lowerSearch)
+        const bTitle = b.title.toLowerCase().startsWith(lowerSearch)
+        if (aTitle && !bTitle) return -1
+        if (!aTitle && bTitle) return 1
+        return 0
+      })
+  }, [commands, search])
 
   // Group commands by category
   const groupedCommands = CATEGORY_ORDER.reduce(

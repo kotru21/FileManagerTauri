@@ -29,9 +29,16 @@ function RecentFolderItem({ folder, isActive, onSelect, onRemove }: RecentFolder
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
-        <button
-          type="button"
+        <div
+          role="button"
+          tabIndex={0}
           onClick={onSelect}
+          onKeyDown={(e: React.KeyboardEvent) => {
+            if (e.key === "Enter" || e.key === " ") {
+              e.preventDefault()
+              onSelect()
+            }
+          }}
           className={cn(
             "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm",
             "hover:bg-accent transition-colors text-left group",
@@ -46,17 +53,25 @@ function RecentFolderItem({ folder, isActive, onSelect, onRemove }: RecentFolder
               {formatRelativeDate(folder.lastVisited)}
             </div>
           </div>
-          <button
-            type="button"
+          <div
+            role="button"
+            tabIndex={0}
             onClick={(e) => {
               e.stopPropagation()
               onRemove()
             }}
+            onKeyDown={(e: React.KeyboardEvent) => {
+              if (e.key === "Enter" || e.key === " ") {
+                e.stopPropagation()
+                e.preventDefault()
+                onRemove()
+              }
+            }}
             className="opacity-0 group-hover:opacity-100 p-1 hover:bg-background rounded transition-opacity"
           >
             <X className="h-3 w-3" />
-          </button>
-        </button>
+          </div>
+        </div>
       </ContextMenuTrigger>
       <ContextMenuContent>
         <ContextMenuItem onClick={onSelect}>

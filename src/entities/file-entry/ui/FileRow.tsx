@@ -27,129 +27,126 @@ interface FileRowProps {
   }
 }
 
-export const FileRow = memo(
-  function FileRow({
-    file,
-    isSelected,
-    isFocused = false,
-    isCut = false,
-    isBookmarked = false,
-    onSelect,
-    onOpen,
-    onDrop,
-    getSelectedPaths,
-    onCopy,
-    onCut,
-    onRename,
-    onDelete,
-    onQuickLook,
-    onToggleBookmark,
-    columnWidths = { size: 100, date: 150, padding: 16 },
-  }: FileRowProps) {
-    const rowRef = useRef<HTMLDivElement>(null)
-    const [isDragOver, setIsDragOver] = useState(false)
+function FileRowComponent({
+  file,
+  isSelected,
+  isFocused,
+  isCut,
+  isBookmarked,
+  onSelect,
+  onOpen,
+  onDrop,
+  getSelectedPaths,
+  onCopy,
+  onCut,
+  onRename,
+  onDelete,
+  onQuickLook,
+  onToggleBookmark,
+  columnWidths,
+}: FileRowProps) {
+  const rowRef = useRef<HTMLDivElement>(null)
+  const [isDragOver, setIsDragOver] = useState(false)
 
-    // Scroll into view when focused
-    useEffect(() => {
-      if (isFocused && rowRef.current) {
-        rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" })
-      }
-    }, [isFocused])
+  // Scroll into view when focused
+  useEffect(() => {
+    if (isFocused && rowRef.current) {
+      rowRef.current.scrollIntoView({ block: "nearest" })
+    }
+  }, [isFocused])
 
-    const handleDragOver = useCallback(
-      (e: React.DragEvent) => {
-        if (!file.is_dir) return
-        e.preventDefault()
-        e.stopPropagation()
-        setIsDragOver(true)
-      },
-      [file.is_dir],
-    )
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!file.is_dir) return
+      e.preventDefault()
+      setIsDragOver(true)
+    },
+    [file.is_dir],
+  )
 
-    const handleDragLeave = useCallback(() => {
+  const handleDragLeave = useCallback(() => {
+    setIsDragOver(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
       setIsDragOver(false)
-    }, [])
+      if (!file.is_dir || !onDrop) return
 
-    const handleDrop = useCallback(
-      (e: React.DragEvent) => {
-        e.preventDefault()
-        e.stopPropagation()
-        setIsDragOver(false)
+      const paths = getSelectedPaths?.() ?? []
+      if (paths.includes(file.path)) return
 
-        if (!file.is_dir || !onDrop) return
-
-        try {
-          const data = e.dataTransfer.getData("application/json")
-          if (data) {
-            const parsed = JSON.parse(data)
-            if (parsed.paths && Array.isArray(parsed.paths)) {
-              // Don't drop onto self
-              if (parsed.paths.includes(file.path)) return
-              onDrop(parsed.paths, file.path)
-            }
-          }
-        } catch {
-          // Ignore parse errors
+      try {
+        const data = e.dataTransfer.getData("application/json")
+        if (data) {
+          const parsed = JSON.parse(data)
+          onDrop(parsed.paths || paths, file.path)
+        } else {
+          onDrop(paths, file.path)
         }
-      },
-      [file.is_dir, file.path, onDrop],
-    )
+      } catch {
+        onDrop(paths, file.path)
+      }
+    },
+    [file.is_dir, file.path, onDrop, getSelectedPaths],
+  )
 
-    const handleDragStart = useCallback(
-      (e: React.DragEvent) => {
-        const paths = getSelectedPaths?.() ?? [file.path]
-        e.dataTransfer.setData(
-          "application/json",
-          JSON.stringify({ paths, action: e.ctrlKey ? "copy" : "move" }),
-        )
-        e.dataTransfer.effectAllowed = "copyMove"
-      },
-      [file.path, getSelectedPaths],
-    )
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      const paths = getSelectedPaths?.() ?? [file.path]
+      const dragPaths = paths.includes(file.path) ? paths : [file.path]
+      e.dataTransfer.setData("application/json", JSON.stringify({ paths: dragPaths }))
+      e.dataTransfer.effectAllowed = "copyMove"
+    },
+    [file.path, getSelectedPaths],
+  )
 
-    const handleContextMenu = useCallback(
-      (e: React.MouseEvent) => {
-        // Select item on right-click so context menu actions apply to it
-        // Do not prevent default — allow the context menu trigger to handle opening
-        onSelect(e as unknown as React.MouseEvent)
-      },
-      [onSelect],
-    )
+  const handleContextMenu = useCallback(
+    (e: React.MouseEvent) => {
+      if (!isSelected) {
+        onSelect(e)
+      }
+    },
+    [isSelected, onSelect],
+  )
 
-    const handleDoubleClick = useCallback(() => {
-      onOpen()
-    }, [onOpen])
+  return (
+    <div
+      ref={rowRef}
+      data-path={file.path}
+      className={cn(
+        "group flex items-center h-8 px-2 cursor-pointer select-none",
+        "hover:bg-accent/50 transition-colors",
+        isSelected && "bg-accent",
+        isFocused && "ring-1 ring-primary ring-inset",
+        isDragOver && "bg-accent/80",
+        isCut && "opacity-50",
+      )}
+      onClick={onSelect}
+      onDoubleClick={onOpen}
+      onContextMenu={handleContextMenu}
+      draggable
+      onDragStart={handleDragStart}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
+      {/* Icon */}
+      <FileIcon
+        extension={file.extension}
+        isDir={file.is_dir}
+        size={18}
+        className="mr-3 shrink-0"
+      />
 
-    return (
-      <div
-        ref={rowRef}
-        className={cn(
-          "group flex items-center h-8 px-2 cursor-pointer border-b border-border/50",
-          "hover:bg-accent/50 transition-colors",
-          isSelected && "bg-accent",
-          isFocused && "ring-1 ring-inset ring-primary",
-          isDragOver && file.is_dir && "bg-primary/20 ring-2 ring-primary",
-          isCut && "opacity-50",
-        )}
-        onClick={onSelect}
-        onDoubleClick={handleDoubleClick}
-        onContextMenu={handleContextMenu}
-        onDragOver={handleDragOver}
-        onDragLeave={handleDragLeave}
-        onDrop={handleDrop}
-        onDragStart={handleDragStart}
-        draggable
-        data-path={file.path}
-      >
-        {/* Icon */}
-        <FileIcon extension={file.extension} isDir={file.is_dir} className="w-4.5 h-4.5 mr-3" />
+      {/* Name */}
+      <span className={cn("flex-1 min-w-0 truncate text-sm", isCut && "text-muted-foreground")}>
+        {file.name}
+      </span>
 
-        {/* Name */}
-        <span className={cn("flex-1 truncate text-sm", isCut && "text-muted-foreground")}>
-          {file.name}
-        </span>
-
-        {/* Hover Actions */}
+      {/* Hover Actions */}
+      <div className="opacity-0 group-hover:opacity-100 transition-opacity mr-2">
         <FileRowActions
           isDir={file.is_dir}
           isBookmarked={isBookmarked}
@@ -160,43 +157,46 @@ export const FileRow = memo(
           onDelete={onDelete ?? (() => {})}
           onQuickLook={onQuickLook}
           onToggleBookmark={onToggleBookmark}
-          className="opacity-0 group-hover:opacity-100"
         />
-
-        {/* Size */}
-        <span
-          className="text-sm text-muted-foreground text-right"
-          style={{ width: columnWidths.size }}
-        >
-          {file.is_dir ? "—" : formatBytes(file.size)}
-        </span>
-
-        {/* Date */}
-        <span
-          className="text-sm text-muted-foreground text-right"
-          style={{ width: columnWidths.date }}
-        >
-          {formatDate(file.modified)}
-        </span>
-
-        {/* Padding for scrollbar */}
-        <div style={{ width: columnWidths.padding }} />
       </div>
-    )
-  },
-  (prevProps, nextProps) => {
-    // Custom comparison - rerender only when these props change
-    return (
-      prevProps.file.path === nextProps.file.path &&
-      prevProps.file.name === nextProps.file.name &&
-      prevProps.file.size === nextProps.file.size &&
-      prevProps.file.modified === nextProps.file.modified &&
-      prevProps.isSelected === nextProps.isSelected &&
-      prevProps.isFocused === nextProps.isFocused &&
-      prevProps.isCut === nextProps.isCut &&
-      prevProps.isBookmarked === nextProps.isBookmarked &&
-      prevProps.columnWidths?.size === nextProps.columnWidths?.size &&
-      prevProps.columnWidths?.date === nextProps.columnWidths?.date
-    )
-  },
-)
+
+      {/* Size */}
+      <span
+        className="text-sm text-muted-foreground text-right shrink-0"
+        style={{ width: columnWidths?.size ?? 80 }}
+      >
+        {file.is_dir ? "--" : formatBytes(file.size)}
+      </span>
+
+      {/* Date */}
+      <span
+        className="text-sm text-muted-foreground text-right shrink-0 ml-4"
+        style={{ width: columnWidths?.date ?? 140 }}
+      >
+        {formatDate(file.modified)}
+      </span>
+
+      {/* Padding for scrollbar */}
+      <div style={{ width: columnWidths?.padding ?? 8 }} className="shrink-0" />
+    </div>
+  )
+}
+
+// Custom comparison - check all relevant props
+function areEqual(prev: FileRowProps, next: FileRowProps): boolean {
+  return (
+    prev.file.path === next.file.path &&
+    prev.file.name === next.file.name &&
+    prev.file.size === next.file.size &&
+    prev.file.modified === next.file.modified &&
+    prev.isSelected === next.isSelected &&
+    prev.isFocused === next.isFocused &&
+    prev.isCut === next.isCut &&
+    prev.isBookmarked === next.isBookmarked &&
+    prev.columnWidths?.size === next.columnWidths?.size &&
+    prev.columnWidths?.date === next.columnWidths?.date &&
+    prev.columnWidths?.padding === next.columnWidths?.padding
+  )
+}
+
+export const FileRow = memo(FileRowComponent, areEqual)

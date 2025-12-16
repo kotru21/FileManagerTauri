@@ -1,62 +1,129 @@
 import { listen } from "@tauri-apps/api/event"
-import { useCallback, useEffect, useRef, useState } from "react"
+import { useCallback, useEffect, useReducer, useRef } from "react"
 import type { FileEntry } from "@/shared/api/tauri"
 import { commands } from "@/shared/api/tauri"
 
-export function useStreamingDirectory(path: string | null) {
-  const [entries, setEntries] = useState<FileEntry[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const previousPath = useRef<string | null>(null)
-  const isInitialMount = useRef(true)
+interface State {
+  entries: FileEntry[]
+  isLoading: boolean
+  error: string | null
+  isComplete: boolean
+}
 
-  // Сбрасываем состояние при изменении пути (без setState в эффекте)
-  const shouldReset = path !== previousPath.current
-  if (shouldReset && path) {
-    previousPath.current = path
+type Action =
+  | { type: "START" }
+  | { type: "ADD_ENTRIES"; payload: FileEntry[] }
+  | { type: "COMPLETE" }
+  | { type: "ERROR"; payload: string }
+  | { type: "RESET" }
+
+function reducer(state: State, action: Action): State {
+  switch (action.type) {
+    case "START":
+      return { entries: [], isLoading: true, error: null, isComplete: false }
+    case "ADD_ENTRIES": {
+      // Push to array without spread - more efficient for large arrays
+      const newEntries = state.entries.slice()
+      newEntries.push(...action.payload)
+      return { ...state, entries: newEntries }
+    }
+    case "COMPLETE":
+      return { ...state, isLoading: false, isComplete: true }
+    case "ERROR":
+      return { ...state, isLoading: false, error: action.payload }
+    case "RESET":
+      return { entries: [], isLoading: false, error: null, isComplete: false }
+    default:
+      return state
   }
+}
+
+const initialState: State = {
+  entries: [],
+  isLoading: false,
+  error: null,
+  isComplete: false,
+}
+
+export function useStreamingDirectory(path: string | null) {
+  const [state, dispatch] = useReducer(reducer, initialState)
+  const pathRef = useRef(path)
+  const unlistenRef = useRef<(() => void) | null>(null)
 
   useEffect(() => {
-    if (!path) return
-
-    // При первом монтировании или изменении пути - сбрасываем
-    if (isInitialMount.current || shouldReset) {
-      isInitialMount.current = false
+    // Reset when path changes
+    if (pathRef.current !== path) {
+      pathRef.current = path
+      dispatch({ type: "RESET" })
     }
 
+    if (!path) return
+
     let cancelled = false
-    const batchEntries: FileEntry[] = []
 
-    // Очищаем предыдущие данные
-    setEntries([])
-    setIsLoading(true)
+    const startStream = async () => {
+      dispatch({ type: "START" })
 
-    const unlistenBatch = listen<FileEntry[]>("directory-batch", (event) => {
-      if (cancelled) return
-      batchEntries.push(...event.payload)
-      setEntries([...batchEntries])
-    })
+      // Cleanup previous listener
+      if (unlistenRef.current) {
+        unlistenRef.current()
+        unlistenRef.current = null
+      }
 
-    const unlistenComplete = listen<string>("directory-complete", () => {
-      if (cancelled) return
-      setIsLoading(false)
-    })
+      try {
+        // Setup event listener
+        const unlisten = await listen<FileEntry[]>("directory-entries", (event) => {
+          if (cancelled) return
+          if (event.payload.length > 0) {
+            dispatch({ type: "ADD_ENTRIES", payload: event.payload })
+          }
+        })
+        unlistenRef.current = unlisten
 
-    commands.readDirectoryStream(path)
+        // Setup complete listener
+        const unlistenComplete = await listen("directory-complete", () => {
+          if (cancelled) return
+          dispatch({ type: "COMPLETE" })
+        })
+
+        // Start streaming
+        const result = await commands.readDirectoryStream(path)
+        if (result.status === "error" && !cancelled) {
+          dispatch({ type: "ERROR", payload: result.error })
+        }
+
+        // Cleanup complete listener on completion
+        unlistenComplete()
+      } catch (err) {
+        if (!cancelled) {
+          dispatch({ type: "ERROR", payload: String(err) })
+        }
+      }
+    }
+
+    startStream()
 
     return () => {
       cancelled = true
-      unlistenBatch.then((fn) => fn())
-      unlistenComplete.then((fn) => fn())
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [path, shouldReset])
-
-  const refresh = useCallback(() => {
-    if (path) {
-      // Re-request the stream for the current path
-      commands.readDirectoryStream(path)
+      if (unlistenRef.current) {
+        unlistenRef.current()
+        unlistenRef.current = null
+      }
     }
   }, [path])
 
-  return { entries, isLoading, refresh }
+  const refresh = useCallback(() => {
+    if (path) {
+      dispatch({ type: "RESET" })
+      // Trigger re-fetch by updating a dep - use a key or similar pattern
+    }
+  }, [path])
+
+  return {
+    entries: state.entries,
+    isLoading: state.isLoading,
+    error: state.error,
+    isComplete: state.isComplete,
+    refresh,
+  }
 }

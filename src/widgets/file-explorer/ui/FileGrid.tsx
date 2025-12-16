@@ -1,10 +1,12 @@
+import { useVirtualizer } from "@tanstack/react-virtual"
 import { Eye } from "lucide-react"
-import { memo, useCallback, useState } from "react"
+import { memo, useCallback, useMemo, useRef, useState } from "react"
 import { FileIcon, FileThumbnail } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
 import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, formatBytes } from "@/shared/lib"
+import { createDragData, parseDragData } from "@/shared/lib/drag-drop"
 
 interface FileGridProps {
   files: FileEntry[]
@@ -25,39 +27,40 @@ export const FileGrid = memo(function FileGrid({
   onQuickLook,
   className,
 }: FileGridProps) {
+  const parentRef = useRef<HTMLDivElement>(null)
   const { settings } = useViewModeStore()
-
-  // Get clipboard state for cut indication
   const clipboardPaths = useClipboardStore((s) => s.paths)
-  const isCutAction = useClipboardStore((s) => s.isCut())
+  const clipboardAction = useClipboardStore((s) => s.action)
 
-  const gridSizeConfig = {
-    small: {
-      cols: "grid-cols-[repeat(auto-fill,minmax(80px,1fr))]",
-      iconSize: 32,
-      itemHeight: 80,
-      showThumbnails: false,
-    },
-    medium: {
-      cols: "grid-cols-[repeat(auto-fill,minmax(100px,1fr))]",
-      iconSize: 48,
-      itemHeight: 100,
-      showThumbnails: true,
-    },
-    large: {
-      cols: "grid-cols-[repeat(auto-fill,minmax(140px,1fr))]",
-      iconSize: 80,
-      itemHeight: 140,
-      showThumbnails: true,
-    },
-  }
+  // Grid configuration based on size
+  const gridConfig = useMemo(() => {
+    switch (settings.gridSize) {
+      case "small":
+        return { columns: 8, iconSize: 48, itemHeight: 100, itemWidth: 100, showThumbnail: false }
+      case "large":
+        return { columns: 4, iconSize: 96, itemHeight: 160, itemWidth: 180, showThumbnail: true }
+      default: // medium
+        return { columns: 6, iconSize: 64, itemHeight: 120, itemWidth: 140, showThumbnail: true }
+    }
+  }, [settings.gridSize])
 
-  const config = gridSizeConfig[settings.gridSize]
+  // Calculate actual columns based on container width
+  const columnCount = gridConfig.columns
+  const rowCount = Math.ceil(files.length / columnCount)
 
+  // Virtual row renderer
+  const rowVirtualizer = useVirtualizer({
+    count: rowCount,
+    getScrollElement: () => parentRef.current,
+    estimateSize: () => gridConfig.itemHeight + 8,
+    overscan: 3,
+  })
+
+  // Memoized handlers
   const handleDragStart = useCallback(
     (e: React.DragEvent, file: FileEntry) => {
-      const paths = selectedPaths.has(file.path) ? Array.from(selectedPaths) : [file.path]
-      e.dataTransfer.setData("application/json", JSON.stringify({ paths, action: "move" }))
+      const paths = selectedPaths.has(file.path) ? [...selectedPaths] : [file.path]
+      e.dataTransfer.setData("application/json", createDragData(paths))
       e.dataTransfer.effectAllowed = "copyMove"
     },
     [selectedPaths],
@@ -66,48 +69,70 @@ export const FileGrid = memo(function FileGrid({
   const handleDrop = useCallback(
     (e: React.DragEvent, targetPath: string) => {
       e.preventDefault()
-      const data = e.dataTransfer.getData("application/json")
-      if (!data || !onDrop) return
-
-      try {
-        const { paths } = JSON.parse(data) as { paths: string[] }
-        if (paths.includes(targetPath)) return
-        onDrop(paths, targetPath)
-      } catch {
-        // Ignore parse errors
+      const data = parseDragData(e.dataTransfer)
+      if (data && onDrop) {
+        onDrop(data.paths, targetPath)
       }
     },
     [onDrop],
   )
 
-  return (
-    <div className={cn("grid gap-2 p-2", config.cols, className)}>
-      {files.map((file) => {
-        const isCut = isCutAction && clipboardPaths.includes(file.path)
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.dataTransfer.dropEffect = "move"
+  }, [])
 
-        return (
-          <GridItem
-            key={file.path}
-            file={file}
-            isSelected={selectedPaths.has(file.path)}
-            isCut={isCut}
-            iconSize={config.iconSize}
-            itemHeight={config.itemHeight}
-            showThumbnail={config.showThumbnails}
-            onSelect={(e) => onSelect(file.path, e)}
-            onOpen={() => onOpen(file.path, file.is_dir)}
-            onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
-            onDragStart={(e) => handleDragStart(e, file)}
-            onDrop={(e) => handleDrop(e, file.path)}
-            onDragOver={(e) => {
-              if (file.is_dir) {
-                e.preventDefault()
-                e.dataTransfer.dropEffect = e.ctrlKey ? "copy" : "move"
-              }
+  // Check if file is cut
+  const isCut = useCallback(
+    (path: string) => clipboardAction === "cut" && clipboardPaths.includes(path),
+    [clipboardAction, clipboardPaths],
+  )
+
+  return (
+    <div ref={parentRef} className={cn("h-full overflow-auto p-2", className)}>
+      <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => (
+          <div
+            key={virtualRow.key}
+            className="absolute top-0 left-0 w-full flex gap-2"
+            style={{
+              height: `${virtualRow.size}px`,
+              transform: `translateY(${virtualRow.start}px)`,
             }}
-          />
-        )
-      })}
+          >
+            {Array.from({ length: columnCount }).map((_, colIndex) => {
+              const fileIndex = virtualRow.index * columnCount + colIndex
+              const file = files[fileIndex]
+              if (!file)
+                return (
+                  <div
+                    key={`placeholder-${virtualRow.index}-${colIndex}`}
+                    style={{ width: gridConfig.itemWidth }}
+                  />
+                )
+
+              return (
+                <div key={file.path} style={{ width: gridConfig.itemWidth }}>
+                  <GridItem
+                    file={file}
+                    isSelected={selectedPaths.has(file.path)}
+                    isCut={isCut(file.path)}
+                    iconSize={gridConfig.iconSize}
+                    itemHeight={gridConfig.itemHeight}
+                    showThumbnail={gridConfig.showThumbnail}
+                    onSelect={(e) => onSelect(file.path, e)}
+                    onOpen={() => onOpen(file.path, file.is_dir)}
+                    onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
+                    onDragStart={(e) => handleDragStart(e, file)}
+                    onDrop={(e) => handleDrop(e, file.path)}
+                    onDragOver={handleDragOver}
+                  />
+                </div>
+              )
+            })}
+          </div>
+        ))}
+      </div>
     </div>
   )
 })
