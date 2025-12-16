@@ -151,7 +151,10 @@ export function FileBrowserPage() {
         <TabBar onTabChange={handleTabChange} />
 
         {/* Header */}
-        <header className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2">
+        <header
+          data-tauri-drag-region
+          className="flex h-12 shrink-0 items-center gap-2 border-b border-border px-2"
+        >
           {/* Breadcrumbs */}
           <Breadcrumbs className="flex-1 min-w-0" />
 
