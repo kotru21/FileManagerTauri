@@ -32,7 +32,7 @@ export function useFileExplorerHandlers({
   const { currentPath, navigate } = useNavigationStore()
   const { selectFile, toggleSelection, selectRange, clearSelection, getSelectedPaths } =
     useSelectionStore()
-  const { reset: resetInlineEdit } = useInlineEditStore()
+  const { reset: resetInlineEdit, startNewFolder, startNewFile, startRename } = useInlineEditStore()
   const {
     paths: clipboardPaths,
     action: clipboardAction,
@@ -116,6 +116,22 @@ export function useFileExplorerHandlers({
     [currentPath, createFile, resetInlineEdit],
   )
 
+  const handleStartNewFolder = useCallback(() => {
+    if (!currentPath) return
+    startNewFolder(currentPath)
+  }, [currentPath, startNewFolder])
+
+  const handleStartNewFile = useCallback(() => {
+    if (!currentPath) return
+    startNewFile(currentPath)
+  }, [currentPath, startNewFile])
+
+  const handleStartRename = useCallback(() => {
+    const selected = getSelectedPaths()
+    if (selected.length !== 1) return
+    startRename(selected[0])
+  }, [getSelectedPaths, startRename])
+
   const handleRename = useCallback(
     async (oldPath: string, newName: string) => {
       try {
@@ -186,6 +202,35 @@ export function useFileExplorerHandlers({
     }
   }, [getSelectedPaths, deleteEntries, clearSelection])
 
+  const handleCopyPath = useCallback(() => {
+    const selected = getSelectedPaths()
+    if (selected.length === 0) return
+    const text = selected.length === 1 ? selected[0] : selected.join("\n")
+    navigator.clipboard.writeText(text).then(() => toast.success("Путь скопирован"))
+  }, [getSelectedPaths])
+
+  const handleOpenInExplorer = useCallback(async () => {
+    const selected = getSelectedPaths()
+    if (selected.length === 0) return
+    const path = selected[0]
+    try {
+      await openPath(path)
+    } catch (error) {
+      toast.error(`Не удалось открыть: ${error}`)
+    }
+  }, [getSelectedPaths])
+
+  const handleOpenInTerminal = useCallback(async () => {
+    const selected = getSelectedPaths()
+    if (selected.length === 0) return
+    const path = selected[0]
+    try {
+      await openPath(path)
+    } catch (error) {
+      toast.error(`Не удалось открыть терминал: ${error}`)
+    }
+  }, [getSelectedPaths])
+
   return {
     handleSelect,
     handleOpen,
@@ -197,6 +242,12 @@ export function useFileExplorerHandlers({
     handleCut,
     handlePaste,
     handleDelete,
+    handleStartNewFolder,
+    handleStartNewFile,
+    handleStartRename,
+    handleCopyPath,
+    handleOpenInExplorer,
+    handleOpenInTerminal,
     getSelectedPaths,
   }
 }

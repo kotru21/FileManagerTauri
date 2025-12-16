@@ -1,11 +1,19 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { fileKeys } from "@/entities/file-entry"
+import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
+import { DeleteConfirmDialog, useDeleteConfirmStore } from "@/features/delete-confirm"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
+import {
+  createOperationDescription,
+  useOperationsHistoryStore,
+  useUndoToast,
+} from "@/features/operations-history"
 import { SearchResultItem, useSearchStore } from "@/features/search-content"
+import { SettingsDialog, useSettingsStore } from "@/features/settings"
 import { TabBar, useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { commands } from "@/shared/api/tauri"
@@ -21,8 +29,14 @@ import { Breadcrumbs, FileExplorer, PreviewPanel, Sidebar, StatusBar, Toolbar } 
 export function FileBrowserPage() {
   const queryClient = useQueryClient()
   const { currentPath, navigate } = useNavigationStore()
-  const { layout, setSidebarSize, setMainPanelSize, setPreviewPanelSize, togglePreview, setSidebarCollapsed } =
-    useLayoutStore()
+  const {
+    layout,
+    setSidebarSize,
+    setMainPanelSize,
+    setPreviewPanelSize,
+    togglePreview,
+    setSidebarCollapsed,
+  } = useLayoutStore()
   const { tabs, activeTabId, addTab, updateTabPath } = useTabsStore()
   const { results: searchResults, isSearching, query: searchQuery } = useSearchStore()
   const { clearSelection, getSelectedPaths } = useSelectionStore()
@@ -32,9 +46,9 @@ export function FileBrowserPage() {
   const [quickLookFile, setQuickLookFile] = useState<FileEntry | null>(null)
 
   // Debounce refs for resize
-  const sidebarResizeTimer = useRef<ReturnType<typeof setTimeout>>()
-  const mainResizeTimer = useRef<ReturnType<typeof setTimeout>>()
-  const previewResizeTimer = useRef<ReturnType<typeof setTimeout>>()
+  const sidebarResizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const mainResizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const previewResizeTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Initialize first tab if none exists
   useEffect(() => {
@@ -64,9 +78,11 @@ export function FileBrowserPage() {
     const paths = getSelectedPaths()
     if (paths.length !== 1) return null
 
-    return queryClient
-      .getQueryData<FileEntry[]>(fileKeys.directory(currentPath || ""))
-      ?.find((f) => f.path === paths[0])
+    return (
+      queryClient
+        .getQueryData<FileEntry[]>(fileKeys.directory(currentPath || ""))
+        ?.find((f) => f.path === paths[0]) ?? null
+    )
   }, [currentPath, queryClient, getSelectedPaths])
 
   // Use quick look file for preview if active, otherwise use selected file
@@ -120,7 +136,7 @@ export function FileBrowserPage() {
 
   const handleSidebarResize = useCallback(
     (size: number) => {
-      clearTimeout(sidebarResizeTimer.current)
+      if (sidebarResizeTimer.current) clearTimeout(sidebarResizeTimer.current)
       sidebarResizeTimer.current = setTimeout(() => {
         const collapsed = size < COLLAPSE_THRESHOLD
 
@@ -146,12 +162,19 @@ export function FileBrowserPage() {
         setMainPanelSize(newMain)
       }, 100)
     },
-    [setSidebarSize, setSidebarCollapsed, setMainPanelSize, setPreviewPanelSize, layout.showPreview, layout.previewPanelSize],
+    [
+      setSidebarSize,
+      setSidebarCollapsed,
+      setMainPanelSize,
+      setPreviewPanelSize,
+      layout.showPreview,
+      layout.previewPanelSize,
+    ],
   )
 
   const handleMainResize = useCallback(
     (size: number) => {
-      clearTimeout(mainResizeTimer.current)
+      if (mainResizeTimer.current) clearTimeout(mainResizeTimer.current)
       mainResizeTimer.current = setTimeout(() => {
         setMainPanelSize(size)
       }, 100)
@@ -161,7 +184,7 @@ export function FileBrowserPage() {
 
   const handlePreviewResize = useCallback(
     (size: number) => {
-      clearTimeout(previewResizeTimer.current)
+      if (previewResizeTimer.current) clearTimeout(previewResizeTimer.current)
       previewResizeTimer.current = setTimeout(() => {
         setPreviewPanelSize(size)
       }, 100)
@@ -171,7 +194,11 @@ export function FileBrowserPage() {
 
   // Normalize layout on mount / when layout changes so panels sum to 100%
   useEffect(() => {
-    const sidebar = layout.showSidebar ? (layout.sidebarCollapsed ? COLLAPSED_SIZE : layout.sidebarSize) : 0
+    const sidebar = layout.showSidebar
+      ? layout.sidebarCollapsed
+        ? COLLAPSED_SIZE
+        : layout.sidebarSize
+      : 0
     const preview = layout.showPreview ? layout.previewPanelSize : 0
     const total = sidebar + layout.mainPanelSize + preview
 
@@ -179,14 +206,22 @@ export function FileBrowserPage() {
       const newMain = Math.max(30, 100 - sidebar - preview)
       setMainPanelSize(newMain)
     }
-  }, [layout.showSidebar, layout.sidebarCollapsed, layout.sidebarSize, layout.mainPanelSize, layout.showPreview, layout.previewPanelSize, setMainPanelSize])
+  }, [
+    layout.showSidebar,
+    layout.sidebarCollapsed,
+    layout.sidebarSize,
+    layout.mainPanelSize,
+    layout.showPreview,
+    layout.previewPanelSize,
+    setMainPanelSize,
+  ])
 
   // Cleanup timers
   useEffect(() => {
     return () => {
-      clearTimeout(sidebarResizeTimer.current)
-      clearTimeout(mainResizeTimer.current)
-      clearTimeout(previewResizeTimer.current)
+      if (sidebarResizeTimer.current) clearTimeout(sidebarResizeTimer.current)
+      if (mainResizeTimer.current) clearTimeout(mainResizeTimer.current)
+      if (previewResizeTimer.current) clearTimeout(previewResizeTimer.current)
     }
   }, [])
 
@@ -195,6 +230,51 @@ export function FileBrowserPage() {
       queryClient.invalidateQueries({ queryKey: fileKeys.directory(currentPath) })
     }
   }, [currentPath, queryClient])
+
+  const { open: openSettings } = useSettingsStore()
+  const { open: openDeleteConfirm } = useDeleteConfirmStore()
+  const { showUndo, toast: undoToast } = useUndoToast()
+  const { addOperation } = useOperationsHistoryStore()
+
+  const handleDelete = useCallback(async () => {
+    const paths = getSelectedPaths()
+    if (paths.length === 0) return
+
+    // Show confirmation if enabled
+    if (useSettingsStore.getState().settings.confirmDelete) {
+      const confirmed = await openDeleteConfirm(paths, false)
+      if (!confirmed) return
+    }
+
+    try {
+      await commands.deleteEntries(paths, false)
+
+      addOperation({
+        type: "delete",
+        description: createOperationDescription("delete", { deletedPaths: paths }),
+        data: { deletedPaths: paths },
+        canUndo: false, // Deletion not undoable from app (recycle bin)
+      })
+
+      // Show undo toast for last operation (if present)
+      const lastOp = useOperationsHistoryStore.getState().operations[0]
+      if (lastOp) {
+        showUndo(lastOp)
+      }
+
+      clearSelection()
+      handleRefresh()
+      toast.success(`Удалено ${paths.length} файл(ов)`)
+    } catch {
+      toast.error("Ошибка удаления")
+    }
+  }, [getSelectedPaths, clearSelection, handleRefresh, showUndo, openDeleteConfirm, addOperation])
+
+  useRegisterCommands({
+    onRefresh: handleRefresh,
+    onDelete: handleDelete,
+    onOpenSettings: openSettings,
+  })
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -295,6 +375,12 @@ export function FileBrowserPage() {
 
         {/* Status Bar */}
         <StatusBar className="shrink-0" />
+
+        {/* Global UI: Command palette, settings dialog, undo toast, delete confirm */}
+        <CommandPalette />
+        <SettingsDialog />
+        <DeleteConfirmDialog />
+        {undoToast}
       </div>
     </TooltipProvider>
   )

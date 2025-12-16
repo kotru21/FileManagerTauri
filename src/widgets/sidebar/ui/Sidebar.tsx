@@ -1,10 +1,11 @@
 import { homeDir } from "@tauri-apps/api/path"
-import { ChevronDown, ChevronRight, Folder, HardDrive, Home, Star } from "lucide-react"
+import { ChevronDown, ChevronRight, Clock, Folder, HardDrive, Home, Star } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
 import { DriveItem } from "@/entities/drive"
 import { useDrives } from "@/entities/file-entry"
 import { BookmarksList, useBookmarksStore } from "@/features/bookmarks"
 import { useNavigationStore } from "@/features/navigation"
+import { RecentFoldersList, useRecentFoldersStore } from "@/features/recent-folders"
 import { cn } from "@/shared/lib"
 import { ScrollArea, Separator, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
 
@@ -13,7 +14,7 @@ interface SidebarProps {
   collapsed?: boolean
 }
 
-type SidebarSection = "bookmarks" | "drives" | "quickAccess"
+type SidebarSection = "bookmarks" | "recent" | "drives" | "quickAccess"
 
 interface CollapsedItemProps {
   icon: React.ReactNode
@@ -80,9 +81,11 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
   const { currentPath, navigate } = useNavigationStore()
   const { data: drives = [] } = useDrives()
   const { bookmarks, addBookmark } = useBookmarksStore()
+  const { addFolder } = useRecentFoldersStore()
   const [homePath, setHomePath] = useState<string | null>(null)
   const [expandedSections, setExpandedSections] = useState<Record<SidebarSection, boolean>>({
     bookmarks: true,
+    recent: true,
     drives: true,
     quickAccess: true,
   })
@@ -115,6 +118,12 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
   }
 
   useEffect(() => {
+    if (currentPath) {
+      addFolder(currentPath)
+    }
+  }, [currentPath, addFolder])
+
+  useEffect(() => {
     const resolveHome = async () => {
       try {
         const home = await homeDir()
@@ -123,14 +132,7 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
         // Try to derive from current path
         if (currentPath) {
           const match = currentPath.match(/^([A-Z]:\\Users\\[^\\]+)/i)
-          if (match) {
-            setHomePath(match[1])
-          } else {
-            const unixMatch = currentPath.match(/^(\/home\/[^/]+)/i)
-            if (unixMatch) {
-              setHomePath(unixMatch[1])
-            }
-          }
+          if (match) setHomePath(match[1])
         }
       }
     }
@@ -238,6 +240,26 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
             <div className="mt-1">
               <BookmarksList onSelect={handleNavigate} currentPath={currentPath || undefined} />
             </div>
+          )}
+        </div>
+
+        <Separator className="my-1" />
+
+        {/* Recent Folders */}
+        <div>
+          <SectionHeader
+            title="Недавние"
+            icon={<Clock className="h-4 w-4" />}
+            expanded={expandedSections.recent}
+            onToggle={() => toggleSection("recent")}
+          />
+          {expandedSections.recent && (
+            <RecentFoldersList
+              onSelect={handleNavigate}
+              currentPath={currentPath || undefined}
+              maxItems={8}
+              className="mt-1"
+            />
           )}
         </div>
 

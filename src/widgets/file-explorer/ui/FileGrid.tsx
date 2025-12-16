@@ -1,5 +1,6 @@
-import { memo, useCallback } from "react"
-import { FileIcon } from "@/entities/file-entry"
+import { Eye } from "lucide-react"
+import { memo, useCallback, useState } from "react"
+import { FileIcon, FileThumbnail } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
 import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
@@ -11,6 +12,7 @@ interface FileGridProps {
   onSelect: (path: string, e: React.MouseEvent) => void
   onOpen: (path: string, isDir: boolean) => void
   onDrop?: (sources: string[], destination: string) => void
+  onQuickLook?: (file: FileEntry) => void
   className?: string
 }
 
@@ -20,6 +22,7 @@ export const FileGrid = memo(function FileGrid({
   onSelect,
   onOpen,
   onDrop,
+  onQuickLook,
   className,
 }: FileGridProps) {
   const { settings } = useViewModeStore()
@@ -29,16 +32,23 @@ export const FileGrid = memo(function FileGrid({
   const isCutAction = useClipboardStore((s) => s.isCut())
 
   const gridSizeConfig = {
-    small: { cols: "grid-cols-[repeat(auto-fill,minmax(80px,1fr))]", iconSize: 32, itemHeight: 80 },
+    small: {
+      cols: "grid-cols-[repeat(auto-fill,minmax(80px,1fr))]",
+      iconSize: 32,
+      itemHeight: 80,
+      showThumbnails: false,
+    },
     medium: {
       cols: "grid-cols-[repeat(auto-fill,minmax(100px,1fr))]",
       iconSize: 48,
       itemHeight: 100,
+      showThumbnails: true,
     },
     large: {
-      cols: "grid-cols-[repeat(auto-fill,minmax(120px,1fr))]",
-      iconSize: 64,
-      itemHeight: 120,
+      cols: "grid-cols-[repeat(auto-fill,minmax(140px,1fr))]",
+      iconSize: 80,
+      itemHeight: 140,
+      showThumbnails: true,
     },
   }
 
@@ -83,8 +93,10 @@ export const FileGrid = memo(function FileGrid({
             isCut={isCut}
             iconSize={config.iconSize}
             itemHeight={config.itemHeight}
+            showThumbnail={config.showThumbnails}
             onSelect={(e) => onSelect(file.path, e)}
             onOpen={() => onOpen(file.path, file.is_dir)}
+            onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
             onDragStart={(e) => handleDragStart(e, file)}
             onDrop={(e) => handleDrop(e, file.path)}
             onDragOver={(e) => {
@@ -106,49 +118,93 @@ interface GridItemProps {
   isCut: boolean
   iconSize: number
   itemHeight: number
+  showThumbnail: boolean
   onSelect: (e: React.MouseEvent) => void
   onOpen: () => void
+  onQuickLook?: () => void
   onDragStart: (e: React.DragEvent) => void
   onDrop: (e: React.DragEvent) => void
   onDragOver: (e: React.DragEvent) => void
 }
-
 const GridItem = memo(function GridItem({
   file,
   isSelected,
   isCut,
   iconSize,
   itemHeight,
+  showThumbnail,
   onSelect,
   onOpen,
+  onQuickLook,
   onDragStart,
   onDrop,
   onDragOver,
 }: GridItemProps) {
+  const [isDragOver, setIsDragOver] = useState(false)
+
   return (
     <div
       className={cn(
-        "flex flex-col items-center justify-center p-2 rounded-lg cursor-default select-none",
-        "hover:bg-accent/50 transition-colors",
+        "group flex flex-col items-center justify-center p-2 rounded-lg cursor-default select-none",
+        "hover:bg-accent/50 transition-colors relative",
         isSelected && "bg-accent",
         isCut && "opacity-50",
+        isDragOver && file.is_dir && "ring-2 ring-primary bg-accent",
       )}
       style={{ height: itemHeight }}
       onClick={onSelect}
       onDoubleClick={onOpen}
       onDragStart={onDragStart}
-      onDrop={onDrop}
-      onDragOver={onDragOver}
+      onDrop={(e) => {
+        setIsDragOver(false)
+        onDrop(e)
+      }}
+      onDragOver={(e) => {
+        if (file.is_dir) setIsDragOver(true)
+        onDragOver(e)
+      }}
+      onDragLeave={() => setIsDragOver(false)}
       draggable
+      data-path={file.path}
     >
-      <FileIcon
-        extension={file.extension}
-        isDir={file.is_dir}
-        size={iconSize}
-        className={cn("mb-1", isCut && "opacity-70")}
-      />
+      {/* Quick Look button on hover */}
+      {onQuickLook && !file.is_dir && (
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onQuickLook()
+          }}
+          className={cn(
+            "absolute top-1 right-1 p-1 rounded bg-background/80 backdrop-blur-sm",
+            "opacity-0 group-hover:opacity-100 transition-opacity",
+            "hover:bg-background",
+          )}
+          title="Быстрый просмотр"
+        >
+          <Eye className="h-4 w-4" />
+        </button>
+      )}
+
+      {showThumbnail ? (
+        <FileThumbnail
+          path={file.path}
+          extension={file.extension}
+          isDir={file.is_dir}
+          size={iconSize}
+          className={cn("mb-1", isCut && "opacity-70")}
+        />
+      ) : (
+        <FileIcon
+          extension={file.extension}
+          isDir={file.is_dir}
+          size={iconSize}
+          className={cn("mb-1", isCut && "opacity-70")}
+        />
+      )}
+
       <span
-        className={cn("text-xs text-center truncate w-full", isCut && "italic")}
+        className={cn("text-xs text-center truncate w-full px-1", isCut && "italic")}
         title={file.name}
       >
         {file.name}

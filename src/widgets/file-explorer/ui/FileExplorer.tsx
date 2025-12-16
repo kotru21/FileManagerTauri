@@ -13,14 +13,21 @@ import {
 } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
 import { FileContextMenu } from "@/features/context-menu"
+import { useDeleteConfirmStore } from "@/features/delete-confirm"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
+import {
+  createOperationDescription,
+  useOperationsHistoryStore,
+} from "@/features/operations-history"
 import { QuickFilterBar, useQuickFilterStore } from "@/features/quick-filter"
+import { useSettingsStore } from "@/features/settings"
 import { useSortingStore } from "@/features/sorting"
 import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
+import { toast } from "@/shared/ui"
 import { CopyProgressDialog } from "@/widgets/progress-dialog"
 import { useFileExplorerHandlers, useFileExplorerKeyboard } from "../lib"
 import { FileGrid } from "./FileGrid"
@@ -87,6 +94,47 @@ export function FileExplorer({ className, onQuickLook }: FileExplorerProps) {
     onStartCopyWithProgress: () => setCopyDialogOpen(true),
   })
 
+  const { open: openDeleteConfirm } = useDeleteConfirmStore()
+  const { settings: appSettings } = useSettingsStore()
+  const { addOperation } = useOperationsHistoryStore()
+
+  // Delete handler with confirmation
+  const handleDeleteWithConfirm = useCallback(async () => {
+    const paths = getSelectedPaths()
+    if (paths.length === 0) return
+
+    // Show confirmation if enabled in settings
+    if (appSettings.confirmDelete) {
+      const confirmed = await openDeleteConfirm(paths, false)
+      if (!confirmed) return
+    }
+
+    try {
+      await deleteEntries({ paths, permanent: false })
+
+      addOperation({
+        type: "delete",
+        description: createOperationDescription("delete", { deletedPaths: paths }),
+        data: { deletedPaths: paths },
+        canUndo: false,
+      })
+
+      clearSelection()
+      refetch()
+      toast.success(`Удалено ${paths.length} элемент(ов)`)
+    } catch (_error) {
+      toast.error("Ошибка удаления")
+    }
+  }, [
+    getSelectedPaths,
+    appSettings.confirmDelete,
+    openDeleteConfirm,
+    deleteEntries,
+    addOperation,
+    clearSelection,
+    refetch,
+  ])
+
   // Quick Look handler (Space key)
   const handleQuickLook = useCallback(() => {
     const paths = getSelectedPaths()
@@ -103,7 +151,7 @@ export function FileExplorer({ className, onQuickLook }: FileExplorerProps) {
     onCopy: handlers.handleCopy,
     onCut: handlers.handleCut,
     onPaste: handlers.handlePaste,
-    onDelete: handlers.handleDelete,
+    onDelete: handleDeleteWithConfirm,
     onStartNewFolder: handlers.handleStartNewFolder,
     onRefresh: () => refetch(),
     onQuickLook: handleQuickLook,
@@ -158,6 +206,7 @@ export function FileExplorer({ className, onQuickLook }: FileExplorerProps) {
           onSelect={(path, e) => handlers.handleSelect(path, e)}
           onOpen={(path, isDir) => handlers.handleOpen(path, isDir)}
           onDrop={handlers.handleDrop}
+          onQuickLook={onQuickLook}
         />
       )
     }
@@ -173,6 +222,10 @@ export function FileExplorer({ className, onQuickLook }: FileExplorerProps) {
         onCreateFolder={handlers.handleCreateFolder}
         onCreateFile={handlers.handleCreateFile}
         onRename={handlers.handleRename}
+        onCopy={handlers.handleCopy}
+        onCut={handlers.handleCut}
+        onDelete={handleDeleteWithConfirm}
+        onQuickLook={onQuickLook}
       />
     )
   }
@@ -183,7 +236,7 @@ export function FileExplorer({ className, onQuickLook }: FileExplorerProps) {
       onCopy={handlers.handleCopy}
       onCut={handlers.handleCut}
       onPaste={handlers.handlePaste}
-      onDelete={handlers.handleDelete}
+      onDelete={handleDeleteWithConfirm}
       onRename={handlers.handleStartRename}
       onNewFolder={handlers.handleStartNewFolder}
       onNewFile={handlers.handleStartNewFile}

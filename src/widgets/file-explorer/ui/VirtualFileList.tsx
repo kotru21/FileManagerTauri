@@ -4,6 +4,7 @@ import { ColumnHeader, FileRow, InlineEditRow } from "@/entities/file-entry"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useKeyboardNavigation } from "@/features/keyboard-navigation"
 import { useLayoutStore } from "@/features/layout"
+import { RubberBandOverlay } from "@/features/rubber-band"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, getBasename } from "@/shared/lib"
 
@@ -17,6 +18,10 @@ interface VirtualFileListProps {
   onCreateFolder?: (name: string) => void
   onCreateFile?: (name: string) => void
   onRename?: (oldPath: string, newName: string) => void
+  onCopy?: () => void
+  onCut?: () => void
+  onDelete?: () => void
+  onQuickLook?: (file: FileEntry) => void
   className?: string
 }
 
@@ -39,10 +44,14 @@ export function VirtualFileList({
   onCreateFolder,
   onCreateFile,
   onRename,
+  onCopy,
+  onCut,
+  onDelete,
+  onQuickLook,
   className,
 }: VirtualFileListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
-  const { mode, targetPath, cancel, reset } = useInlineEditStore()
+  const { mode, targetPath, cancel, reset, startRename } = useInlineEditStore()
   const { layout, setColumnWidth } = useLayoutStore()
 
   const hasInlineEdit = mode !== null
@@ -127,6 +136,11 @@ export function VirtualFileList({
   const memoizedGetSelectedPaths = useMemo(() => {
     return getSelectedPaths || (() => Array.from(selectedPaths))
   }, [getSelectedPaths, selectedPaths])
+
+  // Helper to get path from element
+  const getPathFromElement = useCallback((element: Element): string | null => {
+    return element.getAttribute("data-path")
+  }, [])
 
   // Get actual file index
   const getFileIndex = useCallback(
@@ -220,6 +234,11 @@ export function VirtualFileList({
                   onOpen={() => onOpen(file.path, file.is_dir)}
                   onDrop={onDrop}
                   getSelectedPaths={memoizedGetSelectedPaths}
+                  onCopy={onCopy}
+                  onCut={onCut}
+                  onRename={() => startRename(file.path)}
+                  onDelete={onDelete}
+                  onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
                   columnWidths={layout.columnWidths}
                 />
               </div>
@@ -227,6 +246,13 @@ export function VirtualFileList({
           })}
         </div>
       </div>
+
+      {/* Rubber Band Selection */}
+      <RubberBandOverlay
+        containerRef={parentRef as React.RefObject<HTMLElement>}
+        fileSelector="[data-path]"
+        getPathFromElement={getPathFromElement}
+      />
     </div>
   )
 }

@@ -3,6 +3,7 @@ import { useClipboardStore } from "@/features/clipboard"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, formatBytes, formatDate } from "@/shared/lib"
 import { FileIcon } from "./FileIcon"
+import { FileRowActions } from "./FileRowActions"
 
 interface FileRowProps {
   file: FileEntry
@@ -12,6 +13,11 @@ interface FileRowProps {
   onOpen: () => void
   onDrop?: (sources: string[], destination: string) => void
   getSelectedPaths?: () => string[]
+  onCopy?: () => void
+  onCut?: () => void
+  onRename?: () => void
+  onDelete?: () => void
+  onQuickLook?: () => void
   columnWidths?: {
     size: number
     date: number
@@ -28,6 +34,11 @@ export const FileRow = memo(
     onOpen,
     onDrop,
     getSelectedPaths,
+    onCopy,
+    onCut,
+    onRename,
+    onDelete,
+    onQuickLook,
     columnWidths = { size: 100, date: 150, padding: 20 },
   }: FileRowProps) {
     const rowRef = useRef<HTMLDivElement>(null)
@@ -97,7 +108,7 @@ export const FileRow = memo(
       <div
         ref={rowRef}
         className={cn(
-          "flex items-center h-7 px-2 text-sm cursor-default select-none",
+          "group flex items-center h-7 px-2 text-sm cursor-default select-none",
           "border-b border-transparent",
           "hover:bg-accent/50 transition-colors",
           isSelected && "bg-accent",
@@ -130,6 +141,21 @@ export const FileRow = memo(
 
         {/* Name */}
         <span className={cn("flex-1 truncate", isCut && "italic")}>{file.name}</span>
+
+        {/* Hover Actions */}
+        {(onCopy || onCut || onRename || onDelete) && (
+          <FileRowActions
+            path={file.path}
+            isDir={file.is_dir}
+            onOpen={onOpen}
+            onCopy={onCopy || (() => {})}
+            onCut={onCut || (() => {})}
+            onRename={onRename || (() => {})}
+            onDelete={onDelete || (() => {})}
+            onQuickLook={onQuickLook}
+            className="mr-2"
+          />
+        )}
 
         {/* Size */}
         <span
