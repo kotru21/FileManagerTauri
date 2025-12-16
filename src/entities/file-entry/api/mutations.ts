@@ -15,7 +15,7 @@ export function useCreateDirectory() {
   return useMutation({
     mutationFn: async (path: string) => {
       const result = await commands.createDirectory(path)
-      return unwrapResult(result)
+      unwrapResult(result)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -29,7 +29,7 @@ export function useCreateFile() {
   return useMutation({
     mutationFn: async (path: string) => {
       const result = await commands.createFile(path)
-      return unwrapResult(result)
+      unwrapResult(result)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -43,7 +43,7 @@ export function useDeleteEntries() {
   return useMutation({
     mutationFn: async ({ paths, permanent }: { paths: string[]; permanent: boolean }) => {
       const result = await commands.deleteEntries(paths, permanent)
-      return unwrapResult(result)
+      unwrapResult(result)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -57,7 +57,7 @@ export function useRenameEntry() {
   return useMutation({
     mutationFn: async ({ oldPath, newName }: { oldPath: string; newName: string }) => {
       const result = await commands.renameEntry(oldPath, newName)
-      return unwrapResult(result)
+      unwrapResult(result)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -71,7 +71,7 @@ export function useCopyEntries() {
   return useMutation({
     mutationFn: async ({ sources, destination }: { sources: string[]; destination: string }) => {
       const result = await commands.copyEntries(sources, destination)
-      return unwrapResult(result)
+      unwrapResult(result)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -85,7 +85,7 @@ export function useCopyEntriesParallel() {
   return useMutation({
     mutationFn: async ({ sources, destination }: { sources: string[]; destination: string }) => {
       const result = await commands.copyEntriesParallel(sources, destination)
-      return unwrapResult(result)
+      unwrapResult(result)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -99,7 +99,7 @@ export function useMoveEntries() {
   return useMutation({
     mutationFn: async ({ sources, destination }: { sources: string[]; destination: string }) => {
       const result = await commands.moveEntries(sources, destination)
-      return unwrapResult(result)
+      unwrapResult(result)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })

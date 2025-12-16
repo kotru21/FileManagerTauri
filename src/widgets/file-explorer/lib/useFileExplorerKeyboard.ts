@@ -2,6 +2,7 @@ import { useEffect } from "react"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
 import { useQuickFilterStore } from "@/features/quick-filter"
+import { useSettingsStore } from "@/features/settings"
 
 interface UseFileExplorerKeyboardOptions {
   onCopy: () => void
@@ -25,6 +26,7 @@ export function useFileExplorerKeyboard({
   const { goBack, goForward, goUp } = useNavigationStore()
   const { mode: inlineEditMode } = useInlineEditStore()
   const { toggle: toggleQuickFilter } = useQuickFilterStore()
+  const { open: openSettings } = useSettingsStore()
 
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
@@ -33,6 +35,13 @@ export function useFileExplorerKeyboard({
       const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA"
 
       if (inlineEditMode) return
+
+      // Settings (Ctrl+,)
+      if ((e.ctrlKey || e.metaKey) && e.key === ",") {
+        e.preventDefault()
+        openSettings()
+        return
+      }
 
       // Quick filter toggle (Ctrl+Shift+F)
       if (e.ctrlKey && e.shiftKey && e.key === "F") {
@@ -144,5 +153,6 @@ export function useFileExplorerKeyboard({
     goUp,
     inlineEditMode,
     toggleQuickFilter,
+    openSettings,
   ])
 }
