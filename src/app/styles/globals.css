@@ -107,3 +107,69 @@ body {
 .no-select {
   user-select: none;
 }
+
+/* Custom titlebar and tabs */
+.titlebar {
+  height: 36px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 8px;
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.02), rgba(255, 255, 255, 0.01));
+  position: fixed;
+  inset: 0 0 auto 0;
+  z-index: 50;
+}
+
+.titlebar [data-tauri-drag-region] {
+  -webkit-app-region: drag;
+  app-region: drag;
+  flex: 1;
+  height: 100%;
+}
+
+.titlebar .tabs {
+  display: flex;
+  gap: 4px;
+  align-items: center;
+  height: 100%;
+}
+
+.titlebar .tab {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  cursor: pointer;
+  padding: 6px 12px;
+  border-radius: 6px;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+}
+
+.titlebar .tab.active {
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.02), rgba(0, 0, 0, 0.02));
+}
+
+.titlebar .controls {
+  display: flex;
+  gap: 6px;
+}
+
+.titlebar .controls button {
+  -webkit-app-region: no-drag;
+  app-region: no-drag;
+  appearance: none;
+  border: none;
+  background: transparent;
+  width: 34px;
+  height: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 4px;
+}
+
+.titlebar .controls button:hover {
+  background: hsl(var(--muted-foreground) / 0.06);
+}

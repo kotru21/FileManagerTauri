@@ -1,5 +1,6 @@
 export { Breadcrumbs } from "./breadcrumbs"
-export { FileExplorer, VirtualFileList } from "./file-explorer"
+export { FileExplorer } from "./file-explorer"
+export { PreviewPanel } from "./preview-panel"
 export { CopyProgressDialog } from "./progress-dialog"
 export { Sidebar } from "./sidebar"
 export { StatusBar } from "./status-bar"

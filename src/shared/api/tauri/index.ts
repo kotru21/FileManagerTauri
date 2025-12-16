@@ -2,6 +2,7 @@ export type {
   ContentMatch,
   DriveInfo,
   FileEntry,
+  FilePreview,
   Result,
   SearchOptions,
   SearchResult,

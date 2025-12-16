@@ -1,13 +1,15 @@
-// src/pages/file-browser/ui/FileBrowserPage.tsx
-
 import { useQueryClient } from "@tanstack/react-query"
 import { openPath } from "@tauri-apps/plugin-opener"
-import { useCallback, useEffect, useState } from "react"
-import { fileKeys } from "@/entities/file-entry"
+import { useCallback, useEffect, useMemo } from "react"
+import { fileKeys, useDirectoryContents } from "@/entities/file-entry"
+import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
-import { SearchBar, SearchResultItem, useSearchStore } from "@/features/search-content"
+import { SearchResultItem, useSearchStore } from "@/features/search-content"
+import { TabBar, useTabsStore } from "@/features/tabs"
+import type { FileEntry } from "@/shared/api/tauri"
+import { commands } from "@/shared/api/tauri"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -15,31 +17,74 @@ import {
   TooltipProvider,
   toast,
 } from "@/shared/ui"
-import { Breadcrumbs, FileExplorer, Sidebar, StatusBar, Toolbar } from "@/widgets"
+import { Breadcrumbs, FileExplorer, PreviewPanel, Sidebar, StatusBar, Toolbar } from "@/widgets"
 
 export function FileBrowserPage() {
-  const queryClient = useQueryClient()
   const { currentPath, navigate } = useNavigationStore()
-  const { layout, setSidebarSize, setMainPanelSize } = useLayoutStore()
-  const { results, reset: resetSearch } = useSearchStore()
+  const { layout, setLayout, togglePreview } = useLayoutStore()
+  const { results, isSearching, query, reset: resetSearch } = useSearchStore()
   const { startNewFolder, startNewFile } = useInlineEditStore()
+  const { tabs, activeTabId, addTab, updateTabPath } = useTabsStore()
+  const { selectedPaths } = useSelectionStore()
+  const { data: files } = useDirectoryContents(currentPath)
+  const queryClient = useQueryClient()
 
-  const [showSearchResults, setShowSearchResults] = useState(false)
+  // Initialize first tab if none exists
+  useEffect(() => {
+    if (tabs.length === 0 && currentPath) {
+      addTab(currentPath)
+    }
+  }, [tabs.length, currentPath, addTab])
+
+  // Sync tab path with navigation
+  useEffect(() => {
+    if (activeTabId && currentPath) {
+      updateTabPath(activeTabId, currentPath)
+    }
+  }, [activeTabId, currentPath, updateTabPath])
+
+  // Handle tab changes
+  const handleTabChange = useCallback(
+    (path: string) => {
+      if (path) {
+        navigate(path)
+      }
+    },
+    [navigate],
+  )
+
+  // Get selected file for preview
+  const selectedFile: FileEntry | null = useMemo(() => {
+    const paths = Array.from(selectedPaths)
+    if (paths.length !== 1) return null
+    return files?.find((f) => f.path === paths[0]) || null
+  }, [selectedPaths, files])
 
   // Show search results when we have results
-  useEffect(() => {
-    if (results.length > 0) {
-      setShowSearchResults(true)
+  const showSearchResults = (isSearching || results.length > 0) && query.length > 0
+
+  const handleSearchResultClick = async (path: string) => {
+    try {
+      const result = await commands.getParentPath(path)
+      if (result.status === "ok" && result.data) {
+        navigate(result.data)
+        // TODO: highlight file after navigation
+      }
+    } catch {
+      // Try to open the file
+      try {
+        await openPath(path)
+      } catch (err) {
+        toast.error(`Не удалось открыть: ${err}`)
+      }
     }
-  }, [results])
+  }
 
   const handleRefresh = useCallback(() => {
     if (currentPath) {
-      queryClient.invalidateQueries({
-        queryKey: fileKeys.directory(currentPath),
-      })
+      queryClient.invalidateQueries({ queryKey: fileKeys.directory(currentPath) })
     }
-  }, [queryClient, currentPath])
+  }, [currentPath, queryClient])
 
   const handleNewFolder = useCallback(() => {
     if (currentPath) {
@@ -54,107 +99,108 @@ export function FileBrowserPage() {
   }, [currentPath, startNewFile])
 
   const handleSearch = useCallback(() => {
-    setShowSearchResults(true)
+    // kept for compatibility, Toolbar manages its own popover
+    // No-op here
   }, [])
 
-  const handleCloseSearch = useCallback(() => {
-    setShowSearchResults(false)
-    resetSearch()
-  }, [resetSearch])
-
-  const handleSelectSearchResult = useCallback(
-    async (path: string) => {
-      try {
-        // Navigate to parent directory and highlight file
-        const parentPath = path.substring(0, path.lastIndexOf("\\"))
-        if (parentPath && parentPath !== currentPath) {
-          navigate(parentPath)
-        }
-        // Try to open the file
-        await openPath(path)
-      } catch (error) {
-        toast.error(`Не удалось открыть: ${error}`)
-      }
-    },
-    [currentPath, navigate],
-  )
-
   return (
-    <TooltipProvider>
-      <div className="flex flex-col h-screen bg-background text-foreground">
+    <TooltipProvider delayDuration={300}>
+      <div className="flex h-screen flex-col bg-background text-foreground pt-9">
+        {/* Tab Bar */}
+        <TabBar onTabChange={handleTabChange} />
+
         {/* Header */}
-        <div className="shrink-0 border-b border-border">
-          <Toolbar
-            onRefresh={handleRefresh}
-            onNewFolder={handleNewFolder}
-            onNewFile={handleNewFile}
-            onSearch={handleSearch}
-            className="px-2 py-1"
-          />
-          <Breadcrumbs className="px-2 py-1 border-t border-border" />
-        </div>
+        <Toolbar
+          onRefresh={handleRefresh}
+          onNewFolder={handleNewFolder}
+          onNewFile={handleNewFile}
+          onSearch={handleSearch}
+          onTogglePreview={togglePreview}
+          showPreview={layout.showPreview}
+        />
 
-        {/* Search Bar - фиксированная позиция */}
-        <div className="shrink-0 border-b border-border px-2 py-1">
-          <SearchBar onSearch={handleSearch} />
-        </div>
+        {/* Breadcrumbs */}
+        <Breadcrumbs className="border-b border-border px-2 py-1" />
 
-        {/* Main Content - relative для overlay */}
-        <div className="flex-1 min-h-0 relative">
+        {/* Main Content */}
+        <div className="relative flex-1 overflow-hidden">
+          <ResizablePanelGroup direction="horizontal" className="h-full">
+            {/* Sidebar */}
+            {layout.showSidebar && (
+              <>
+                <ResizablePanel
+                  defaultSize={layout.sidebarSize}
+                  minSize={4}
+                  maxSize={30}
+                  onResize={(size) => {
+                    const COLLAPSE_THRESHOLD = 8
+                    const COLLAPSED_SIZE = 6
+                    const collapsed = size < COLLAPSE_THRESHOLD
+                    setLayout({
+                      sidebarSize: collapsed ? COLLAPSED_SIZE : size,
+                      sidebarCollapsed: collapsed,
+                    })
+                  }}
+                >
+                  <Sidebar collapsed={layout.sidebarCollapsed} />
+                </ResizablePanel>
+                <ResizableHandle withHandle />
+              </>
+            )}
+
+            {/* Main Panel */}
+            <ResizablePanel defaultSize={layout.mainPanelSize}>
+              <FileExplorer />
+            </ResizablePanel>
+
+            {/* Preview Panel */}
+            {layout.showPreview && (
+              <>
+                <ResizableHandle withHandle />
+                <ResizablePanel
+                  defaultSize={layout.previewPanelSize}
+                  minSize={15}
+                  maxSize={40}
+                  onResize={(size) => setLayout({ previewPanelSize: size })}
+                >
+                  <PreviewPanel file={selectedFile} onClose={togglePreview} />
+                </ResizablePanel>
+              </>
+            )}
+          </ResizablePanelGroup>
+
           {/* Search Results Overlay */}
-          {showSearchResults && results.length > 0 && (
-            <div className="absolute inset-0 z-10 bg-background/95 backdrop-blur-sm overflow-auto">
-              <div className="p-4">
+          {showSearchResults && (
+            <div className="absolute inset-0 z-50 bg-background/95 backdrop-blur-sm overflow-auto">
+              <div className="max-w-3xl mx-auto p-4">
                 <div className="flex items-center justify-between mb-4">
                   <h2 className="text-lg font-semibold">Результаты поиска ({results.length})</h2>
                   <button
                     type="button"
-                    onClick={handleCloseSearch}
-                    className="text-muted-foreground hover:text-foreground"
+                    onClick={() => {
+                      resetSearch()
+                    }}
+                    className="text-sm text-muted-foreground hover:text-foreground"
                   >
-                    ✕ Закрыть
+                    Закрыть
                   </button>
                 </div>
-                <div className="space-y-1">
+                <div className="space-y-2">
                   {results.map((result) => (
                     <SearchResultItem
                       key={result.path}
                       result={result}
-                      onSelect={handleSelectSearchResult}
+                      onSelect={handleSearchResultClick}
                     />
                   ))}
                 </div>
               </div>
             </div>
           )}
-
-          <ResizablePanelGroup direction="horizontal" className="h-full">
-            {layout.showSidebar && (
-              <>
-                <ResizablePanel
-                  defaultSize={layout.sidebarSize}
-                  minSize={10}
-                  maxSize={30}
-                  onResize={setSidebarSize}
-                >
-                  <Sidebar className="h-full" />
-                </ResizablePanel>
-                <ResizableHandle withHandle />
-              </>
-            )}
-
-            <ResizablePanel
-              defaultSize={layout.mainPanelSize}
-              minSize={30}
-              onResize={setMainPanelSize}
-            >
-              <FileExplorer className="h-full" />
-            </ResizablePanel>
-          </ResizablePanelGroup>
         </div>
 
         {/* Status Bar */}
-        <StatusBar className="shrink-0 border-t border-border px-2 py-1" />
+        <StatusBar />
       </div>
     </TooltipProvider>
   )
