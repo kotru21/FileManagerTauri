@@ -1,5 +1,4 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react"
-import { useClipboardStore } from "@/features/clipboard"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, formatBytes, formatDate } from "@/shared/lib"
 import { FileIcon } from "./FileIcon"
@@ -9,6 +8,8 @@ interface FileRowProps {
   file: FileEntry
   isSelected: boolean
   isFocused?: boolean
+  isCut?: boolean
+  isBookmarked?: boolean
   onSelect: (e: React.MouseEvent) => void
   onOpen: () => void
   onDrop?: (sources: string[], destination: string) => void
@@ -18,6 +19,7 @@ interface FileRowProps {
   onRename?: () => void
   onDelete?: () => void
   onQuickLook?: () => void
+  onToggleBookmark?: () => void
   columnWidths?: {
     size: number
     date: number
@@ -29,7 +31,9 @@ export const FileRow = memo(
   function FileRow({
     file,
     isSelected,
-    isFocused,
+    isFocused = false,
+    isCut = false,
+    isBookmarked = false,
     onSelect,
     onOpen,
     onDrop,
@@ -39,15 +43,11 @@ export const FileRow = memo(
     onRename,
     onDelete,
     onQuickLook,
-    columnWidths = { size: 100, date: 150, padding: 20 },
+    onToggleBookmark,
+    columnWidths = { size: 100, date: 150, padding: 16 },
   }: FileRowProps) {
     const rowRef = useRef<HTMLDivElement>(null)
     const [isDragOver, setIsDragOver] = useState(false)
-
-    // Check if file is cut
-    const clipboardPaths = useClipboardStore((s) => s.paths)
-    const isCutAction = useClipboardStore((s) => s.isCut())
-    const isCut = isCutAction && clipboardPaths.includes(file.path)
 
     // Scroll into view when focused
     useEffect(() => {
@@ -56,23 +56,11 @@ export const FileRow = memo(
       }
     }, [isFocused])
 
-    const handleDragStart = useCallback(
-      (e: React.DragEvent) => {
-        const paths = getSelectedPaths?.() || [file.path]
-        if (!paths.includes(file.path)) {
-          paths.push(file.path)
-        }
-        e.dataTransfer.setData("application/json", JSON.stringify({ paths, action: "move" }))
-        e.dataTransfer.effectAllowed = "copyMove"
-      },
-      [file.path, getSelectedPaths],
-    )
-
     const handleDragOver = useCallback(
       (e: React.DragEvent) => {
         if (!file.is_dir) return
         e.preventDefault()
-        e.dataTransfer.dropEffect = e.ctrlKey ? "copy" : "move"
+        e.stopPropagation()
         setIsDragOver(true)
       },
       [file.is_dir],
@@ -85,18 +73,21 @@ export const FileRow = memo(
     const handleDrop = useCallback(
       (e: React.DragEvent) => {
         e.preventDefault()
+        e.stopPropagation()
         setIsDragOver(false)
 
         if (!file.is_dir || !onDrop) return
 
-        // Don't drop onto self
-        const data = e.dataTransfer.getData("application/json")
-        if (!data) return
-
         try {
-          const { paths } = JSON.parse(data) as { paths: string[] }
-          if (paths.includes(file.path)) return
-          onDrop(paths, file.path)
+          const data = e.dataTransfer.getData("application/json")
+          if (data) {
+            const parsed = JSON.parse(data)
+            if (parsed.paths && Array.isArray(parsed.paths)) {
+              // Don't drop onto self
+              if (parsed.paths.includes(file.path)) return
+              onDrop(parsed.paths, file.path)
+            }
+          }
         } catch {
           // Ignore parse errors
         }
@@ -104,88 +95,108 @@ export const FileRow = memo(
       [file.is_dir, file.path, onDrop],
     )
 
+    const handleDragStart = useCallback(
+      (e: React.DragEvent) => {
+        const paths = getSelectedPaths?.() ?? [file.path]
+        e.dataTransfer.setData(
+          "application/json",
+          JSON.stringify({ paths, action: e.ctrlKey ? "copy" : "move" }),
+        )
+        e.dataTransfer.effectAllowed = "copyMove"
+      },
+      [file.path, getSelectedPaths],
+    )
+
+    const handleContextMenu = useCallback(
+      (e: React.MouseEvent) => {
+        // Select item on right-click so context menu actions apply to it
+        // Do not prevent default — allow the context menu trigger to handle opening
+        onSelect(e as unknown as React.MouseEvent)
+      },
+      [onSelect],
+    )
+
+    const handleDoubleClick = useCallback(() => {
+      onOpen()
+    }, [onOpen])
+
     return (
       <div
         ref={rowRef}
         className={cn(
-          "group flex items-center h-7 px-2 text-sm cursor-default select-none",
-          "border-b border-transparent",
+          "group flex items-center h-8 px-2 cursor-pointer border-b border-border/50",
           "hover:bg-accent/50 transition-colors",
           isSelected && "bg-accent",
-          isFocused && "ring-1 ring-inset ring-ring",
-          isDragOver && file.is_dir && "bg-accent ring-2 ring-primary",
+          isFocused && "ring-1 ring-inset ring-primary",
+          isDragOver && file.is_dir && "bg-primary/20 ring-2 ring-primary",
           isCut && "opacity-50",
         )}
         onClick={onSelect}
-        onDoubleClick={onOpen}
-        onContextMenu={(e) => {
-          // Select item on right-click so context menu actions apply to it
-          // Do not prevent default — allow the context menu trigger to handle opening
-          onSelect(e as unknown as React.MouseEvent)
-        }}
-        onDragStart={handleDragStart}
+        onDoubleClick={handleDoubleClick}
+        onContextMenu={handleContextMenu}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
+        onDragStart={handleDragStart}
         draggable
         data-path={file.path}
-        data-is-dir={file.is_dir}
       >
         {/* Icon */}
-        <FileIcon
-          extension={file.extension}
-          isDir={file.is_dir}
-          className={cn("mr-3 shrink-0", isCut && "opacity-70")}
-          size={18}
-        />
+        <FileIcon extension={file.extension} isDir={file.is_dir} className="w-4.5 h-4.5 mr-3" />
 
         {/* Name */}
-        <span className={cn("flex-1 truncate", isCut && "italic")}>{file.name}</span>
+        <span className={cn("flex-1 truncate text-sm", isCut && "text-muted-foreground")}>
+          {file.name}
+        </span>
 
         {/* Hover Actions */}
-        {(onCopy || onCut || onRename || onDelete) && (
-          <FileRowActions
-            path={file.path}
-            isDir={file.is_dir}
-            onOpen={onOpen}
-            onCopy={onCopy || (() => {})}
-            onCut={onCut || (() => {})}
-            onRename={onRename || (() => {})}
-            onDelete={onDelete || (() => {})}
-            onQuickLook={onQuickLook}
-            className="mr-2"
-          />
-        )}
+        <FileRowActions
+          isDir={file.is_dir}
+          isBookmarked={isBookmarked}
+          onOpen={onOpen}
+          onCopy={onCopy ?? (() => {})}
+          onCut={onCut ?? (() => {})}
+          onRename={onRename ?? (() => {})}
+          onDelete={onDelete ?? (() => {})}
+          onQuickLook={onQuickLook}
+          onToggleBookmark={onToggleBookmark}
+          className="opacity-0 group-hover:opacity-100"
+        />
 
         {/* Size */}
         <span
-          className="text-muted-foreground text-right shrink-0"
+          className="text-sm text-muted-foreground text-right"
           style={{ width: columnWidths.size }}
         >
-          {file.is_dir ? "" : formatBytes(file.size)}
+          {file.is_dir ? "—" : formatBytes(file.size)}
         </span>
 
         {/* Date */}
         <span
-          className="text-muted-foreground text-right shrink-0 ml-4"
+          className="text-sm text-muted-foreground text-right"
           style={{ width: columnWidths.date }}
         >
           {formatDate(file.modified)}
         </span>
 
         {/* Padding for scrollbar */}
-        <span style={{ width: columnWidths.padding }} className="shrink-0" />
+        <div style={{ width: columnWidths.padding }} />
       </div>
     )
   },
-  // Custom comparison - rerender only when these props change
-  (prev, next) =>
-    prev.file.path === next.file.path &&
-    prev.file.name === next.file.name &&
-    prev.file.size === next.file.size &&
-    prev.file.modified === next.file.modified &&
-    prev.isSelected === next.isSelected &&
-    prev.isFocused === next.isFocused &&
-    prev.columnWidths?.size === next.columnWidths?.size &&
-    prev.columnWidths?.date === next.columnWidths?.date,
+  (prevProps, nextProps) => {
+    // Custom comparison - rerender only when these props change
+    return (
+      prevProps.file.path === nextProps.file.path &&
+      prevProps.file.name === nextProps.file.name &&
+      prevProps.file.size === nextProps.file.size &&
+      prevProps.file.modified === nextProps.file.modified &&
+      prevProps.isSelected === nextProps.isSelected &&
+      prevProps.isFocused === nextProps.isFocused &&
+      prevProps.isCut === nextProps.isCut &&
+      prevProps.isBookmarked === nextProps.isBookmarked &&
+      prevProps.columnWidths?.size === nextProps.columnWidths?.size &&
+      prevProps.columnWidths?.date === nextProps.columnWidths?.date
+    )
+  },
 )
