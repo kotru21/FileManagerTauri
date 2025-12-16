@@ -1,4 +1,3 @@
-import { getCurrentWindow } from "@tauri-apps/api/window"
 import { Pin, Plus, X } from "lucide-react"
 import { useCallback, useRef, useState } from "react"
 import { cn } from "@/shared/lib"
@@ -9,9 +8,8 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/shared/ui"
+import { WindowControls } from "@/widgets"
 import { type Tab, useTabsStore } from "../model/store"
-
-const appWindow = getCurrentWindow()
 
 interface TabBarProps {
   onTabChange?: (path: string) => void
@@ -69,13 +67,11 @@ function TabItem({
           onDrop={handleDrop}
           onClick={onSelect}
           className={cn(
-            "tab group relative flex h-9 min-w-30wmax-w-50or-pointer items-center gap-2 border-r border-border px-3",
-            "transition-colors duration-150",
+            "group relative flex h-8 min-w-[120px] max-w-[200px] cursor-pointer items-center gap-2 border-r border-border/50 px-3 text-sm transition-colors",
             isActive
               ? "bg-background text-foreground"
-              : "bg-muted/50 text-muted-foreground hover:bg-muted",
+              : "bg-muted/30 text-muted-foreground hover:bg-muted/50",
             isDragOver && "bg-accent",
-            tab.isPinned && "min-w-10 max-w-10 justify-center",
           )}
         >
           {tab.isPinned && <Pin className="h-3.5 w-3.5" />}
@@ -214,25 +210,21 @@ export function TabBar({ onTabChange, className }: TabBarProps) {
     [moveTab],
   )
 
-  const handleTitlebarMouseDown = useCallback((e: React.MouseEvent) => {
-    if (e.button !== 0) return
-    if (e.detail === 2) {
-      void appWindow.toggleMaximize()
-    } else {
-      void appWindow.startDragging()
-    }
-  }, [])
-
   if (tabs.length === 0) {
     return null
   }
 
   return (
-    <div className={cn("titlebar", className)}>
-      <div data-tauri-drag-region id="titlebar-drag" onMouseDown={handleTitlebarMouseDown} />
-
-      <div className="tabs">
-        <div className="flex h-full flex-1 overflow-x-auto">
+    <div
+      className={cn(
+        "flex h-9 items-center bg-muted/50 border-b border-border select-none",
+        className,
+      )}
+    >
+      {/* Drag region (occupies remaining space to push controls to the right) */}
+      <div data-tauri-drag-region className="flex-1 flex items-center h-full min-w-0">
+        {/* Tabs */}
+        <div className="flex items-center h-full overflow-x-auto scrollbar-none">
           {tabs.map((tab, index) => (
             <TabItem
               key={tab.id}
@@ -248,31 +240,21 @@ export function TabBar({ onTabChange, className }: TabBarProps) {
             />
           ))}
         </div>
-      </div>
 
-      <div className="controls">
+        {/* New tab button */}
         <button
           type="button"
           onClick={handleNewTab}
-          className="flex h-9 w-9 items-center justify-center text-muted-foreground hover:bg-accent hover:text-foreground"
-          title="Новая вкладка (Ctrl+T)"
+          className="flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors ml-1"
+          aria-label="Новая вкладка"
         >
           <Plus className="h-4 w-4" />
         </button>
+      </div>
 
-        <button type="button" onClick={() => void appWindow.minimize()} title="Свернуть">
-          —
-        </button>
-        <button
-          type="button"
-          onClick={() => void appWindow.toggleMaximize()}
-          title="Развернуть/Свернуть"
-        >
-          □
-        </button>
-        <button type="button" onClick={() => void appWindow.close()} title="Закрыть">
-          ✕
-        </button>
+      {/* Window controls - aligned to the right */}
+      <div className="flex items-center">
+        <WindowControls />
       </div>
     </div>
   )

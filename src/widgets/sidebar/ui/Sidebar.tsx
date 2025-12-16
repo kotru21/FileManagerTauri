@@ -1,12 +1,12 @@
 import { homeDir } from "@tauri-apps/api/path"
-import { Folder, HardDrive, Star } from "lucide-react"
-import { useEffect, useState } from "react"
+import { ChevronDown, ChevronRight, Folder, HardDrive, Home, Star } from "lucide-react"
+import { useCallback, useEffect, useState } from "react"
 import { DriveItem } from "@/entities/drive"
 import { useDrives } from "@/entities/file-entry"
 import { BookmarksList, useBookmarksStore } from "@/features/bookmarks"
 import { useNavigationStore } from "@/features/navigation"
 import { cn } from "@/shared/lib"
-import { ScrollArea, Separator } from "@/shared/ui"
+import { ScrollArea, Separator, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
 
 interface SidebarProps {
   className?: string
@@ -15,34 +15,94 @@ interface SidebarProps {
 
 type SidebarSection = "bookmarks" | "drives" | "quickAccess"
 
-export function Sidebar({ className, collapsed }: SidebarProps) {
-  const { currentPath, navigate } = useNavigationStore()
-  const { data: drives } = useDrives()
-  const { addBookmark } = useBookmarksStore()
-  const [expandedSections, setExpandedSections] = useState<Set<SidebarSection>>(
-    new Set(["bookmarks", "drives", "quickAccess"]),
+interface CollapsedItemProps {
+  icon: React.ReactNode
+  label: string
+  isActive?: boolean
+  onClick: () => void
+}
+
+function CollapsedItem({ icon, label, isActive, onClick }: CollapsedItemProps) {
+  return (
+    <Tooltip>
+      <TooltipTrigger asChild>
+        <button
+          type="button"
+          onClick={onClick}
+          className={cn(
+            "flex h-10 w-full items-center justify-center rounded-md transition-colors",
+            isActive
+              ? "bg-accent text-accent-foreground"
+              : "text-muted-foreground hover:bg-accent/50 hover:text-foreground",
+          )}
+        >
+          {icon}
+        </button>
+      </TooltipTrigger>
+      <TooltipContent side="right" sideOffset={10}>
+        {label}
+      </TooltipContent>
+    </Tooltip>
   )
+}
+
+interface SectionHeaderProps {
+  title: string
+  icon: React.ReactNode
+  expanded: boolean
+  onToggle: () => void
+  collapsed?: boolean
+}
+
+function SectionHeader({ title, icon, expanded, onToggle, collapsed }: SectionHeaderProps) {
+  if (collapsed) {
+    return (
+      <div className="flex justify-center py-2">
+        <div className="text-muted-foreground">{icon}</div>
+      </div>
+    )
+  }
+
+  return (
+    <button
+      type="button"
+      onClick={onToggle}
+      className="flex w-full items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
+    >
+      {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
+      {icon}
+      <span>{title}</span>
+    </button>
+  )
+}
+
+export function Sidebar({ className, collapsed = false }: SidebarProps) {
+  const { currentPath, navigate } = useNavigationStore()
+  const { data: drives = [] } = useDrives()
+  const { bookmarks, addBookmark } = useBookmarksStore()
+  const [homePath, setHomePath] = useState<string | null>(null)
+  const [expandedSections, setExpandedSections] = useState<Record<SidebarSection, boolean>>({
+    bookmarks: true,
+    drives: true,
+    quickAccess: true,
+  })
 
   const toggleSection = (section: SidebarSection) => {
-    setExpandedSections((prev) => {
-      const next = new Set(prev)
-      if (next.has(section)) {
-        next.delete(section)
-      } else {
-        next.add(section)
-      }
-      return next
-    })
+    setExpandedSections((prev) => ({
+      ...prev,
+      [section]: !prev[section],
+    }))
   }
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
     try {
       const data = e.dataTransfer.getData("application/json")
-      const { paths } = JSON.parse(data)
-      if (Array.isArray(paths) && paths.length > 0) {
-        // Add first dropped path as bookmark
-        addBookmark(paths[0])
+      if (data) {
+        const parsed = JSON.parse(data)
+        if (parsed.paths?.length > 0) {
+          addBookmark(parsed.paths[0])
+        }
       }
     } catch {
       // Ignore parse errors
@@ -54,234 +114,157 @@ export function Sidebar({ className, collapsed }: SidebarProps) {
     e.dataTransfer.dropEffect = "link"
   }
 
-  const [homePath, setHomePath] = useState<string | null>(null)
-
   useEffect(() => {
-    // Try to resolve home via Tauri API
-    let mounted = true
-    ;(async () => {
+    const resolveHome = async () => {
       try {
-        const h = await homeDir()
-        if (mounted && h) setHomePath(h)
+        const home = await homeDir()
+        setHomePath(home)
       } catch {
-        // ignore
+        // Try to derive from current path
+        if (currentPath) {
+          const match = currentPath.match(/^([A-Z]:\\Users\\[^\\]+)/i)
+          if (match) {
+            setHomePath(match[1])
+          } else {
+            const unixMatch = currentPath.match(/^(\/home\/[^/]+)/i)
+            if (unixMatch) {
+              setHomePath(unixMatch[1])
+            }
+          }
+        }
       }
-    })()
-    return () => {
-      mounted = false
     }
-  }, [])
+    resolveHome()
+  }, [currentPath])
 
-  const resolveHome = () => {
-    if (homePath) return homePath
-    if (currentPath) {
-      // Try to derive from current path (Windows: C:\Users\User\..., Unix: /home/user/...)
-      const win = currentPath.match(/^([A-Za-z]:\\Users\\[^\\/]+)/)
-      if (win) return win[1]
-      const unix = currentPath.match(/^(\/home\/[^/]+)/)
-      if (unix) return unix[1]
-    }
-
-    // Fallbacks
-    if (typeof navigator !== "undefined" && navigator.userAgent.includes("Windows")) {
-      return "C:\\Users\\User"
-    }
-    return "/home/user"
-  }
-
-  const quickAccessPaths = [
-    {
-      name: "Рабочий стол",
-      path: `${resolveHome()}${typeof navigator !== "undefined" && navigator.userAgent.includes("Windows") ? "\\Desktop" : "/Desktop"}`,
+  const handleNavigate = useCallback(
+    (path: string) => {
+      navigate(path)
     },
-    {
-      name: "Документы",
-      path: `${resolveHome()}${typeof navigator !== "undefined" && navigator.userAgent.includes("Windows") ? "\\Documents" : "/Documents"}`,
-    },
-    {
-      name: "Загрузки",
-      path: `${resolveHome()}${typeof navigator !== "undefined" && navigator.userAgent.includes("Windows") ? "\\Downloads" : "/Downloads"}`,
-    },
-  ].filter((item) => item.path)
-
-  return (
-    <div className={cn("flex flex-col h-full bg-muted/30", className)}>
-      <ScrollArea className="flex-1">
-        <div className={cn("p-2", collapsed && "items-center")}>
-          {/* Bookmarks */}
-          <SidebarSectionHeader
-            icon={Star}
-            title="Избранное"
-            expanded={expandedSections.has("bookmarks")}
-            onToggle={() => toggleSection("bookmarks")}
-            collapsed={collapsed}
-          />
-
-          {collapsed ? (
-            // compact icon list for bookmarks (first few)
-            <div
-              onDrop={handleDrop}
-              onDragOver={handleDragOver}
-              className="min-h-15 flex flex-col items-center gap-1 py-2"
-            >
-              {/* show up to 6 bookmark icons */}
-              {useBookmarksStore
-                .getState()
-                .bookmarks.slice(0, 6)
-                .map((bm) => (
-                  <button
-                    key={bm.id}
-                    title={bm.name}
-                    type="button"
-                    onClick={() => navigate(bm.path)}
-                    className="rounded p-1 hover:bg-accent/50"
-                  >
-                    <Folder className="h-4 w-4 text-muted-foreground" />
-                  </button>
-                ))}
-            </div>
-          ) : (
-            expandedSections.has("bookmarks") && (
-              <div onDrop={handleDrop} onDragOver={handleDragOver} className="min-h-15">
-                <BookmarksList onSelect={navigate} currentPath={currentPath || undefined} />
-              </div>
-            )
-          )}
-
-          <Separator className="my-2" />
-
-          {/* Quick Access */}
-          <SidebarSectionHeader
-            icon={Folder}
-            title="Быстрый доступ"
-            expanded={expandedSections.has("quickAccess")}
-            onToggle={() => toggleSection("quickAccess")}
-            collapsed={collapsed}
-          />
-
-          {collapsed ? (
-            <div className="flex flex-col items-center gap-2 py-2">
-              {quickAccessPaths.slice(0, 6).map((item) => (
-                <button
-                  type="button"
-                  key={item.path}
-                  title={item.name}
-                  onClick={() => item.path && navigate(item.path)}
-                  className="rounded p-1 hover:bg-accent/50"
-                >
-                  <Folder className="h-4 w-4 text-muted-foreground" />
-                </button>
-              ))}
-            </div>
-          ) : (
-            expandedSections.has("quickAccess") && (
-              <div className="space-y-0.5 p-2">
-                {quickAccessPaths.map((item) => (
-                  <button
-                    type="button"
-                    key={item.path}
-                    onClick={() => item.path && navigate(item.path)}
-                    className={cn(
-                      "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
-                      "hover:bg-accent hover:text-accent-foreground",
-                      currentPath === item.path && "bg-accent text-accent-foreground",
-                    )}
-                  >
-                    <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
-                    <span className="truncate">{item.name}</span>
-                  </button>
-                ))}
-              </div>
-            )
-          )}
-
-          <Separator className="my-2" />
-
-          {/* Drives */}
-          <SidebarSectionHeader
-            icon={HardDrive}
-            title="Диски"
-            expanded={expandedSections.has("drives")}
-            onToggle={() => toggleSection("drives")}
-            collapsed={collapsed}
-          />
-
-          {collapsed ? (
-            <div className="flex flex-col items-center gap-2 py-2">
-              {drives?.slice(0, 10).map((drive) => (
-                <button
-                  type="button"
-                  key={drive.path}
-                  title={drive.name}
-                  onClick={() => navigate(drive.path)}
-                  className={cn(
-                    "rounded p-1 hover:bg-accent/50",
-                    currentPath?.startsWith(drive.path) && "bg-accent",
-                  )}
-                >
-                  <HardDrive className="h-4 w-4 text-blue-500" />
-                </button>
-              ))}
-            </div>
-          ) : (
-            expandedSections.has("drives") && (
-              <div className="space-y-1 p-2">
-                {drives?.map((drive) => (
-                  <DriveItem
-                    key={drive.path}
-                    drive={drive}
-                    isSelected={currentPath?.startsWith(drive.path) || false}
-                    onSelect={() => navigate(drive.path)}
-                  />
-                ))}
-              </div>
-            )
-          )}
-        </div>
-      </ScrollArea>
-    </div>
+    [navigate],
   )
-}
 
-interface SidebarSectionHeaderProps {
-  icon: React.ComponentType<{ className?: string }>
-  title: string
-  expanded: boolean
-  onToggle: () => void
-  collapsed?: boolean
-}
-
-function SidebarSectionHeader({
-  icon: Icon,
-  title,
-  expanded,
-  onToggle,
-  collapsed,
-}: SidebarSectionHeaderProps) {
+  // Collapsed view
   if (collapsed) {
     return (
-      <button
-        type="button"
-        onClick={onToggle}
-        title={title}
-        className="rounded-md p-2 hover:bg-accent/50"
+      <div
+        className={cn("flex flex-col items-center py-2 px-1 gap-1 h-full bg-muted/30", className)}
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
       >
-        <Icon className="h-4 w-4 text-muted-foreground" />
-      </button>
+        {/* Home */}
+        {homePath && (
+          <CollapsedItem
+            icon={<Home className="h-5 w-5" />}
+            label="Домой"
+            isActive={currentPath === homePath}
+            onClick={() => handleNavigate(homePath)}
+          />
+        )}
+
+        <Separator className="my-1 w-6" />
+
+        {/* Bookmarks - show first 4 */}
+        {bookmarks.slice(0, 4).map((bookmark) => (
+          <CollapsedItem
+            key={bookmark.id}
+            icon={<Star className="h-5 w-5" />}
+            label={bookmark.name}
+            isActive={currentPath === bookmark.path}
+            onClick={() => handleNavigate(bookmark.path)}
+          />
+        ))}
+
+        {bookmarks.length > 0 && <Separator className="my-1 w-6" />}
+
+        {/* Drives */}
+        {drives.map((drive) => (
+          <CollapsedItem
+            key={drive.path}
+            icon={<HardDrive className="h-5 w-5" />}
+            label={`${drive.name} (${drive.path})`}
+            isActive={currentPath?.startsWith(drive.path)}
+            onClick={() => handleNavigate(drive.path)}
+          />
+        ))}
+      </div>
     )
   }
 
+  // Expanded view
   return (
-    <button
-      type="button"
-      onClick={onToggle}
-      className="flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm font-medium text-muted-foreground hover:text-foreground"
-    >
-      <Icon className="h-4 w-4" />
-      <span className="flex-1 text-left">{title}</span>
-      <span className={cn("text-xs transition-transform", expanded ? "rotate-0" : "-rotate-90")}>
-        ▼
-      </span>
-    </button>
+    <ScrollArea className={cn("h-full", className)}>
+      <div className="flex flex-col gap-1 p-2" onDrop={handleDrop} onDragOver={handleDragOver}>
+        {/* Quick Access */}
+        <div>
+          <SectionHeader
+            title="Быстрый доступ"
+            icon={<Folder className="h-4 w-4" />}
+            expanded={expandedSections.quickAccess}
+            onToggle={() => toggleSection("quickAccess")}
+          />
+          {expandedSections.quickAccess && (
+            <div className="mt-1 space-y-0.5">
+              {homePath && (
+                <button
+                  type="button"
+                  onClick={() => handleNavigate(homePath)}
+                  className={cn(
+                    "flex w-full items-center gap-2 rounded-md px-2 py-1.5 text-sm transition-colors",
+                    currentPath === homePath
+                      ? "bg-accent text-accent-foreground"
+                      : "hover:bg-accent/50",
+                  )}
+                >
+                  <Home className="h-4 w-4" />
+                  <span>Домой</span>
+                </button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Separator className="my-1" />
+
+        {/* Bookmarks */}
+        <div>
+          <SectionHeader
+            title="Закладки"
+            icon={<Star className="h-4 w-4" />}
+            expanded={expandedSections.bookmarks}
+            onToggle={() => toggleSection("bookmarks")}
+          />
+          {expandedSections.bookmarks && (
+            <div className="mt-1">
+              <BookmarksList onSelect={handleNavigate} currentPath={currentPath || undefined} />
+            </div>
+          )}
+        </div>
+
+        <Separator className="my-1" />
+
+        {/* Drives */}
+        <div>
+          <SectionHeader
+            title="Диски"
+            icon={<HardDrive className="h-4 w-4" />}
+            expanded={expandedSections.drives}
+            onToggle={() => toggleSection("drives")}
+          />
+          {expandedSections.drives && (
+            <div className="mt-1 space-y-0.5">
+              {drives.map((drive) => (
+                <DriveItem
+                  key={drive.path}
+                  drive={drive}
+                  isSelected={currentPath?.startsWith(drive.path) ?? false}
+                  onSelect={() => handleNavigate(drive.path)}
+                />
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
+    </ScrollArea>
   )
 }
