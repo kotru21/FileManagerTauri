@@ -20,17 +20,14 @@ interface VirtualFileListProps {
   className?: string
 }
 
-const ROW_HEIGHT = 28
-
-// Polyfill for findLastIndex if not available
 function findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {
   for (let i = arr.length - 1; i >= 0; i--) {
-    if (predicate(arr[i])) {
-      return i
-    }
+    if (predicate(arr[i])) return i
   }
   return -1
 }
+
+const ROW_HEIGHT = 32
 
 export function VirtualFileList({
   files,
@@ -45,78 +42,67 @@ export function VirtualFileList({
   className,
 }: VirtualFileListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
+  const { mode, targetPath, cancel, reset } = useInlineEditStore()
   const { layout, setColumnWidth } = useLayoutStore()
-  const { columnWidths } = layout
 
-  const { mode, targetPath, cancel } = useInlineEditStore()
+  const hasInlineEdit = mode !== null
 
   // Find index where inline edit row should appear
   const inlineEditIndex = useMemo(() => {
     if (mode === "rename" && targetPath) {
       return files.findIndex((f) => f.path === targetPath)
     }
-    if (mode === "new-folder" || mode === "new-file") {
-      // New items appear at the top (after folders for files, at start for folders)
-      if (mode === "new-folder") {
-        return 0
-      } else {
-        // After last folder
-        const lastFolderIndex = findLastIndex(files, (f: FileEntry) => f.is_dir)
-        return lastFolderIndex + 1
-      }
+    if (mode === "new-folder") {
+      return 0
+    }
+    if (mode === "new-file") {
+      const lastFolderIndex = findLastIndex(files, (f) => f.is_dir)
+      return lastFolderIndex + 1
     }
     return -1
   }, [mode, targetPath, files])
 
-  const hasInlineEdit = mode !== null
-  const totalCount = files.length + (hasInlineEdit && mode !== "rename" ? 1 : 0)
+  // Calculate total rows
+  const totalRows = files.length + (hasInlineEdit ? 1 : 0)
 
-  // Keyboard navigation
-  const { focusedIndex, setFocusedIndex } = useKeyboardNavigation({
-    files,
-    selectedPaths,
-    onSelect: (path, e) => {
-      // Create synthetic mouse event for compatibility
-      const syntheticEvent = {
-        ctrlKey: e.ctrlKey ?? false,
-        shiftKey: e.shiftKey ?? false,
-        metaKey: false,
-      } as React.MouseEvent
-      onSelect(path, syntheticEvent)
-    },
-    onOpen: (path, isDir) => onOpen(path, isDir),
-    enabled: !hasInlineEdit, // Disable when editing
-  })
-
+  // Virtualizer
   const virtualizer = useVirtualizer({
-    count: totalCount,
+    count: totalRows,
     getScrollElement: () => parentRef.current,
     estimateSize: () => ROW_HEIGHT,
     overscan: 10,
   })
 
-  // Scroll to inline edit row when editing starts so the input is visible
-  useEffect(() => {
-    if (!mode) return
-    if (inlineEditIndex < 0) return
-    // Ensure the inline edit row is visible
-    virtualizer.scrollToIndex(inlineEditIndex, { align: "start" })
-  }, [mode, inlineEditIndex, virtualizer])
-
-  // Memoize handlers
-  const handleColumnResize = useCallback(
-    (column: "size" | "date" | "padding", width: number) => {
-      setColumnWidth(column, Math.max(50, width))
+  // Keyboard navigation
+  const handleKeyboardSelect = useCallback(
+    (path: string, e: { ctrlKey?: boolean; shiftKey?: boolean }) => {
+      const syntheticEvent = {
+        ctrlKey: e.ctrlKey || false,
+        shiftKey: e.shiftKey || false,
+        metaKey: false,
+      } as React.MouseEvent
+      onSelect(path, syntheticEvent)
     },
-    [setColumnWidth],
+    [onSelect],
   )
 
-  // Memoize file path getter
-  const getFilePaths = useCallback(() => {
-    return getSelectedPaths?.() ?? Array.from(selectedPaths)
-  }, [getSelectedPaths, selectedPaths])
+  const { focusedIndex, setFocusedIndex } = useKeyboardNavigation({
+    files,
+    selectedPaths,
+    onSelect: handleKeyboardSelect,
+    onOpen,
+    enabled: !hasInlineEdit,
+  })
 
-  const handleInlineConfirm = useCallback(
+  // Scroll to inline edit row
+  useEffect(() => {
+    if (hasInlineEdit && inlineEditIndex >= 0) {
+      virtualizer.scrollToIndex(inlineEditIndex, { align: "center" })
+    }
+  }, [hasInlineEdit, inlineEditIndex, virtualizer])
+
+  // Memoize handlers
+  const handleConfirm = useCallback(
     (name: string) => {
       if (mode === "new-folder" && onCreateFolder) {
         onCreateFolder(name)
@@ -125,38 +111,47 @@ export function VirtualFileList({
       } else if (mode === "rename" && targetPath && onRename) {
         onRename(targetPath, name)
       }
-      cancel()
+      reset()
     },
-    [mode, targetPath, onCreateFolder, onCreateFile, onRename, cancel],
+    [mode, targetPath, onCreateFolder, onCreateFile, onRename, reset],
   )
 
-  // Calculate actual file index accounting for inline edit row
+  const handleColumnResize = useCallback(
+    (column: "size" | "date" | "padding", width: number) => {
+      setColumnWidth(column, width)
+    },
+    [setColumnWidth],
+  )
+
+  // Memoize file path getter
+  const memoizedGetSelectedPaths = useMemo(() => {
+    return getSelectedPaths || (() => Array.from(selectedPaths))
+  }, [getSelectedPaths, selectedPaths])
+
+  // Get actual file index
   const getFileIndex = useCallback(
     (virtualIndex: number): number => {
-      if (!hasInlineEdit || mode === "rename") {
-        return virtualIndex
-      }
-      // For new items, adjust index after inline edit position
-      if (virtualIndex < inlineEditIndex) {
-        return virtualIndex
-      }
-      if (virtualIndex === inlineEditIndex) {
-        return -1 // This is the inline edit row
-      }
+      if (!hasInlineEdit) return virtualIndex
+      if (virtualIndex === inlineEditIndex) return -1
+      if (virtualIndex < inlineEditIndex) return virtualIndex
       return virtualIndex - 1
     },
-    [hasInlineEdit, mode, inlineEditIndex],
+    [hasInlineEdit, inlineEditIndex],
   )
 
+  const virtualItems = virtualizer.getVirtualItems()
+
   return (
-    <div className={cn("flex flex-col h-full", className)}>
+    <div className={cn("flex flex-col h-full min-h-0", className)}>
+      {/* Column Header */}
       <ColumnHeader
-        columnWidths={columnWidths}
+        columnWidths={layout.columnWidths}
         onColumnResize={handleColumnResize}
-        className="shrink-0 border-b border-border"
+        className="shrink-0"
       />
 
-      <div ref={parentRef} className="flex-1 overflow-auto">
+      {/* Scrollable content */}
+      <div ref={parentRef} className="flex-1 overflow-auto min-h-0" style={{ contain: "strict" }}>
         <div
           style={{
             height: `${virtualizer.getTotalSize()}px`,
@@ -164,15 +159,11 @@ export function VirtualFileList({
             position: "relative",
           }}
         >
-          {virtualizer.getVirtualItems().map((virtualRow) => {
+          {virtualItems.map((virtualRow) => {
             const fileIndex = getFileIndex(virtualRow.index)
+            const isInlineEditRow = fileIndex === -1
 
-            // Render inline edit row
-            if (fileIndex === -1 || (mode === "rename" && virtualRow.index === inlineEditIndex)) {
-              if (!mode) return null
-              const isRename = mode === "rename"
-              const initialName = isRename && targetPath ? getBasename(targetPath) : ""
-
+            if (isInlineEditRow && mode) {
               return (
                 <div
                   key="inline-edit"
@@ -187,25 +178,24 @@ export function VirtualFileList({
                 >
                   <InlineEditRow
                     mode={mode}
-                    initialName={initialName}
-                    onConfirm={handleInlineConfirm}
+                    initialName={
+                      mode === "rename" && targetPath ? getBasename(targetPath) : undefined
+                    }
+                    onConfirm={handleConfirm}
                     onCancel={cancel}
-                    columnWidths={columnWidths}
+                    columnWidths={layout.columnWidths}
                   />
                 </div>
               )
             }
 
-            // Skip rendering the file being renamed (it's replaced by inline edit)
-            if (mode === "rename" && files[fileIndex]?.path === targetPath) {
-              return null
-            }
-
             const file = files[fileIndex]
             if (!file) return null
 
-            const isSelected = selectedPaths.has(file.path)
-            const isFocused = focusedIndex === fileIndex
+            // Skip file being renamed
+            if (mode === "rename" && file.path === targetPath) {
+              return null
+            }
 
             return (
               <div
@@ -221,16 +211,16 @@ export function VirtualFileList({
               >
                 <FileRow
                   file={file}
-                  isSelected={isSelected}
-                  isFocused={isFocused}
+                  isSelected={selectedPaths.has(file.path)}
+                  isFocused={fileIndex === focusedIndex}
                   onSelect={(e) => {
-                    setFocusedIndex(fileIndex)
                     onSelect(file.path, e)
+                    setFocusedIndex(fileIndex)
                   }}
                   onOpen={() => onOpen(file.path, file.is_dir)}
                   onDrop={onDrop}
-                  getSelectedPaths={getFilePaths}
-                  columnWidths={columnWidths}
+                  getSelectedPaths={memoizedGetSelectedPaths}
+                  columnWidths={layout.columnWidths}
                 />
               </div>
             )
