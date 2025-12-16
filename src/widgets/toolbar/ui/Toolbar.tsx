@@ -2,101 +2,230 @@ import {
   ArrowLeft,
   ArrowRight,
   ArrowUp,
+  Eye,
+  EyeOff,
   FilePlus,
   FolderPlus,
+  LayoutGrid,
   RefreshCw,
   Search,
+  Star,
 } from "lucide-react"
+import { useState } from "react"
+import { useBookmarksStore } from "@/features/bookmarks"
 import { useNavigationStore } from "@/features/navigation"
+import { SearchBar } from "@/features/search-content"
+import { useViewModeStore, ViewModeToggle } from "@/features/view-mode"
 import { cn } from "@/shared/lib"
-import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
+import { Button, Separator, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
 
 interface ToolbarProps {
   onRefresh: () => void
   onNewFolder: () => void
   onNewFile: () => void
-  onSearch: () => void
+  onSearch?: () => void
+  onTogglePreview?: () => void
+  showPreview?: boolean
   className?: string
 }
 
-export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className }: ToolbarProps) {
-  const goBack = useNavigationStore((s) => s.goBack)
-  const goForward = useNavigationStore((s) => s.goForward)
-  const goUp = useNavigationStore((s) => s.goUp)
-  const canGoBack = useNavigationStore((s) => s.canGoBack())
-  const canGoForward = useNavigationStore((s) => s.canGoForward())
-  const currentPath = useNavigationStore((s) => s.currentPath)
+export function Toolbar({
+  onRefresh,
+  onNewFolder,
+  onNewFile,
+  onSearch,
+  onTogglePreview,
+  showPreview,
+  className,
+}: ToolbarProps) {
+  const { currentPath, goBack, goForward, goUp, canGoBack, canGoForward } = useNavigationStore()
+  const { settings, toggleHidden } = useViewModeStore()
+  const { isBookmarked, addBookmark, removeBookmark, getBookmarkByPath } = useBookmarksStore()
+
+  const [showSearch, setShowSearch] = useState(false)
+
+  const bookmarked = currentPath ? isBookmarked(currentPath) : false
+
+  const handleToggleBookmark = () => {
+    if (!currentPath) return
+    if (bookmarked) {
+      const bookmark = getBookmarkByPath(currentPath)
+      if (bookmark) removeBookmark(bookmark.id)
+    } else {
+      addBookmark(currentPath)
+    }
+  }
 
   return (
-    <div className={cn("flex items-center gap-1", className)}>
+    <div className={cn("flex items-center gap-1 p-2 border-b border-border", className)}>
+      {/* Navigation */}
+      <div className="flex items-center gap-0.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goBack}
+              disabled={!canGoBack()}
+              className="h-8 w-8"
+            >
+              <ArrowLeft className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Назад (Alt+←)</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goForward}
+              disabled={!canGoForward()}
+              className="h-8 w-8"
+            >
+              <ArrowRight className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Вперёд (Alt+→)</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={goUp} className="h-8 w-8">
+              <ArrowUp className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Вверх (Backspace)</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onRefresh} className="h-8 w-8">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Обновить (F5)</TooltipContent>
+        </Tooltip>
+      </div>
+
+      <Separator orientation="vertical" className="mx-1 h-6" />
+
+      {/* Create */}
+      <div className="flex items-center gap-0.5">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onNewFolder} className="h-8 w-8">
+              <FolderPlus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Новая папка (Ctrl+Shift+N)</TooltipContent>
+        </Tooltip>
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button variant="ghost" size="icon" onClick={onNewFile} className="h-8 w-8">
+              <FilePlus className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Новый файл</TooltipContent>
+        </Tooltip>
+      </div>
+
+      <Separator orientation="vertical" className="mx-1 h-6" />
+
+      {/* View */}
+      <div className="flex items-center gap-1">
+        <ViewModeToggle />
+
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={toggleHidden}
+              className={cn("h-8 w-8", settings.showHidden && "bg-accent")}
+            >
+              {settings.showHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>
+            {settings.showHidden ? "Скрыть скрытые файлы" : "Показать скрытые файлы"}
+          </TooltipContent>
+        </Tooltip>
+
+        {onTogglePreview && (
+          <Tooltip>
+            <TooltipTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={onTogglePreview}
+                className={cn("h-8 w-8", showPreview && "bg-accent")}
+              >
+                <LayoutGrid className="h-4 w-4" />
+              </Button>
+            </TooltipTrigger>
+            <TooltipContent>Панель предпросмотра</TooltipContent>
+          </Tooltip>
+        )}
+      </div>
+
+      <Separator orientation="vertical" className="mx-1 h-6" />
+
+      {/* Bookmark */}
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={goBack} disabled={!canGoBack}>
-            <ArrowLeft className="h-4 w-4" />
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={handleToggleBookmark}
+            disabled={!currentPath}
+            className={cn("h-8 w-8", bookmarked && "text-yellow-500")}
+          >
+            <Star className={cn("h-4 w-4", bookmarked && "fill-current")} />
           </Button>
         </TooltipTrigger>
-        <TooltipContent>Назад (Alt+←)</TooltipContent>
+        <TooltipContent>
+          {bookmarked ? "Удалить из избранного" : "Добавить в избранное"} (Ctrl+D)
+        </TooltipContent>
       </Tooltip>
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={goForward} disabled={!canGoForward}>
-            <ArrowRight className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Вперёд (Alt+→)</TooltipContent>
-      </Tooltip>
+      <div className="flex-1" />
 
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={goUp} disabled={!currentPath}>
-            <ArrowUp className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Вверх (Alt+↑)</TooltipContent>
-      </Tooltip>
+      {/* Search */}
+      <div className="relative">
+        <Tooltip>
+          <TooltipTrigger asChild>
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={() => {
+                // Toggle local search popover
+                setShowSearch((s) => !s)
+                onSearch?.()
+              }}
+              className="h-8 w-8"
+            >
+              <Search className="h-4 w-4" />
+            </Button>
+          </TooltipTrigger>
+          <TooltipContent>Поиск (Ctrl+F)</TooltipContent>
+        </Tooltip>
 
-      <div className="w-px h-6 bg-border mx-1" />
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={onRefresh}>
-            <RefreshCw className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Обновить (F5)</TooltipContent>
-      </Tooltip>
-
-      <div className="w-px h-6 bg-border mx-1" />
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={onNewFolder}>
-            <FolderPlus className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Новая папка (Ctrl+Shift+N)</TooltipContent>
-      </Tooltip>
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={onNewFile}>
-            <FilePlus className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Новый файл (Ctrl+N)</TooltipContent>
-      </Tooltip>
-
-      <div className="w-px h-6 bg-border mx-1" />
-
-      <Tooltip>
-        <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={onSearch}>
-            <Search className="h-4 w-4" />
-          </Button>
-        </TooltipTrigger>
-        <TooltipContent>Поиск (Ctrl+F)</TooltipContent>
-      </Tooltip>
+        {showSearch && (
+          <div className="absolute right-0 top-full z-50 mt-2 w-[320px] rounded border bg-popover p-2 shadow-md">
+            <SearchBar
+              className="w-full"
+              onSearch={() => {
+                // Close popover on search submit
+                setShowSearch(false)
+                onSearch?.()
+              }}
+            />
+          </div>
+        )}
+      </div>
     </div>
   )
 }

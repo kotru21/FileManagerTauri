@@ -12,6 +12,7 @@ export interface PanelLayout {
   mainPanelSize: number
   previewPanelSize: number
   showSidebar: boolean
+  sidebarCollapsed?: boolean
   showPreview: boolean
   columnWidths: ColumnWidths
 }
@@ -23,6 +24,7 @@ interface LayoutState {
   setMainPanelSize: (size: number) => void
   setPreviewPanelSize: (size: number) => void
   setColumnWidth: (column: keyof ColumnWidths, width: number) => void
+  setSidebarCollapsed: (collapsed: boolean) => void
   toggleSidebar: () => void
   togglePreview: () => void
   resetLayout: () => void
@@ -30,6 +32,7 @@ interface LayoutState {
 
 const defaultLayout: PanelLayout = {
   sidebarSize: 20,
+  sidebarCollapsed: false,
   mainPanelSize: 80,
   previewPanelSize: 0,
   showSidebar: true,
@@ -54,6 +57,11 @@ export const useLayoutStore = create<LayoutState>()(
       setSidebarSize: (size) =>
         set((state) => ({
           layout: { ...state.layout, sidebarSize: size },
+        })),
+
+      setSidebarCollapsed: (collapsed: boolean) =>
+        set((state) => ({
+          layout: { ...state.layout, sidebarCollapsed: collapsed },
         })),
 
       setMainPanelSize: (size) =>
