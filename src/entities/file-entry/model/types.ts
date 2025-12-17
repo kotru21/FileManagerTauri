@@ -9,22 +9,22 @@ export interface SortConfig {
 }
 
 export function sortEntries(entries: FileEntry[], config: SortConfig): FileEntry[] {
-  const sorted = [...entries]
-
-  sorted.sort((a, b) => {
+  return [...entries].sort((a, b) => {
     // Folders always first
     if (a.is_dir !== b.is_dir) {
       return a.is_dir ? -1 : 1
     }
 
     let comparison = 0
-
     switch (config.field) {
       case "name":
-        comparison = a.name.toLowerCase().localeCompare(b.name.toLowerCase())
+        comparison = a.name.localeCompare(b.name, undefined, {
+          numeric: true,
+          sensitivity: "base",
+        })
         break
       case "size":
-        comparison = a.size - b.size
+        comparison = (a.size ?? 0) - (b.size ?? 0)
         break
       case "modified":
         comparison = (a.modified ?? 0) - (b.modified ?? 0)
@@ -36,18 +36,15 @@ export function sortEntries(entries: FileEntry[], config: SortConfig): FileEntry
 
     return config.direction === "asc" ? comparison : -comparison
   })
-
-  return sorted
 }
 
-export function filterEntries(
-  entries: FileEntry[],
-  options: {
-    showHidden?: boolean
-    extensions?: string[]
-    searchQuery?: string
-  },
-): FileEntry[] {
+export interface FilterOptions {
+  showHidden?: boolean
+  extensions?: string[]
+  searchQuery?: string
+}
+
+export function filterEntries(entries: FileEntry[], options: FilterOptions): FileEntry[] {
   const { showHidden = false, extensions, searchQuery } = options
 
   return entries.filter((entry) => {
@@ -57,19 +54,17 @@ export function filterEntries(
     }
 
     // Filter by extensions (case-insensitive, folders always pass)
-    if (extensions && extensions.length > 0) {
-      if (!entry.is_dir) {
-        const entryExt = entry.extension?.toLowerCase()
-        const hasMatchingExt = extensions.some((ext) => ext.toLowerCase() === entryExt)
-        if (!hasMatchingExt) {
-          return false
-        }
+    if (extensions?.length && !entry.is_dir) {
+      const ext = entry.extension?.toLowerCase()
+      if (!ext || !extensions.some((e) => e.toLowerCase() === ext)) {
+        return false
       }
     }
 
     // Filter by search query (case-insensitive)
-    if (searchQuery?.trim()) {
-      if (!entry.name.toLowerCase().includes(searchQuery.toLowerCase())) {
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase()
+      if (!entry.name.toLowerCase().includes(query)) {
         return false
       }
     }

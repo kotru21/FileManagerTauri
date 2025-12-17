@@ -1,56 +1,78 @@
-/* src/app/styles/globals.css */
 @import "tailwindcss";
 
 @theme {
   --color-background: oklch(0.145 0 0);
   --color-foreground: oklch(0.985 0 0);
-  --color-card: oklch(0.145 0 0);
-  --color-card-foreground: oklch(0.985 0 0);
-  --color-popover: oklch(0.145 0 0);
-  --color-popover-foreground: oklch(0.985 0 0);
-  --color-primary: oklch(0.985 0 0);
-  --color-primary-foreground: oklch(0.205 0 0);
-  --color-secondary: oklch(0.269 0 0);
-  --color-secondary-foreground: oklch(0.985 0 0);
   --color-muted: oklch(0.269 0 0);
   --color-muted-foreground: oklch(0.708 0 0);
   --color-accent: oklch(0.269 0 0);
   --color-accent-foreground: oklch(0.985 0 0);
-  --color-destructive: oklch(0.396 0.141 25.723);
-  --color-destructive-foreground: oklch(0.985 0 0);
+  --color-primary: oklch(0.985 0 0);
+  --color-primary-foreground: oklch(0.145 0 0);
+  --color-destructive: oklch(0.396 0.141 25.768);
   --color-border: oklch(0.269 0 0);
-  --color-input: oklch(0.269 0 0);
   --color-ring: oklch(0.439 0 0);
-  --radius: 0.5rem;
+
+  /* Custom properties for settings */
+  --transition-duration: 150ms;
+  --accent-color: #3b82f6;
 }
 
 * {
   border-color: var(--color-border);
-  box-sizing: border-box;
 }
 
 body {
-  font-family: system-ui, -apple-system, sans-serif;
   background-color: var(--color-background);
   color: var(--color-foreground);
-  margin: 0;
-  padding: 0;
+  font-family: system-ui, -apple-system, sans-serif;
   overflow: hidden;
+}
+
+/* Reduce motion when enabled - use specific selectors instead of !important */
+.reduce-motion,
+.reduce-motion *,
+.reduce-motion *::before,
+.reduce-motion *::after {
+  animation-duration: 0ms;
+  animation-delay: 0ms;
+  transition-duration: 0ms;
+  transition-delay: 0ms;
+}
+
+/* Font sizes */
+:root {
+  font-size: 16px; /* Default, overridden by settings */
+}
+
+/* Accent color application */
+.accent-primary {
+  color: var(--accent-color);
+}
+
+.bg-accent-primary {
+  background-color: var(--accent-color);
+}
+
+/* Dynamic transitions */
+.transition-colors {
+  transition-duration: var(--transition-duration);
 }
 
 /* Hide scrollbar for tabs */
 .scrollbar-none {
-  -ms-overflow-style: none;
   scrollbar-width: none;
+  -ms-overflow-style: none;
 }
+
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
 
 /* Custom scrollbar */
 ::-webkit-scrollbar {
-  width: 10px;
-  height: 10px;
+  width: 8px;
+  height: 8px;
 }
 
 ::-webkit-scrollbar-track {
@@ -58,15 +80,12 @@ body {
 }
 
 ::-webkit-scrollbar-thumb {
-  background: var(--color-border);
-  border-radius: 5px;
-  border: 2px solid transparent;
-  background-clip: content-box;
+  background: var(--color-muted);
+  border-radius: 4px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-muted-foreground);
-  background-clip: content-box;
 }
 
 /* Prevent text selection during drag */
@@ -85,20 +104,13 @@ body {
 }
 
 /* Tauri: frameless window drag region */
-/* Apply drag region where attribute contains data-tauri-drag-region */
 [data-tauri-drag-region] {
   -webkit-app-region: drag;
-  -webkit-user-select: none;
-  user-select: none;
 }
 
-/* Interactive controls inside drag region must be non-draggable so they remain clickable */
 [data-tauri-drag-region] button,
-[data-tauri-drag-region] a,
 [data-tauri-drag-region] input,
-[data-tauri-drag-region] textarea,
-[data-tauri-drag-region] select,
-[data-tauri-drag-region] .no-drag {
+[data-tauri-drag-region] a {
   -webkit-app-region: no-drag;
 }
 
@@ -113,13 +125,13 @@ body {
 
 /* Quick filter animation */
 .quick-filter-enter {
-  animation: slideDown 0.15s ease-out;
+  animation: slideDown var(--transition-duration) ease-out;
 }
 
 @keyframes slideDown {
   from {
     opacity: 0;
-    transform: translateY(-8px);
+    transform: translateY(-10px);
   }
   to {
     opacity: 1;
@@ -127,15 +139,15 @@ body {
   }
 }
 
-/* Path input focus state */
+/* Path input focus state - use outline instead of ring */
 .path-input:focus {
-  outline: none;
-  box-shadow: 0 0 0 2px var(--color-ring);
+  outline: 2px solid var(--color-ring);
+  outline-offset: 0;
 }
 
 /* Quick look overlay */
 .quick-look-active {
-  box-shadow: 0 0 0 2px var(--color-primary);
+  box-shadow: 0 0 0 2px var(--accent-color);
 }
 
 /* Breadcrumb hover state */
@@ -145,5 +157,16 @@ body {
 
 /* Filter bar transition */
 .filter-bar {
-  transition: all 0.15s ease-out;
+  transition: all var(--transition-duration) ease-out;
+}
+
+/* Compact mode */
+.compact-mode .file-row {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+}
+
+.compact-mode .file-icon {
+  width: 16px;
+  height: 16px;
 }
