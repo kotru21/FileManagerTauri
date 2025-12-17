@@ -18,7 +18,6 @@ import { SettingsDialog, useLayoutSettings, useSettingsStore } from "@/features/
 import { TabBar, useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { commands } from "@/shared/api/tauri"
-import { cn } from "@/shared/lib"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -31,14 +30,10 @@ import { Breadcrumbs, FileExplorer, PreviewPanel, Sidebar, StatusBar, Toolbar } 
 
 export function FileBrowserPage() {
   // Navigation
-  const currentPath = useNavigationStore((s) => s.currentPath)
-  const navigate = useNavigationStore((s) => s.navigate)
+  const { currentPath, navigate } = useNavigationStore()
 
   // Tabs
-  const tabs = useTabsStore((s) => s.tabs)
-  const activeTabId = useTabsStore((s) => s.activeTabId)
-  const addTab = useTabsStore((s) => s.addTab)
-  const updateTabPath = useTabsStore((s) => s.updateTabPath)
+  const { tabs, addTab, updateTabPath, getActiveTab } = useTabsStore()
 
   // Selection - use atomic selectors
   const selectedPaths = useSelectionStore((s) => s.selectedPaths)
@@ -47,15 +42,17 @@ export function FileBrowserPage() {
 
   // Layout from settings
   const layoutSettings = useLayoutSettings()
-  const { layout, setLayout, togglePreview } = useLayoutStore()
+  const { layout: panelLayout, setLayout } = useLayoutStore()
 
-  // Sync layout store with settings
+  // Sync layout store with settings on mount
   useEffect(() => {
     setLayout({
-      ...layoutSettings.panelLayout,
-      columnWidths: layoutSettings.columnWidths,
+      showSidebar: layoutSettings.panelLayout.showSidebar,
+      showPreview: layoutSettings.panelLayout.showPreview,
+      sidebarSize: layoutSettings.panelLayout.sidebarSize,
+      previewPanelSize: layoutSettings.panelLayout.previewPanelSize,
     })
-  }, [layoutSettings.panelLayout, layoutSettings.columnWidths, setLayout])
+  }, []) // Only on mount
 
   // Settings
   const openSettings = useSettingsStore((s) => s.open)
@@ -67,20 +64,19 @@ export function FileBrowserPage() {
   const addOperation = useOperationsHistoryStore((s) => s.addOperation)
 
   // Search
-  const searchResults = useSearchStore((s) => s.results)
-  const isSearching = useSearchStore((s) => s.isSearching)
-  const resetSearch = useSearchStore((s) => s.reset)
+  const { results: searchResults, isSearching, reset: resetSearch } = useSearchStore()
 
   // Quick Look state
   const [quickLookFile, setQuickLookFile] = useState<FileEntry | null>(null)
 
   // Panel refs for imperative control
-  const sidebarRef = useRef<ImperativePanelHandle>(null)
-  const previewRef = useRef<ImperativePanelHandle>(null)
+  const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
+  const previewPanelRef = useRef<ImperativePanelHandle>(null)
 
   // Files cache for preview lookup
   const filesRef = useRef<FileEntry[]>([])
 
+  // Query client for invalidation
   const queryClient = useQueryClient()
 
   // Initialize first tab if none exists
@@ -92,19 +88,19 @@ export function FileBrowserPage() {
 
   // Sync tab path with navigation
   useEffect(() => {
-    if (activeTabId && currentPath) {
-      updateTabPath(activeTabId, currentPath)
+    const activeTab = getActiveTab()
+    if (activeTab && currentPath && activeTab.path !== currentPath) {
+      updateTabPath(activeTab.id, currentPath)
     }
-  }, [activeTabId, currentPath, updateTabPath])
+  }, [currentPath, getActiveTab, updateTabPath])
 
   // Handle tab changes
   const handleTabChange = useCallback(
     (path: string) => {
       navigate(path)
-      clearSelection()
       resetSearch()
     },
-    [navigate, clearSelection, resetSearch],
+    [navigate, resetSearch],
   )
 
   // Get selected file for preview - optimized to avoid Set iteration
@@ -113,23 +109,22 @@ export function FileBrowserPage() {
     if (quickLookFile) return quickLookFile
 
     // Find file by lastSelectedPath
-    if (lastSelectedPath && selectedPaths.size === 1) {
-      return filesRef.current.find((f) => f.path === lastSelectedPath) || null
+    if (lastSelectedPath && filesRef.current.length > 0) {
+      return filesRef.current.find((f) => f.path === lastSelectedPath) ?? null
     }
     return null
-  }, [quickLookFile, lastSelectedPath, selectedPaths.size])
+  }, [quickLookFile, lastSelectedPath])
 
   // Show search results when we have results
   const showSearchResults = searchResults.length > 0 || isSearching
 
   // Handle search result selection
   const handleSearchResultSelect = useCallback(
-    (path: string) => {
-      const result = searchResults.find((r) => r.path === path)
-      if (result) {
-        // Navigate to parent directory
-        const parentPath = path.substring(0, path.lastIndexOf("\\"))
-        navigate(parentPath)
+    async (path: string) => {
+      // Navigate to parent directory
+      const result = await commands.getParentPath(path)
+      if (result.status === "ok" && result.data) {
+        navigate(result.data)
         resetSearch()
 
         // Select the file after navigation
@@ -138,20 +133,17 @@ export function FileBrowserPage() {
         }, 100)
       }
     },
-    [searchResults, navigate, resetSearch],
+    [navigate, resetSearch],
   )
 
   // Quick Look handler
   const handleQuickLook = useCallback(
     (file: FileEntry) => {
       setQuickLookFile(file)
-
       // Show preview panel if hidden
-      if (!layout.showPreview) {
-        togglePreview()
-      }
+      setLayout({ showPreview: true })
     },
-    [layout.showPreview, togglePreview],
+    [setLayout],
   )
 
   // Close Quick Look on Escape
@@ -162,28 +154,14 @@ export function FileBrowserPage() {
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    document.addEventListener("keydown", handleKeyDown)
+    return () => document.removeEventListener("keydown", handleKeyDown)
   }, [quickLookFile])
 
   // Update files ref when FileExplorer provides files
   const handleFilesChange = useCallback((files: FileEntry[]) => {
     filesRef.current = files
   }, [])
-
-  // Immediate resize handlers (no debounce)
-  const handleSidebarResize = useCallback(
-    (size: number) => setLayout({ sidebarSize: size }),
-    [setLayout],
-  )
-  const handleMainResize = useCallback(
-    (size: number) => setLayout({ mainPanelSize: size }),
-    [setLayout],
-  )
-  const handlePreviewResize = useCallback(
-    (size: number) => setLayout({ previewPanelSize: size }),
-    [setLayout],
-  )
 
   // Handlers
   const handleRefresh = useCallback(() => {
@@ -192,13 +170,29 @@ export function FileBrowserPage() {
     }
   }, [currentPath, queryClient])
 
-  const handleDelete = useCallback(async () => {
-    const paths = useSelectionStore.getState().getSelectedPaths()
+  const handleNewFolder = useCallback(() => {
+    if (currentPath) {
+      useInlineEditStore.getState().startNewFolder(currentPath)
+    }
+  }, [currentPath])
+
+  const handleNewFile = useCallback(() => {
+    if (currentPath) {
+      useInlineEditStore.getState().startNewFile(currentPath)
+    }
+  }, [currentPath])
+
+  const performDelete = useCallback(async () => {
+    const paths = Array.from(selectedPaths)
     if (paths.length === 0) return
 
-    const performDelete = async () => {
-      try {
-        await commands.deleteEntries(paths, false)
+    const confirmed = await openDeleteConfirm(paths, false)
+    if (!confirmed) return
+
+    try {
+      const result = await commands.deleteEntries(paths, false)
+      if (result.status === "ok") {
+        toast.success(`Удалено: ${paths.length} элемент(ов)`)
         addOperation({
           type: "delete",
           description: createOperationDescription("delete", { deletedPaths: paths }),
@@ -207,109 +201,84 @@ export function FileBrowserPage() {
         })
         clearSelection()
         handleRefresh()
-        toast.success(`Удалено: ${paths.length} элемент(ов)`)
-      } catch (error) {
-        toast.error(`Ошибка удаления: ${error}`)
+      } else {
+        toast.error(`Ошибка: ${result.error}`)
       }
+    } catch (error) {
+      toast.error(`Ошибка удаления: ${error}`)
     }
-
-    const settings = useSettingsStore.getState().settings
-    if (settings.behavior.confirmDelete) {
-      const confirmed = await openDeleteConfirm(paths, false)
-      if (confirmed) {
-        await performDelete()
-      }
-    } else {
-      await performDelete()
-    }
-  }, [openDeleteConfirm, addOperation, clearSelection, handleRefresh])
+  }, [selectedPaths, openDeleteConfirm, addOperation, clearSelection, handleRefresh])
 
   // Register commands
   useRegisterCommands({
     onRefresh: handleRefresh,
-    onDelete: handleDelete,
+    onDelete: performDelete,
     onOpenSettings: openSettings,
   })
 
   // Show undo toast for last operation
-  useUndoToast()
+  useUndoToast((operation) => {
+    // Handle undo based on operation type
+    toast.info(`Отмена: ${operation.description}`)
+  })
 
-  // Calculate panel sizes
-  const sidebarSize = layout.showSidebar ? layout.sidebarSize : 0
-  const previewSize = layout.showPreview ? layout.previewPanelSize : 0
-  const mainSize = 100 - sidebarSize - previewSize
+  // Toggle preview
+  const handleTogglePreview = useCallback(() => {
+    setLayout({ showPreview: !panelLayout.showPreview })
+  }, [panelLayout.showPreview, setLayout])
 
   return (
-    <TooltipProvider delayDuration={300}>
-      <div className={cn("flex flex-col h-screen bg-background text-foreground")}>
+    <TooltipProvider>
+      <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
         {/* Tab Bar */}
-        <TabBar onTabChange={handleTabChange} />
+        <TabBar onTabChange={handleTabChange} className="shrink-0" />
 
         {/* Header */}
-        <header className="flex flex-col border-b border-border shrink-0">
+        <div className="shrink-0">
           {/* Breadcrumbs */}
           {layoutSettings.showBreadcrumbs && (
-            <Breadcrumbs className="px-3 py-2 border-b border-border" />
+            <div className="px-3 py-2 border-b">
+              <Breadcrumbs />
+            </div>
           )}
 
           {/* Toolbar */}
           {layoutSettings.showToolbar && (
             <Toolbar
               onRefresh={handleRefresh}
-              onNewFolder={() => {
-                if (currentPath) {
-                  useInlineEditStore.getState().startNewFolder(currentPath)
-                }
-              }}
-              onNewFile={() => {
-                if (currentPath) {
-                  useInlineEditStore.getState().startNewFile(currentPath)
-                }
-              }}
-              onTogglePreview={togglePreview}
-              showPreview={layout.showPreview}
-              className="px-2 py-1.5"
+              onNewFolder={handleNewFolder}
+              onNewFile={handleNewFile}
+              onTogglePreview={handleTogglePreview}
+              showPreview={panelLayout.showPreview}
             />
           )}
-        </header>
+        </div>
 
         {/* Main Content */}
-        <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0">
+        <ResizablePanelGroup direction="horizontal" className="flex-1">
           {/* Sidebar */}
-          {layout.showSidebar && (
+          {panelLayout.showSidebar && (
             <>
               <ResizablePanel
-                ref={sidebarRef}
-                defaultSize={layout.sidebarSize}
+                ref={sidebarPanelRef}
+                defaultSize={panelLayout.sidebarSize}
                 minSize={10}
-                maxSize={40}
-                onResize={handleSidebarResize}
-                className="bg-card"
+                maxSize={30}
+                collapsible
+                collapsedSize={4}
+                onResize={(size) => setLayout({ sidebarSize: size })}
               >
-                <Sidebar collapsed={layout.sidebarCollapsed} className="h-full" />
+                <Sidebar collapsed={panelLayout.sidebarCollapsed} />
               </ResizablePanel>
               <ResizableHandle withHandle />
             </>
           )}
 
-          {/* Main Panel */}
-          <ResizablePanel defaultSize={mainSize} minSize={30} onResize={handleMainResize}>
+          {/* Main Panel - always takes remaining space */}
+          <ResizablePanel defaultSize={100} minSize={30}>
             {showSearchResults ? (
-              /* Search Results Overlay */
               <ScrollArea className="h-full">
-                <div className="p-4 space-y-2">
-                  <div className="flex items-center justify-between mb-4">
-                    <h2 className="text-lg font-semibold">
-                      Результаты поиска ({searchResults.length})
-                    </h2>
-                    <button
-                      type="button"
-                      onClick={resetSearch}
-                      className="text-sm text-muted-foreground hover:text-foreground"
-                    >
-                      Очистить
-                    </button>
-                  </div>
+                <div className="p-2 space-y-1">
                   {searchResults.map((result) => (
                     <SearchResultItem
                       key={result.path}
@@ -317,46 +286,34 @@ export function FileBrowserPage() {
                       onSelect={handleSearchResultSelect}
                     />
                   ))}
-                  {isSearching && (
-                    <div className="text-center text-muted-foreground py-4">Поиск...</div>
-                  )}
                 </div>
               </ScrollArea>
             ) : (
-              <FileExplorer
-                className="h-full"
-                onQuickLook={handleQuickLook}
-                onFilesChange={handleFilesChange}
-              />
+              <FileExplorer onQuickLook={handleQuickLook} onFilesChange={handleFilesChange} />
             )}
           </ResizablePanel>
 
           {/* Preview Panel */}
-          {layout.showPreview && (
+          {panelLayout.showPreview && (
             <>
               <ResizableHandle withHandle />
               <ResizablePanel
-                ref={previewRef}
-                defaultSize={layout.previewPanelSize}
+                ref={previewPanelRef}
+                defaultSize={panelLayout.previewPanelSize}
                 minSize={15}
-                maxSize={50}
-                onResize={handlePreviewResize}
-                className="bg-card"
+                maxSize={40}
+                onResize={(size) => setLayout({ previewPanelSize: size })}
               >
-                <PreviewPanel
-                  file={selectedFile}
-                  onClose={() => setQuickLookFile(null)}
-                  className={cn(quickLookFile && "ring-2 ring-primary")}
-                />
+                <PreviewPanel file={selectedFile} onClose={() => setQuickLookFile(null)} />
               </ResizablePanel>
             </>
           )}
         </ResizablePanelGroup>
 
         {/* Status Bar */}
-        {layoutSettings.showStatusBar && <StatusBar className="border-t border-border" />}
+        {layoutSettings.showStatusBar && <StatusBar />}
 
-        {/* Global UI: Command palette, settings dialog, undo toast, delete confirm */}
+        {/* Global UI: Command palette, settings dialog, delete confirm */}
         <CommandPalette />
         <SettingsDialog />
         <DeleteConfirmDialog />
