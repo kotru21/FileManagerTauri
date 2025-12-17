@@ -1,1 +1,8 @@
+export { AppearanceSettings } from "./AppearanceSettings"
+export { BehaviorSettings } from "./BehaviorSettings"
+export { FileDisplaySettings } from "./FileDisplaySettings"
+export { KeyboardSettings } from "./KeyboardSettings"
+export { LayoutSettings } from "./LayoutSettings"
+export { PerformanceSettings } from "./PerformanceSettings"
 export { SettingsDialog } from "./SettingsDialog"
+export { type SettingsTabId, SettingsTabs } from "./SettingsTabs"
