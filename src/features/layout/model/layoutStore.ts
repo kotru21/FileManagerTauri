@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
+import { subscribeWithSelector } from "zustand/middleware"
 
 export interface ColumnWidths {
   size: number
@@ -17,6 +17,20 @@ export interface PanelLayout {
   columnWidths: ColumnWidths
 }
 
+const defaultLayout: PanelLayout = {
+  sidebarSize: 20,
+  mainPanelSize: 55,
+  previewPanelSize: 25,
+  showSidebar: true,
+  sidebarCollapsed: false,
+  showPreview: true,
+  columnWidths: {
+    size: 90,
+    date: 140,
+    padding: 16,
+  },
+}
+
 interface LayoutState {
   layout: PanelLayout
   setLayout: (layout: Partial<PanelLayout>) => void
@@ -28,88 +42,74 @@ interface LayoutState {
   toggleSidebar: () => void
   togglePreview: () => void
   resetLayout: () => void
-}
-
-const defaultLayout: PanelLayout = {
-  sidebarSize: 20,
-  sidebarCollapsed: false,
-  mainPanelSize: 80,
-  previewPanelSize: 0,
-  showSidebar: true,
-  showPreview: false,
-  columnWidths: {
-    size: 80,
-    date: 140,
-    padding: 12,
-  },
+  applyLayout: (layout: PanelLayout) => void
 }
 
 export const useLayoutStore = create<LayoutState>()(
-  persist(
-    (set) => ({
-      layout: defaultLayout,
+  subscribeWithSelector((set) => ({
+    layout: defaultLayout,
 
-      setLayout: (newLayout) =>
-        set((state) => ({
-          layout: { ...state.layout, ...newLayout },
-        })),
+    setLayout: (updates) =>
+      set((state) => ({
+        layout: { ...state.layout, ...updates },
+      })),
 
-      setSidebarSize: (size) =>
-        set((state) => ({
-          layout: { ...state.layout, sidebarSize: size },
-        })),
+    setSidebarSize: (size) =>
+      set((state) => ({
+        layout: { ...state.layout, sidebarSize: size },
+      })),
 
-      setSidebarCollapsed: (collapsed: boolean) =>
-        set((state) => ({
-          layout: { ...state.layout, sidebarCollapsed: collapsed },
-        })),
+    setMainPanelSize: (size) =>
+      set((state) => ({
+        layout: { ...state.layout, mainPanelSize: size },
+      })),
 
-      setMainPanelSize: (size) =>
-        set((state) => ({
-          layout: { ...state.layout, mainPanelSize: size },
-        })),
+    setPreviewPanelSize: (size) =>
+      set((state) => ({
+        layout: { ...state.layout, previewPanelSize: size },
+      })),
 
-      setPreviewPanelSize: (size) =>
-        set((state) => ({
-          layout: { ...state.layout, previewPanelSize: size },
-        })),
+    setColumnWidth: (column, width) =>
+      set((state) => ({
+        layout: {
+          ...state.layout,
+          columnWidths: { ...state.layout.columnWidths, [column]: width },
+        },
+      })),
 
-      setColumnWidth: (column, width) =>
-        set((state) => ({
-          layout: {
-            ...state.layout,
-            columnWidths: { ...state.layout.columnWidths, [column]: width },
-          },
-        })),
+    setSidebarCollapsed: (collapsed) =>
+      set((state) => ({
+        layout: { ...state.layout, sidebarCollapsed: collapsed },
+      })),
 
-      toggleSidebar: () =>
-        set((state) => ({
-          layout: { ...state.layout, showSidebar: !state.layout.showSidebar },
-        })),
+    toggleSidebar: () =>
+      set((state) => ({
+        layout: { ...state.layout, showSidebar: !state.layout.showSidebar },
+      })),
 
-      togglePreview: () =>
-        set((state) => ({
-          layout: { ...state.layout, showPreview: !state.layout.showPreview },
-        })),
+    togglePreview: () =>
+      set((state) => ({
+        layout: { ...state.layout, showPreview: !state.layout.showPreview },
+      })),
 
-      resetLayout: () => set({ layout: defaultLayout }),
-    }),
-    {
-      name: "file-manager-layout",
-      merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<LayoutState> | undefined
-        return {
-          ...currentState,
-          layout: {
-            ...defaultLayout,
-            ...persisted?.layout,
-            columnWidths: {
-              ...defaultLayout.columnWidths,
-              ...persisted?.layout?.columnWidths,
-            },
-          },
-        }
-      },
-    },
-  ),
+    resetLayout: () => set({ layout: defaultLayout }),
+
+    applyLayout: (layout) => set({ layout }),
+  })),
 )
+
+// Selector hooks for optimized re-renders
+export const useSidebarLayout = () =>
+  useLayoutStore((s) => ({
+    size: s.layout.sidebarSize,
+    show: s.layout.showSidebar,
+    collapsed: s.layout.sidebarCollapsed,
+  }))
+
+export const usePreviewLayout = () =>
+  useLayoutStore((s) => ({
+    size: s.layout.previewPanelSize,
+    show: s.layout.showPreview,
+  }))
+
+export const useColumnWidths = () => useLayoutStore((s) => s.layout.columnWidths)

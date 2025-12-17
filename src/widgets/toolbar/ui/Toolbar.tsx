@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   RefreshCw,
   Search,
+  Settings,
   Star,
 } from "lucide-react"
 import { useState } from "react"
@@ -17,6 +18,7 @@ import { useBookmarksStore } from "@/features/bookmarks"
 import { useNavigationStore } from "@/features/navigation"
 import { useQuickFilterStore } from "@/features/quick-filter"
 import { SearchBar } from "@/features/search-content"
+import { useSettingsStore } from "@/features/settings"
 import { useViewModeStore, ViewModeToggle } from "@/features/view-mode"
 import { cn } from "@/shared/lib"
 import { Button, Separator, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
@@ -43,6 +45,7 @@ export function Toolbar({
   const { currentPath, goBack, goForward, goUp, canGoBack, canGoForward } = useNavigationStore()
   const { settings, toggleHidden } = useViewModeStore()
   const { isBookmarked, addBookmark, removeBookmark, getBookmarkByPath } = useBookmarksStore()
+  const openSettings = useSettingsStore((s) => s.open)
 
   const [showSearch, setShowSearch] = useState(false)
 
@@ -209,6 +212,15 @@ export function Toolbar({
       </Tooltip>
 
       <div className="flex-1" />
+
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button variant="ghost" size="icon" onClick={openSettings} className="h-8 w-8">
+            <Settings className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Настройки (Ctrl+,)</TooltipContent>
+      </Tooltip>
 
       {/* Search */}
       <div className="relative">
