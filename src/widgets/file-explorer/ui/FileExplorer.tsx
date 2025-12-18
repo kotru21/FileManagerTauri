@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
+  FileRow,
   filterEntries,
   sortEntries,
   useCopyEntries,
@@ -7,6 +8,7 @@ import {
   useCreateFile,
   useDeleteEntries,
   useDirectoryContents,
+  useStreamingDirectory,
   useFileWatcher,
   useMoveEntries,
   useRenameEntry,
@@ -15,12 +17,8 @@ import { useClipboardStore } from "@/features/clipboard"
 import { FileContextMenu } from "@/features/context-menu"
 import { useDeleteConfirmStore } from "@/features/delete-confirm"
 import { useSelectionStore } from "@/features/file-selection"
-import { useInlineEditStore } from "@/features/inline-edit"
+import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
-import {
-  createOperationDescription,
-  useOperationsHistoryStore,
-} from "@/features/operations-history"
 import { QuickFilterBar, useQuickFilterStore } from "@/features/quick-filter"
 import {
   useBehaviorSettings,
@@ -57,16 +55,22 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
 
   // Progress dialog state
   const [copyDialogOpen, setCopyDialogOpen] = useState(false)
-  const [copySource, setCopySource] = useState<string[]>([])
-  const [copyDestination, setCopyDestination] = useState<string>("")
+  const [_copySource, _setCopySource] = useState<string[]>([])
+  const [_copyDestination, _setCopyDestination] = useState<string>("")
 
   // Selection
   const selectedPaths = useSelectionStore((s) => s.selectedPaths)
   const clearSelection = useSelectionStore((s) => s.clearSelection)
   const getSelectedPaths = useSelectionStore((s) => s.getSelectedPaths)
 
-  // Data fetching
-  const { data: rawFiles, isLoading, refetch } = useDirectoryContents(currentPath)
+  // Data fetching - prefer streaming directory for faster incremental rendering
+  const dirQuery = useDirectoryContents(currentPath)
+  const stream = useStreamingDirectory(currentPath)
+
+  // Prefer stream entries when available (render partial results), otherwise use query result
+  const rawFiles = stream.entries.length > 0 ? stream.entries : dirQuery.data
+  const isLoading = dirQuery.isLoading || stream.isLoading
+  const refetch = dirQuery.refetch
 
   // File watcher
   useFileWatcher(currentPath)
@@ -91,8 +95,9 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   const { mutateAsync: copyEntries } = useCopyEntries()
   const { mutateAsync: moveEntries } = useMoveEntries()
 
-  // Process files with sorting and filtering
+  // Process files with sorting and filtering (instrumented)
   const processedFiles = useMemo(() => {
+    const start = performance.now()
     if (!rawFiles) return []
 
     // Filter with settings - use showHiddenFiles from displaySettings
@@ -101,8 +106,21 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     })
 
     // Sort
-    return sortEntries(filtered, sortConfig)
-  }, [rawFiles, displaySettings.showHiddenFiles, sortConfig])
+    const sorted = sortEntries(filtered, sortConfig)
+
+    const duration = performance.now() - start
+    try {
+      console.debug(`[perf] processFiles`, { path: currentPath, count: rawFiles.length, duration })
+      ;(globalThis as any).__fm_perfLog = {
+        ...(globalThis as any).__fm_perfLog,
+        lastProcess: { path: currentPath, count: rawFiles.length, duration, ts: Date.now() },
+      }
+    } catch {
+      /* ignore */
+    }
+
+    return sorted
+  }, [rawFiles, displaySettings.showHiddenFiles, sortConfig, currentPath])
 
   // Apply quick filter
   const files = useMemo(() => {
@@ -114,9 +132,29 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     })
   }, [processedFiles, isQuickFilterActive, quickFilter, displaySettings.showHiddenFiles])
 
-  // Notify parent about files change
+  // Notify parent about files change and log render timing for perf analysis
   useEffect(() => {
     onFilesChange?.(files)
+
+    try {
+      const last = (globalThis as any).__fm_lastNav
+      if (last) {
+        const now = performance.now()
+        const navToRender = now - last.t
+        console.debug(`[perf] nav->render`, { id: last.id, path: last.path, navToRender, filesCount: files.length })
+        ;(globalThis as any).__fm_perfLog = {
+          ...(globalThis as any).__fm_perfLog,
+          lastRender: { id: last.id, path: last.path, navToRender, filesCount: files.length, ts: Date.now() },
+        }
+      } else {
+        ;(globalThis as any).__fm_perfLog = {
+          ...(globalThis as any).__fm_perfLog,
+          lastRender: { filesCount: files.length, ts: Date.now() },
+        }
+      }
+    } catch {
+      /* ignore */
+    }
   }, [files, onFilesChange])
 
   // Handlers
@@ -141,8 +179,8 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       await moveEntries({ sources, destination })
     },
     onStartCopyWithProgress: (sources, destination) => {
-      setCopySource(sources)
-      setCopyDestination(destination)
+      _setCopySource(sources)
+      _setCopyDestination(destination)
       setCopyDialogOpen(true)
     },
   })
@@ -189,6 +227,8 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     onQuickLook: handleQuickLook,
   })
 
+  const performanceSettings = usePerformanceSettings()
+
   const renderContent = () => {
     if (isLoading) {
       return <div className="flex-1 flex items-center justify-center">Загрузка...</div>
@@ -204,6 +244,41 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
           onDrop={handlers.handleDrop}
           onQuickLook={onQuickLook}
         />
+      )
+    }
+
+    // If number of files is small, render plain list for simplicity
+    // Force virtualization when files > 20 to avoid UI jank on medium-sized folders
+    const simpleListThreshold = Math.min(performanceSettings.virtualListThreshold, 20)
+    if (files.length < simpleListThreshold) {
+      return (
+        <div className="h-full overflow-auto">
+          {files.map((file) => (
+            <div key={file.path} className="px-2">
+              <FileRow
+                file={file}
+                isSelected={selectedPaths.has(file.path)}
+                isFocused={false}
+                isCut={
+                  useClipboardStore.getState().isCut() &&
+                  useClipboardStore.getState().paths.includes(file.path)
+                }
+                isBookmarked={false}
+                onSelect={(e) => handlers.handleSelect(file.path, e as unknown as React.MouseEvent)}
+                onOpen={() => handlers.handleOpen(file.path, file.is_dir)}
+                onDrop={handlers.handleDrop}
+                getSelectedPaths={getSelectedPaths}
+                onRename={() => handlers.handleRename(file.path, file.name)}
+                onCopy={handlers.handleCopy}
+                onCut={handlers.handleCut}
+                onDelete={handleDelete}
+                onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
+                onToggleBookmark={() => {}}
+                columnWidths={useLayoutStore.getState().layout.columnWidths}
+              />
+            </div>
+          ))}
+        </div>
       )
     }
 

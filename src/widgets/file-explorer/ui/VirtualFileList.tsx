@@ -8,7 +8,7 @@ import { useKeyboardNavigation } from "@/features/keyboard-navigation"
 import { useLayoutStore } from "@/features/layout"
 import { RubberBandOverlay } from "@/features/rubber-band"
 import type { FileEntry } from "@/shared/api/tauri"
-import { cn, getBasename } from "@/shared/lib"
+import { cn } from "@/shared/lib"
 
 interface VirtualFileListProps {
   files: FileEntry[]
@@ -89,8 +89,22 @@ export function VirtualFileList({
     overscan: 10,
   })
 
+  // Instrument virtualization timings
+  useEffect(() => {
+    try {
+      const now = Date.now()
+      ;(globalThis as any).__fm_perfLog = {
+        ...(globalThis as any).__fm_perfLog,
+        virtualizer: { totalRows, overscan: 10, ts: now },
+      }
+      console.debug(`[perf] virtualizer`, { totalRows, overscan: 10 })
+    } catch {
+      /* ignore */
+    }
+  }, [totalRows])
+
   // Keyboard navigation - pass safe selectedPaths
-  const { focusedIndex, setFocusedIndex } = useKeyboardNavigation({
+  const { focusedIndex } = useKeyboardNavigation({
     files,
     selectedPaths: safeSelectedPaths,
     onSelect: (path, e) => {

@@ -1,4 +1,5 @@
 import { memo, useEffect, useRef, useState } from "react"
+import { usePerformanceSettings } from "@/features/settings"
 import { canShowThumbnail, getLocalImageUrl } from "@/shared/lib"
 import { FileIcon } from "./FileIcon"
 
@@ -13,7 +14,7 @@ interface FileThumbnailProps {
 // Shared loading pool to limit concurrent image loads
 const loadingPool = {
   active: 0,
-  maxConcurrent: 5,
+  maxConcurrent: 3,
   queue: [] as (() => void)[],
 
   acquire(callback: () => void) {
@@ -37,6 +38,28 @@ const loadingPool = {
   },
 }
 
+// Simple LRU cache for thumbnails to respect thumbnailCacheSize setting
+const thumbnailCache = new Map<string, string>()
+function maybeCacheThumbnail(path: string, url: string, maxSize: number) {
+  if (thumbnailCache.has(path)) {
+    // Move to newest
+    thumbnailCache.delete(path)
+    thumbnailCache.set(path, url)
+    return
+  }
+
+  thumbnailCache.set(path, url)
+  // Trim cache if needed
+  while (thumbnailCache.size > maxSize) {
+    const firstKey = thumbnailCache.keys().next().value
+    if (firstKey) {
+      thumbnailCache.delete(firstKey)
+    } else {
+      break
+    }
+  }
+}
+
 export const FileThumbnail = memo(function FileThumbnail({
   path,
   extension,
@@ -53,9 +76,16 @@ export const FileThumbnail = memo(function FileThumbnail({
 
   const showThumbnail = canShowThumbnail(extension) && !isDir
 
-  // Intersection observer for lazy loading
+  const performance = usePerformanceSettings()
+
+  // Intersection observer for lazy loading (or eager load based on settings)
   useEffect(() => {
     if (!showThumbnail || !containerRef.current) return
+
+    if (!performance.lazyLoadImages) {
+      setIsVisible(true)
+      return
+    }
 
     const observer = new IntersectionObserver(
       (entries) => {
@@ -72,7 +102,7 @@ export const FileThumbnail = memo(function FileThumbnail({
 
     observer.observe(containerRef.current)
     return () => observer.disconnect()
-  }, [showThumbnail])
+  }, [showThumbnail, performance.lazyLoadImages])
 
   // Load image when visible (with pool limiting)
   useEffect(() => {
@@ -91,6 +121,11 @@ export const FileThumbnail = memo(function FileThumbnail({
   const handleLoad = () => {
     setIsLoaded(true)
     loadingPool.release()
+
+    const url = imageRef.current?.src
+    if (url) {
+      maybeCacheThumbnail(path, url, performance.thumbnailCacheSize)
+    }
   }
 
   const handleError = () => {
@@ -106,6 +141,8 @@ export const FileThumbnail = memo(function FileThumbnail({
     )
   }
 
+  const src = thumbnailCache.get(path) ?? getLocalImageUrl(path)
+
   return (
     <div
       ref={containerRef}
@@ -119,7 +156,7 @@ export const FileThumbnail = memo(function FileThumbnail({
       {shouldLoad && (
         <img
           ref={imageRef}
-          src={getLocalImageUrl(path)}
+          src={src}
           alt=""
           onLoad={handleLoad}
           onError={handleError}
@@ -128,7 +165,7 @@ export const FileThumbnail = memo(function FileThumbnail({
             opacity: isLoaded ? 1 : 0,
             transition: "opacity 150ms ease-in-out",
           }}
-          loading="lazy"
+          loading={performance.lazyLoadImages ? "lazy" : "eager"}
           decoding="async"
         />
       )}

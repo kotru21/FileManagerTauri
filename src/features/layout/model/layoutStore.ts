@@ -15,6 +15,9 @@ export interface PanelLayout {
   sidebarCollapsed?: boolean
   showPreview: boolean
   columnWidths: ColumnWidths
+  // Lock flags: when true, size is controlled via settings sliders and resizing is disabled
+  sidebarSizeLocked?: boolean
+  previewSizeLocked?: boolean
 }
 
 const DEFAULT_LAYOUT: PanelLayout = {
@@ -29,6 +32,8 @@ const DEFAULT_LAYOUT: PanelLayout = {
     date: 180,
     padding: 8,
   },
+  sidebarSizeLocked: false,
+  previewSizeLocked: false,
 }
 
 interface LayoutState {
@@ -47,7 +52,7 @@ interface LayoutState {
 
 export const useLayoutStore = create<LayoutState>()(
   persist(
-    subscribeWithSelector((set, get) => ({
+    subscribeWithSelector((set) => ({
       layout: DEFAULT_LAYOUT,
 
       setLayout: (updates) =>

@@ -24,6 +24,8 @@ export const layoutPresets: Record<LayoutPresetId, LayoutPreset> = {
         date: 100,
         padding: 8,
       },
+      sidebarSizeLocked: false,
+      previewSizeLocked: false,
     },
   },
   default: {
@@ -38,6 +40,8 @@ export const layoutPresets: Record<LayoutPresetId, LayoutPreset> = {
       sidebarCollapsed: false,
       showPreview: true,
       columnWidths: defaultColumnWidths,
+      sidebarSizeLocked: false,
+      previewSizeLocked: false,
     },
   },
   wide: {
@@ -56,6 +60,8 @@ export const layoutPresets: Record<LayoutPresetId, LayoutPreset> = {
         date: 160,
         padding: 20,
       },
+      sidebarSizeLocked: false,
+      previewSizeLocked: false,
     },
   },
   custom: {
@@ -70,6 +76,8 @@ export const layoutPresets: Record<LayoutPresetId, LayoutPreset> = {
       sidebarCollapsed: false,
       showPreview: true,
       columnWidths: defaultColumnWidths,
+      sidebarSizeLocked: false,
+      previewSizeLocked: false,
     },
   },
 }

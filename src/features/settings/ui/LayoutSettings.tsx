@@ -26,6 +26,7 @@ interface SliderProps {
   max: number
   step?: number
   unit?: string
+  disabled?: boolean
   onChange: (value: number) => void
 }
 
@@ -36,19 +37,25 @@ const Slider = memo(function Slider({
   max,
   step = 1,
   unit = "",
+  disabled = false,
   onChange,
 }: SliderProps) {
   return (
     <div className="flex items-center gap-4">
       <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
       <input
+        aria-label={label}
         type="range"
         min={min}
         max={max}
         step={step}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="flex-1 h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary"
+        disabled={disabled}
+        className={cn(
+          "flex-1 h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary",
+          disabled && "opacity-50 pointer-events-none",
+        )}
       />
       <span className="text-sm text-muted-foreground w-16 text-right">
         {value}
@@ -235,6 +242,15 @@ export const LayoutSettings = memo(function LayoutSettings() {
                   onChange={(v) => updatePanelLayout({ sidebarCollapsed: v })}
                   icon={<PanelLeft size={16} className="text-muted-foreground" />}
                 />
+
+                <Toggle
+                  label="Закрепить ширину"
+                  description="Фиксировать ширину сайдбара и управлять ею через ползунок"
+                  checked={layout.panelLayout.sidebarSizeLocked ?? false}
+                  onChange={(v) => updatePanelLayout({ sidebarSizeLocked: v })}
+                  icon={<PanelLeft size={16} className="text-muted-foreground" />}
+                />
+
                 <Slider
                   label="Ширина сайдбара"
                   value={layout.panelLayout.sidebarSize}
@@ -242,6 +258,7 @@ export const LayoutSettings = memo(function LayoutSettings() {
                   max={40}
                   unit="%"
                   onChange={(v) => updatePanelLayout({ sidebarSize: v })}
+                  disabled={!layout.panelLayout.sidebarSizeLocked}
                 />
               </>
             )}
@@ -255,14 +272,25 @@ export const LayoutSettings = memo(function LayoutSettings() {
             />
 
             {layout.panelLayout.showPreview && (
-              <Slider
-                label="Ширина превью"
-                value={layout.panelLayout.previewPanelSize}
-                min={15}
-                max={50}
-                unit="%"
-                onChange={(v) => updatePanelLayout({ previewPanelSize: v })}
-              />
+              <>
+                <Toggle
+                  label="Закрепить ширину"
+                  description="Фиксировать ширину превью и управлять ею через ползунок"
+                  checked={layout.panelLayout.previewSizeLocked ?? false}
+                  onChange={(v) => updatePanelLayout({ previewSizeLocked: v })}
+                  icon={<PanelRight size={16} className="text-muted-foreground" />}
+                />
+
+                <Slider
+                  label="Ширина превью"
+                  value={layout.panelLayout.previewPanelSize}
+                  min={15}
+                  max={50}
+                  unit="%"
+                  onChange={(v) => updatePanelLayout({ previewPanelSize: v })}
+                  disabled={!layout.panelLayout.previewSizeLocked}
+                />
+              </>
             )}
           </div>
         </section>

@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { persist, subscribeWithSelector } from "zustand/middleware"
 import type { ColumnWidths, PanelLayout } from "@/features/layout"
+import { useLayoutStore } from "@/features/layout"
 import { getPresetLayout, isCustomLayout } from "./layoutPresets"
 import type {
   AppearanceSettings,
@@ -216,16 +217,19 @@ export const useSettingsStore = create<SettingsState>()(
         }),
 
       updateColumnWidths: (widths) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            layout: {
-              ...state.settings.layout,
-              columnWidths: { ...state.settings.layout.columnWidths, ...widths },
-            },
-          },
-        })),
+        set((state) => {
+          const merged = { ...state.settings.layout.columnWidths, ...widths }
 
+          return {
+            settings: {
+              ...state.settings,
+              layout: {
+                ...state.settings.layout,
+                columnWidths: merged,
+              },
+            },
+          }
+        }),
       saveCustomLayout: (name) => {
         const id = generateId()
         const customLayout: CustomLayout = {

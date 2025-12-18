@@ -1,5 +1,6 @@
 import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useRef } from "react"
+import { usePerformanceSettings } from "@/features/settings"
 import { commands, type SearchOptions } from "@/shared/api/tauri"
 import { toast } from "@/shared/ui"
 import { useSearchStore } from "../model/store"
@@ -33,6 +34,8 @@ export function useSearchWithProgress() {
       }
     }
   }, [])
+
+  const performance = usePerformanceSettings()
 
   const search = useCallback(async () => {
     if (!query.trim() || !searchPath) {
@@ -72,7 +75,7 @@ export function useSearchWithProgress() {
         search_path: searchPath,
         search_content: searchContent,
         case_sensitive: caseSensitive,
-        max_results: 1000,
+        max_results: performance.maxSearchResults,
         file_extensions: null,
       }
 
@@ -102,7 +105,16 @@ export function useSearchWithProgress() {
         unlistenRef.current = null
       }
     }
-  }, [query, searchPath, searchContent, caseSensitive, setIsSearching, setResults, setProgress])
+  }, [
+    query,
+    searchPath,
+    searchContent,
+    caseSensitive,
+    setIsSearching,
+    setResults,
+    setProgress,
+    performance.maxSearchResults,
+  ])
 
   return { search }
 }

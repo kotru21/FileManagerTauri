@@ -13,7 +13,7 @@ interface QuickFilterBarProps {
 
 export function QuickFilterBar({ totalCount, filteredCount, className }: QuickFilterBarProps) {
   const inputRef = useRef<HTMLInputElement>(null)
-  const timeoutRef = useRef<ReturnType<typeof setTimeout>>()
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   const { filter, setFilter, deactivate } = useQuickFilterStore()
   const performanceSettings = usePerformanceSettings()

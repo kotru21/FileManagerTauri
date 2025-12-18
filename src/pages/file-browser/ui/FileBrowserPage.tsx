@@ -18,6 +18,7 @@ import { SettingsDialog, useLayoutSettings, useSettingsStore } from "@/features/
 import { TabBar, useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { commands } from "@/shared/api/tauri"
+import { cn } from "@/shared/lib"
 import {
   ResizableHandle,
   ResizablePanel,
@@ -27,6 +28,7 @@ import {
   toast,
 } from "@/shared/ui"
 import { Breadcrumbs, FileExplorer, PreviewPanel, Sidebar, StatusBar, Toolbar } from "@/widgets"
+import { useSyncLayoutWithSettings } from "../hooks/useSyncLayoutWithSettings"
 
 export function FileBrowserPage() {
   // Navigation
@@ -44,15 +46,39 @@ export function FileBrowserPage() {
   const layoutSettings = useLayoutSettings()
   const { layout: panelLayout, setLayout } = useLayoutStore()
 
-  // Sync layout store with settings on mount
+  // Sync layout store with settings (encapsulated in a hook)
+  // This handles initial sync, applying presets/custom layouts, column widths and persisting
+  // back to settings when changes occur.
+  // The hook avoids DOM operations so it's safe to unit-test in isolation.
+  useSyncLayoutWithSettings()
+
+  // Register panel refs with the panel controller so DOM imperative calls are centralized
   useEffect(() => {
-    setLayout({
-      showSidebar: layoutSettings.panelLayout.showSidebar,
-      showPreview: layoutSettings.panelLayout.showPreview,
-      sidebarSize: layoutSettings.panelLayout.sidebarSize,
-      previewPanelSize: layoutSettings.panelLayout.previewPanelSize,
-    })
-  }, []) // Only on mount
+    // Use dynamic import to avoid requiring Node-style `require` and to keep this code browser-safe.
+    let mounted = true
+    let cleanup = () => {}
+
+    ;(async () => {
+      const mod = await import("@/features/layout/panelController")
+      if (!mounted) return
+      mod.registerSidebar(sidebarPanelRef)
+      mod.registerPreview(previewPanelRef)
+
+      cleanup = () => {
+        try {
+          mod.registerSidebar(null)
+          mod.registerPreview(null)
+        } catch {
+          /* ignore */
+        }
+      }
+    })()
+
+    return () => {
+      mounted = false
+      cleanup()
+    }
+  }, [])
 
   // Settings
   const openSettings = useSettingsStore((s) => s.open)
@@ -227,9 +253,27 @@ export function FileBrowserPage() {
     setLayout({ showPreview: !panelLayout.showPreview })
   }, [panelLayout.showPreview, setLayout])
 
+  // Compute a sensible default size for main panel to avoid invalid total sums
+  const mainDefaultSize = (() => {
+    const sidebar = panelLayout.showSidebar ? panelLayout.sidebarSize : 0
+    const preview = panelLayout.showPreview ? panelLayout.previewPanelSize : 0
+
+    if (panelLayout.showSidebar && panelLayout.showPreview) {
+      return Math.max(10, 100 - sidebar - preview)
+    }
+    if (panelLayout.showSidebar) return Math.max(30, 100 - sidebar)
+    if (panelLayout.showPreview) return Math.max(30, 100 - preview)
+    return 100
+  })()
+
   return (
     <TooltipProvider>
-      <div className="flex flex-col h-screen bg-background text-foreground overflow-hidden">
+      <div
+        className={cn(
+          "flex flex-col h-screen bg-background text-foreground overflow-hidden",
+          layoutSettings.compactMode && "compact-mode",
+        )}
+      >
         {/* Tab Bar */}
         <TabBar onTabChange={handleTabChange} className="shrink-0" />
 
@@ -260,22 +304,31 @@ export function FileBrowserPage() {
           {panelLayout.showSidebar && (
             <>
               <ResizablePanel
+                // When size is locked, remount panel on size change so defaultSize is applied
+                key={
+                  panelLayout.sidebarSizeLocked ? `sidebar-${panelLayout.sidebarSize}` : undefined
+                }
                 ref={sidebarPanelRef}
                 defaultSize={panelLayout.sidebarSize}
                 minSize={10}
                 maxSize={30}
                 collapsible
                 collapsedSize={4}
-                onResize={(size) => setLayout({ sidebarSize: size })}
+                onResize={(size) => {
+                  // allow runtime resizing only when not locked
+                  if (!panelLayout.sidebarSizeLocked)
+                    setLayout({ sidebarSize: size, sidebarCollapsed: size <= 4.1 })
+                }}
+                onCollapse={() => setLayout({ sidebarCollapsed: true })}
+                onExpand={() => setLayout({ sidebarCollapsed: false })}
               >
                 <Sidebar collapsed={panelLayout.sidebarCollapsed} />
               </ResizablePanel>
-              <ResizableHandle withHandle />
+              {!panelLayout.sidebarSizeLocked && <ResizableHandle withHandle />}
             </>
           )}
 
-          {/* Main Panel - always takes remaining space */}
-          <ResizablePanel defaultSize={100} minSize={30}>
+          <ResizablePanel defaultSize={mainDefaultSize} minSize={30}>
             {showSearchResults ? (
               <ScrollArea className="h-full">
                 <div className="p-2 space-y-1">
@@ -296,13 +349,20 @@ export function FileBrowserPage() {
           {/* Preview Panel */}
           {panelLayout.showPreview && (
             <>
-              <ResizableHandle withHandle />
+              {!panelLayout.previewSizeLocked && <ResizableHandle withHandle />}
               <ResizablePanel
+                key={
+                  panelLayout.previewSizeLocked
+                    ? `preview-${panelLayout.previewPanelSize}`
+                    : undefined
+                }
                 ref={previewPanelRef}
                 defaultSize={panelLayout.previewPanelSize}
                 minSize={15}
                 maxSize={40}
-                onResize={(size) => setLayout({ previewPanelSize: size })}
+                onResize={(size) => {
+                  if (!panelLayout.previewSizeLocked) setLayout({ previewPanelSize: size })
+                }}
               >
                 <PreviewPanel file={selectedFile} onClose={() => setQuickLookFile(null)} />
               </ResizablePanel>

@@ -4,6 +4,8 @@ import { useClipboardStore } from "@/features/clipboard"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
+import { useBehaviorSettings } from "@/features/settings"
+import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { joinPath } from "@/shared/lib"
 import { toast } from "@/shared/ui"
@@ -40,10 +42,23 @@ export function useFileExplorerHandlers({
   } = useClipboardStore()
   const clipboardCopy = useClipboardStore((s) => s.copy)
   const clipboardCut = useClipboardStore((s) => s.cut)
+  const behaviorSettings = useBehaviorSettings()
 
   // Selection handlers
   const handleSelect = useCallback(
     (path: string, e: React.MouseEvent) => {
+      // Ctrl+Click + setting => open folder in new tab
+      if ((e.ctrlKey || e.metaKey) && behaviorSettings.openFoldersInNewTab) {
+        const file = files.find((f) => f.path === path)
+        if (file?.is_dir) {
+          // Defer addTab to next frame to avoid blocking click handler
+          const { addTab } = useTabsStore.getState()
+          requestAnimationFrame(() => addTab(path))
+          // Do not change selection when opening in new tab
+          return
+        }
+      }
+
       if (e.shiftKey && files.length > 0) {
         const allPaths = files.map((f) => f.path)
         const lastSelected = getSelectedPaths()[0] || allPaths[0]
@@ -54,14 +69,25 @@ export function useFileExplorerHandlers({
         selectFile(path)
       }
     },
-    [files, selectFile, toggleSelection, selectRange, getSelectedPaths],
+    [
+      files,
+      selectFile,
+      toggleSelection,
+      selectRange,
+      getSelectedPaths,
+      behaviorSettings.openFoldersInNewTab,
+    ],
   )
 
   const handleOpen = useCallback(
     async (path: string, isDir: boolean) => {
       if (isDir) {
-        navigate(path)
-        clearSelection()
+        // Defer navigation to next animation frame so click handler can finish and
+        // the browser remains responsive (improves perceived latency).
+        requestAnimationFrame(() => {
+          navigate(path)
+          clearSelection()
+        })
       } else {
         try {
           await openPath(path)
@@ -166,6 +192,19 @@ export function useFileExplorerHandlers({
     if (!currentPath || clipboardPaths.length === 0) return
 
     try {
+      // Check for name conflicts in destination
+      const destinationNames = files.map((f) => f.name)
+      const conflictNames = clipboardPaths
+        .map((p) => p.split(/[\\/]/).pop() || p)
+        .filter((name) => destinationNames.includes(name))
+
+      if (conflictNames.length > 0 && behaviorSettings.confirmOverwrite) {
+        const ok = window.confirm(
+          `В целевой папке уже существуют файлы: ${conflictNames.join(", ")}. Перезаписать?`,
+        )
+        if (!ok) return
+      }
+
       if (clipboardPaths.length > 5) {
         onStartCopyWithProgress(clipboardPaths, currentPath)
       } else if (clipboardAction === "cut") {
@@ -187,6 +226,8 @@ export function useFileExplorerHandlers({
     moveEntries,
     clearClipboard,
     onStartCopyWithProgress,
+    files,
+    behaviorSettings.confirmOverwrite,
   ])
 
   const handleDelete = useCallback(async () => {
