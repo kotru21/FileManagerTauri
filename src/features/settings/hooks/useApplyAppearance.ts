@@ -74,11 +74,23 @@ export function applyAppearanceToRoot(appearance: AppearanceSettings) {
     }
 
     // Animations / reduced motion
-    if (!appearance.enableAnimations || appearance.reducedMotion) {
+    // Keep separate classes for explicit "animations off" and reduced-motion preference
+    if (!appearance.enableAnimations) {
+      root.classList.add("animations-off")
+    } else {
+      root.classList.remove("animations-off")
+    }
+
+    if (appearance.reducedMotion) {
       root.classList.add("reduce-motion")
-      root.style.setProperty("--transition-duration", "0ms")
     } else {
       root.classList.remove("reduce-motion")
+    }
+
+    // If either flag disables transitions, set transition duration to 0
+    if (!appearance.enableAnimations || appearance.reducedMotion) {
+      root.style.setProperty("--transition-duration", "0ms")
+    } else {
       root.style.setProperty("--transition-duration", "150ms")
     }
   } catch (e) {
