@@ -2,14 +2,16 @@ import type { ImperativePanelHandle } from "react-resizable-panels"
 import type { PanelLayout } from "./model/layoutStore"
 
 let sidebarRef: React.RefObject<ImperativePanelHandle | null> | null = null
-let previewRef: React.RefObject<ImperativePanelHandle | null> | null = null
+let _previewRef: React.RefObject<ImperativePanelHandle | null> | null = null
+// Keep reference variable intentionally — mark as used to avoid TS unused var error
+void _previewRef
 
 export function registerSidebar(ref: React.RefObject<ImperativePanelHandle | null> | null) {
   sidebarRef = ref
 }
 
 export function registerPreview(ref: React.RefObject<ImperativePanelHandle | null> | null) {
-  previewRef = ref
+  _previewRef = ref
 }
 
 function defer(fn: () => void) {

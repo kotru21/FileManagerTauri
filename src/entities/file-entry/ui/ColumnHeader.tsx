@@ -1,7 +1,7 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
 import { useCallback, useRef } from "react"
-import { type SortConfig, type SortField, useSortingStore } from "@/features/sorting"
 import { useFileDisplaySettings } from "@/features/settings"
+import { type SortConfig, type SortField, useSortingStore } from "@/features/sorting"
 import { cn } from "@/shared/lib"
 
 interface ColumnHeaderProps {
@@ -121,7 +121,6 @@ export function ColumnHeader({ columnWidths, onColumnResize, className }: Column
           <ResizeHandle onResize={handleResize("date")} />
         </div>
       )}
-
       {/* Date column */}
       {useFileDisplaySettings().showFileDates && (
         <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.date }}>

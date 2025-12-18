@@ -1,7 +1,6 @@
 import { create } from "zustand"
 import { persist, subscribeWithSelector } from "zustand/middleware"
 import type { ColumnWidths, PanelLayout } from "@/features/layout"
-import { useLayoutStore } from "@/features/layout"
 import { getPresetLayout, isCustomLayout } from "./layoutPresets"
 import type {
   AppearanceSettings,
@@ -303,15 +302,132 @@ export const useSettingsStore = create<SettingsState>()(
 
       exportSettings: () => JSON.stringify(get().settings, null, 2),
 
+      // Import settings with validation and deep-merge. Returns true on success, false on invalid input.
       importSettings: (json) => {
         try {
-          const imported = JSON.parse(json) as AppSettings
-          if (imported.version !== SETTINGS_VERSION) {
-            console.warn("Settings version mismatch, some settings may be reset")
+          const importedRaw = JSON.parse(json)
+
+          // Basic runtime validation — ensure top-level shape and basic field types.
+          function isValidTheme(v: unknown): v is "dark" | "light" | "system" {
+            return v === "dark" || v === "light" || v === "system"
           }
-          set({ settings: { ...defaultSettings, ...imported } })
+
+          function isValidFontSize(v: unknown): v is "small" | "medium" | "large" {
+            return v === "small" || v === "medium" || v === "large"
+          }
+
+          function isObject(v: unknown): v is Record<string, unknown> {
+            return typeof v === "object" && v !== null && !Array.isArray(v)
+          }
+
+          const validate = (input: unknown): boolean => {
+            if (!isObject(input)) return false
+            // appearance
+            if (input.appearance) {
+              const a = input.appearance
+              if (!isObject(a)) return false
+              if (a.theme !== undefined && !isValidTheme(a.theme)) return false
+              if (a.fontSize !== undefined && !isValidFontSize(a.fontSize)) return false
+              if (a.accentColor !== undefined && typeof a.accentColor !== "string") return false
+              if (a.enableAnimations !== undefined && typeof a.enableAnimations !== "boolean")
+                return false
+              if (a.reducedMotion !== undefined && typeof a.reducedMotion !== "boolean")
+                return false
+            }
+
+            // behavior
+            if (input.behavior) {
+              const b = input.behavior
+              if (!isObject(b)) return false
+              const boolKeys = [
+                "confirmDelete",
+                "confirmOverwrite",
+                "doubleClickToOpen",
+                "singleClickToSelect",
+                "autoRefreshOnFocus",
+                "rememberLastPath",
+                "openFoldersInNewTab",
+              ]
+              for (const k of boolKeys) {
+                if (b[k] !== undefined && typeof b[k] !== "boolean") return false
+              }
+            }
+
+            // fileDisplay
+            if (input.fileDisplay) {
+              const f = input.fileDisplay
+              if (!isObject(f)) return false
+              if (f.showFileExtensions !== undefined && typeof f.showFileExtensions !== "boolean")
+                return false
+              if (f.showFileSizes !== undefined && typeof f.showFileSizes !== "boolean")
+                return false
+              if (f.showFileDates !== undefined && typeof f.showFileDates !== "boolean")
+                return false
+              if (f.showHiddenFiles !== undefined && typeof f.showHiddenFiles !== "boolean")
+                return false
+              if (
+                f.dateFormat !== undefined &&
+                !(f.dateFormat === "relative" || f.dateFormat === "absolute")
+              )
+                return false
+              if (
+                f.thumbnailSize !== undefined &&
+                !(
+                  f.thumbnailSize === "small" ||
+                  f.thumbnailSize === "medium" ||
+                  f.thumbnailSize === "large"
+                )
+              )
+                return false
+            }
+
+            // layout, performance, keyboard are optional and will be lightly validated
+            if (input.layout && !isObject(input.layout)) return false
+            if (input.performance && !isObject(input.performance)) return false
+            if (input.keyboard && !isObject(input.keyboard)) return false
+
+            return true
+          }
+
+          if (!validate(importedRaw)) return false
+
+          const imported = importedRaw as Partial<AppSettings>
+
+          // Simple migrator placeholder — if version mismatch, log and proceed
+          if (typeof imported.version === "number" && imported.version !== SETTINGS_VERSION) {
+            console.warn(
+              "Settings version mismatch, attempting to migrate. Some fields may be reset.",
+            )
+            // A real migration pipeline would be implemented here.
+          }
+
+          // Deep merge helper — arrays in imported override defaults, objects are merged recursively
+          const deepMerge = (base: unknown, patch: unknown): unknown => {
+            if (!isObject(base) || !isObject(patch)) return patch === undefined ? base : patch
+            const out: Record<string, unknown> = { ...(base as Record<string, unknown>) }
+            for (const key of Object.keys(patch as Record<string, unknown>)) {
+              const pv = (patch as Record<string, unknown>)[key]
+              const bv = (base as Record<string, unknown>)[key]
+              if (Array.isArray(pv)) {
+                out[key] = pv
+              } else if (isObject(pv) && isObject(bv)) {
+                out[key] = deepMerge(bv, pv)
+              } else {
+                out[key] = pv
+              }
+            }
+            return out
+          }
+
+          const merged = deepMerge(defaultSettings, imported) as unknown as AppSettings
+
+          merged.version = SETTINGS_VERSION
+
+          set({ settings: merged })
           return true
-        } catch {
+        } catch (e) {
+          // invalid JSON or other error
+          console.warn("Failed to import settings: ", e)
           return false
         }
       },

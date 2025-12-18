@@ -32,8 +32,7 @@ export const useNavigationStore = create<NavigationState>()(
         // Mark navigation start for performance debugging
         try {
           const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-          ;(globalThis as any).__fm_lastNav = { id, path, t: performance.now() }
-          // Use debug to avoid noise in production consoles
+          globalThis.__fm_lastNav = { id, path, t: performance.now() }
           console.debug(`[perf] nav:start`, { id, path })
         } catch {
           /* ignore */

@@ -1,10 +1,10 @@
 import { useEffect } from "react"
+import { useCommandPaletteStore } from "@/features/command-palette"
+import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
 import { useQuickFilterStore } from "@/features/quick-filter"
-import { useSettingsStore, useKeyboardSettings } from "@/features/settings"
-import { useCommandPaletteStore } from "@/features/command-palette"
-import { useSelectionStore } from "@/features/file-selection"
+import { useKeyboardSettings, useSettingsStore } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 
 interface UseFileExplorerKeyboardOptions {
@@ -37,7 +37,6 @@ export function useFileExplorerKeyboard({
   const enableVim = keyboardSettings.enableVimMode
 
   useEffect(() => {
-
     // Build a normalized signature map for enabled shortcuts
     const normalizeSignature = (s: string) =>
       s

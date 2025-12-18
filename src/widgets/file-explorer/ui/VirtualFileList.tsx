@@ -60,12 +60,10 @@ export function VirtualFileList({
   // Get bookmarks state
   const { isBookmarked, addBookmark, removeBookmark } = useBookmarksStore()
 
-  // Ensure selectedPaths is a valid Set
   const safeSelectedPaths = useMemo(() => {
     return selectedPaths instanceof Set ? selectedPaths : new Set<string>()
   }, [selectedPaths])
 
-  // Find index where inline edit row should appear
   const inlineEditIndex = useMemo(() => {
     if (mode === "rename" && targetPath) {
       return files.findIndex((f) => f.path === targetPath)
@@ -93,8 +91,8 @@ export function VirtualFileList({
   useEffect(() => {
     try {
       const now = Date.now()
-      ;(globalThis as any).__fm_perfLog = {
-        ...(globalThis as any).__fm_perfLog,
+      globalThis.__fm_perfLog = {
+        ...(globalThis.__fm_perfLog ?? {}),
         virtualizer: { totalRows, overscan: 10, ts: now },
       }
       console.debug(`[perf] virtualizer`, { totalRows, overscan: 10 })
@@ -182,7 +180,6 @@ export function VirtualFileList({
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const rowIndex = virtualRow.index
 
-            // Check if this is the inline edit row position
             if (mode && mode !== "rename" && rowIndex === inlineEditIndex) {
               return (
                 <div

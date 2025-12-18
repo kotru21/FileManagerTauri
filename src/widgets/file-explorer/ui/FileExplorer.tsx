@@ -8,10 +8,10 @@ import {
   useCreateFile,
   useDeleteEntries,
   useDirectoryContents,
-  useStreamingDirectory,
   useFileWatcher,
   useMoveEntries,
   useRenameEntry,
+  useStreamingDirectory,
 } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
 import { FileContextMenu } from "@/features/context-menu"
@@ -148,10 +148,21 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       if (last) {
         const now = performance.now()
         const navToRender = now - last.t
-        console.debug(`[perf] nav->render`, { id: last.id, path: last.path, navToRender, filesCount: files.length })
+        console.debug(`[perf] nav->render`, {
+          id: last.id,
+          path: last.path,
+          navToRender,
+          filesCount: files.length,
+        })
         globalThis.__fm_perfLog = {
           ...(globalThis.__fm_perfLog ?? {}),
-          lastRender: { id: last.id, path: last.path, navToRender, filesCount: files.length, ts: Date.now() },
+          lastRender: {
+            id: last.id,
+            path: last.path,
+            navToRender,
+            filesCount: files.length,
+            ts: Date.now(),
+          },
         }
       } else {
         globalThis.__fm_perfLog = {
