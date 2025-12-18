@@ -18,7 +18,6 @@ export function initLayoutSync() {
   useLayoutStore.getState().setColumnWidth("date", cw.date)
   useLayoutStore.getState().setColumnWidth("padding", cw.padding)
 
-  // Ensure panels reflect initial collapsed state
   applyLayoutToPanels(settingsPanel)
 
   // Subscribe to settings.panelLayout changes and apply to runtime

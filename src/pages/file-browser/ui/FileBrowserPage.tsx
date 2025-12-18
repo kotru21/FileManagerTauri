@@ -3,8 +3,8 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import type { ImperativePanelHandle } from "react-resizable-panels"
 import { fileKeys } from "@/entities/file-entry"
 import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
-import { DeleteConfirmDialog, useDeleteConfirmStore } from "@/features/delete-confirm"
 import { ConfirmDialog } from "@/features/confirm"
+import { DeleteConfirmDialog, useDeleteConfirmStore } from "@/features/delete-confirm"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useLayoutStore } from "@/features/layout"
@@ -55,7 +55,6 @@ export function FileBrowserPage() {
 
   // Register panel refs with the panel controller so DOM imperative calls are centralized
   useEffect(() => {
-    // Use dynamic import to avoid requiring Node-style `require` and to keep this code browser-safe.
     let mounted = true
     let cleanup = () => {}
 
@@ -130,7 +129,6 @@ export function FileBrowserPage() {
     [navigate, resetSearch],
   )
 
-  // Get selected file for preview - optimized to avoid Set iteration
   const selectedFile = useMemo(() => {
     // Quick look takes priority
     if (quickLookFile) return quickLookFile
@@ -185,7 +183,6 @@ export function FileBrowserPage() {
     return () => document.removeEventListener("keydown", handleKeyDown)
   }, [quickLookFile])
 
-  // Update files ref when FileExplorer provides files
   const handleFilesChange = useCallback((files: FileEntry[]) => {
     filesRef.current = files
   }, [])
@@ -254,7 +251,6 @@ export function FileBrowserPage() {
     setLayout({ showPreview: !panelLayout.showPreview })
   }, [panelLayout.showPreview, setLayout])
 
-  // Compute a sensible default size for main panel to avoid invalid total sums
   const mainDefaultSize = (() => {
     const sidebar = panelLayout.showSidebar ? panelLayout.sidebarSize : 0
     const preview = panelLayout.showPreview ? panelLayout.previewPanelSize : 0

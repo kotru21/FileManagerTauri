@@ -27,7 +27,6 @@ export function InlineEditRow({
 
   useEffect(() => {
     if (inputRef.current) {
-      // Defer focus to the next animation frame to ensure the element is visible
       requestAnimationFrame(() => {
         if (!inputRef.current) return
         inputRef.current.focus()

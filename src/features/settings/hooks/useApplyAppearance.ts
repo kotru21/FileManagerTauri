@@ -23,9 +23,8 @@ export function applyAppearanceToRoot(appearance: AppearanceSettings) {
     // Accent color - validate basic HEX format (allow 3/4/6/8 hex)
     const isHex = /^#([0-9a-f]{3,4}|[0-9a-f]{6}|[0-9a-f]{8})$/i.test(appearance.accentColor)
     if (isHex) {
-      // Set both variable names to support places using --accent-color and --color-accent
+      // Set canonical variable
       root.style.setProperty("--accent-color", appearance.accentColor)
-      root.style.setProperty("--color-accent", appearance.accentColor)
 
       // Also set primary color to the accent for consistency in UI tokens
       root.style.setProperty("--color-primary", appearance.accentColor)
@@ -58,7 +57,6 @@ export function applyAppearanceToRoot(appearance: AppearanceSettings) {
       }
     } else if (!appearance.accentColor) {
       root.style.removeProperty("--accent-color")
-      root.style.removeProperty("--color-accent")
       root.style.removeProperty("--color-primary")
       root.style.removeProperty("--color-primary-foreground")
       root.style.removeProperty("--accent-color-foreground")
@@ -66,7 +64,6 @@ export function applyAppearanceToRoot(appearance: AppearanceSettings) {
       // Fallback: try applying as-is but guard against throwing
       try {
         root.style.setProperty("--accent-color", appearance.accentColor)
-        root.style.setProperty("--color-accent", appearance.accentColor)
         root.style.setProperty("--color-primary", appearance.accentColor)
       } catch {
         // ignore invalid color value

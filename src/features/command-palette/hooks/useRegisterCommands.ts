@@ -1,10 +1,11 @@
-import { useEffect } from "react"
+import { useCallback, useEffect } from "react"
 import { useBookmarksStore } from "@/features/bookmarks"
 import { useClipboardStore } from "@/features/clipboard"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
 import { useQuickFilterStore } from "@/features/quick-filter"
+import { useFileDisplaySettings, useSettingsStore } from "@/features/settings"
 import { useViewModeStore } from "@/features/view-mode"
 import { type Command, useCommandPaletteStore } from "../model/store"
 
@@ -24,7 +25,13 @@ export function useRegisterCommands({
   const { copy, cut } = useClipboardStore()
   const { getSelectedPaths, clearSelection } = useSelectionStore()
   const { startNewFolder, startNewFile } = useInlineEditStore()
-  const { settings, setViewMode, toggleHidden } = useViewModeStore()
+  const { setViewMode } = useViewModeStore()
+  const displaySettings = useFileDisplaySettings()
+  const toggleHidden = useCallback(() => {
+    useSettingsStore
+      .getState()
+      .updateFileDisplay({ showHiddenFiles: !displaySettings.showHiddenFiles })
+  }, [displaySettings.showHiddenFiles])
   const { toggle: toggleQuickFilter } = useQuickFilterStore()
   const { isBookmarked, addBookmark, removeBookmark, getBookmarkByPath } = useBookmarksStore()
 
@@ -168,9 +175,9 @@ export function useRegisterCommands({
       },
       {
         id: "view-toggle-hidden",
-        title: settings.showHidden ? "Скрыть скрытые файлы" : "Показать скрытые файлы",
+        title: displaySettings.showHiddenFiles ? "Скрыть скрытые файлы" : "Показать скрытые файлы",
         description: "Переключить отображение скрытых файлов",
-        icon: settings.showHidden ? "eye-off" : "eye",
+        icon: displaySettings.showHiddenFiles ? "eye-off" : "eye",
         category: "view",
         action: toggleHidden,
         keywords: ["hidden", "show", "скрытые"],
@@ -245,7 +252,7 @@ export function useRegisterCommands({
     setViewMode,
     toggleHidden,
     toggleQuickFilter,
-    settings.showHidden,
+    displaySettings.showHiddenFiles,
     isBookmarked,
     addBookmark,
     removeBookmark,

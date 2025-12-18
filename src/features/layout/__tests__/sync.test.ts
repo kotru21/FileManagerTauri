@@ -1,7 +1,7 @@
 /// <reference types="vitest" />
 import { beforeEach, describe, expect, it } from "vitest"
 import { useLayoutStore } from "@/features/layout"
-import { initLayoutSync, stopLayoutSync } from "@/features/layout/sync"
+import { initLayoutSync } from "@/features/layout/sync"
 import { useSettingsStore } from "@/features/settings"
 
 describe("layout sync module", () => {

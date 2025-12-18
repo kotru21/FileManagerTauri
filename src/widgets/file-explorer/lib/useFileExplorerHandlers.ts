@@ -1,6 +1,7 @@
 import { openPath } from "@tauri-apps/plugin-opener"
 import { useCallback } from "react"
 import { useClipboardStore } from "@/features/clipboard"
+import { useConfirmStore } from "@/features/confirm"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
@@ -9,7 +10,6 @@ import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { joinPath } from "@/shared/lib"
 import { toast } from "@/shared/ui"
-import { useConfirmStore } from "@/features/confirm"
 
 interface UseFileExplorerHandlersOptions {
   files: FileEntry[]
@@ -52,7 +52,6 @@ export function useFileExplorerHandlers({
       if ((e.ctrlKey || e.metaKey) && behaviorSettings.openFoldersInNewTab) {
         const file = files.find((f) => f.path === path)
         if (file?.is_dir) {
-          // Defer addTab to next frame to avoid blocking click handler
           const { addTab } = useTabsStore.getState()
           requestAnimationFrame(() => addTab(path))
           // Do not change selection when opening in new tab
@@ -60,6 +59,35 @@ export function useFileExplorerHandlers({
         }
       }
 
+      if (!behaviorSettings.doubleClickToOpen) {
+        const file = files.find((f) => f.path === path)
+        if (!file) return
+
+        // Optionally select on single click before opening
+        if (behaviorSettings.singleClickToSelect) {
+          selectFile(path)
+        }
+
+        // Open directories via navigation (deferred) and files via opener
+        if (file.is_dir) {
+          requestAnimationFrame(() => {
+            navigate(path)
+            // If singleClickToSelect is enabled, we keep the selection when opening via single click.
+            if (!behaviorSettings.singleClickToSelect) clearSelection()
+          })
+        } else {
+          try {
+            // Use opener for files
+            openPath(path)
+          } catch (error) {
+            toast.error(`Не удалось открыть файл: ${error}`)
+          }
+        }
+
+        return
+      }
+
+      // Default selection behavior when doubleClickToOpen is enabled
       if (e.shiftKey && files.length > 0) {
         const allPaths = files.map((f) => f.path)
         const lastSelected = getSelectedPaths()[0] || allPaths[0]
@@ -77,6 +105,10 @@ export function useFileExplorerHandlers({
       selectRange,
       getSelectedPaths,
       behaviorSettings.openFoldersInNewTab,
+      behaviorSettings.doubleClickToOpen,
+      behaviorSettings.singleClickToSelect,
+      navigate,
+      clearSelection,
     ],
   )
 

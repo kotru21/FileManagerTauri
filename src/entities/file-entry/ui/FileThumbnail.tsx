@@ -163,7 +163,7 @@ export const FileThumbnail = memo(function FileThumbnail({
           className="absolute inset-0 w-full h-full object-cover rounded"
           style={{
             opacity: isLoaded ? 1 : 0,
-            transition: "opacity 150ms ease-in-out",
+            transition: "opacity var(--transition-duration) ease-in-out",
           }}
           loading={performance.lazyLoadImages ? "lazy" : "eager"}
           decoding="async"

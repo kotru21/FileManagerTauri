@@ -1,5 +1,5 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react"
-import { useFileDisplaySettings } from "@/features/settings"
+import { useAppearanceSettings, useFileDisplaySettings } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, formatBytes, formatDate, formatRelativeDate } from "@/shared/lib"
 import { FileIcon } from "./FileIcon"
@@ -47,7 +47,6 @@ export const FileRow = memo(function FileRow({
   columnWidths = { size: 100, date: 180, padding: 8 },
 }: FileRowProps) {
   // Instrument render counts to help diagnose excessive re-renders in large directories
-  // Note: this is for debugging purposes — kept lightweight and safe in production.
   try {
     const rc = globalThis.__fm_renderCounts ?? { fileRows: 0 }
     rc.fileRows = (rc.fileRows ?? 0) + 1
@@ -65,12 +64,15 @@ export const FileRow = memo(function FileRow({
   const iconSizeMap: Record<string, number> = { small: 14, medium: 18, large: 22 }
   const iconSize = iconSizeMap[displaySettings.thumbnailSize] ?? 18
 
-  // Scroll into view when focused
+  const appearance = useAppearanceSettings()
+
+  // Scroll into view when focused; respect reduced motion setting
   useEffect(() => {
     if (isFocused && rowRef.current) {
-      rowRef.current.scrollIntoView({ block: "nearest", behavior: "smooth" })
+      const behavior: ScrollBehavior = appearance.reducedMotion ? "auto" : "smooth"
+      rowRef.current.scrollIntoView({ block: "nearest", behavior })
     }
-  }, [isFocused])
+  }, [isFocused, appearance.reducedMotion])
 
   // Format the display name based on settings
   const displayName = displaySettings.showFileExtensions

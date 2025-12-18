@@ -36,7 +36,6 @@ describe("applyAppearanceToRoot and useApplyAppearance", () => {
     expect(document.documentElement.classList.contains("dark")).toBe(true)
     expect(document.documentElement.style.fontSize).toBe("18px")
     expect(document.documentElement.style.getPropertyValue("--accent-color")).toBe("#ff0000")
-    expect(document.documentElement.style.getPropertyValue("--color-accent")).toBe("#ff0000")
     expect(document.documentElement.style.getPropertyValue("--color-primary")).toBe("#ff0000")
     expect(document.documentElement.style.getPropertyValue("--color-primary-foreground")).toBe(
       "#ffffff",
@@ -67,7 +66,6 @@ describe("applyAppearanceToRoot and useApplyAppearance", () => {
       reducedMotion: false,
     })
 
-    // Should not throw and should attempt to set the css-var
     expect(document.documentElement.style.getPropertyValue("--accent-color")).toBe("not-a-color")
   })
 
