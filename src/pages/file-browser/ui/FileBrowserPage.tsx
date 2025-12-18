@@ -4,6 +4,7 @@ import type { ImperativePanelHandle } from "react-resizable-panels"
 import { fileKeys } from "@/entities/file-entry"
 import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
 import { DeleteConfirmDialog, useDeleteConfirmStore } from "@/features/delete-confirm"
+import { ConfirmDialog } from "@/features/confirm"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useLayoutStore } from "@/features/layout"
@@ -377,6 +378,7 @@ export function FileBrowserPage() {
         <CommandPalette />
         <SettingsDialog />
         <DeleteConfirmDialog />
+        <ConfirmDialog />
       </div>
     </TooltipProvider>
   )

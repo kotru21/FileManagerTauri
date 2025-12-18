@@ -111,8 +111,8 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     const duration = performance.now() - start
     try {
       console.debug(`[perf] processFiles`, { path: currentPath, count: rawFiles.length, duration })
-      ;(globalThis as any).__fm_perfLog = {
-        ...(globalThis as any).__fm_perfLog,
+      globalThis.__fm_perfLog = {
+        ...(globalThis.__fm_perfLog ?? {}),
         lastProcess: { path: currentPath, count: rawFiles.length, duration, ts: Date.now() },
       }
     } catch {
@@ -136,19 +136,26 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   useEffect(() => {
     onFilesChange?.(files)
 
+    // Expose files to keyboard helpers (used by vim-mode fallback)
     try {
-      const last = (globalThis as any).__fm_lastNav
+      globalThis.__fm_lastFiles = files
+    } catch {
+      /* ignore */
+    }
+
+    try {
+      const last = globalThis.__fm_lastNav as { id: string; path: string; t: number } | undefined
       if (last) {
         const now = performance.now()
         const navToRender = now - last.t
         console.debug(`[perf] nav->render`, { id: last.id, path: last.path, navToRender, filesCount: files.length })
-        ;(globalThis as any).__fm_perfLog = {
-          ...(globalThis as any).__fm_perfLog,
+        globalThis.__fm_perfLog = {
+          ...(globalThis.__fm_perfLog ?? {}),
           lastRender: { id: last.id, path: last.path, navToRender, filesCount: files.length, ts: Date.now() },
         }
       } else {
-        ;(globalThis as any).__fm_perfLog = {
-          ...(globalThis as any).__fm_perfLog,
+        globalThis.__fm_perfLog = {
+          ...(globalThis.__fm_perfLog ?? {}),
           lastRender: { filesCount: files.length, ts: Date.now() },
         }
       }
@@ -218,6 +225,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
 
   // Keyboard shortcuts
   useFileExplorerKeyboard({
+    files,
     onCopy: handlers.handleCopy,
     onCut: handlers.handleCut,
     onPaste: handlers.handlePaste,
@@ -247,9 +255,8 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       )
     }
 
-    // If number of files is small, render plain list for simplicity
-    // Force virtualization when files > 20 to avoid UI jank on medium-sized folders
-    const simpleListThreshold = Math.min(performanceSettings.virtualListThreshold, 20)
+    // Use virtualized list once files count reaches the configured threshold
+    const simpleListThreshold = performanceSettings.virtualListThreshold
     if (files.length < simpleListThreshold) {
       return (
         <div className="h-full overflow-auto">

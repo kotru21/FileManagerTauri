@@ -2,9 +2,13 @@ import { useEffect } from "react"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
 import { useQuickFilterStore } from "@/features/quick-filter"
-import { useSettingsStore } from "@/features/settings"
+import { useSettingsStore, useKeyboardSettings } from "@/features/settings"
+import { useCommandPaletteStore } from "@/features/command-palette"
+import { useSelectionStore } from "@/features/file-selection"
+import type { FileEntry } from "@/shared/api/tauri"
 
 interface UseFileExplorerKeyboardOptions {
+  files?: FileEntry[]
   onCopy: () => void
   onCut: () => void
   onPaste: () => void
@@ -28,7 +32,42 @@ export function useFileExplorerKeyboard({
   const { toggle: toggleQuickFilter } = useQuickFilterStore()
   const { open: openSettings } = useSettingsStore()
 
+  const keyboardSettings = useKeyboardSettings()
+  const shortcuts = keyboardSettings.shortcuts
+  const enableVim = keyboardSettings.enableVimMode
+
   useEffect(() => {
+
+    // Build a normalized signature map for enabled shortcuts
+    const normalizeSignature = (s: string) =>
+      s
+        .toLowerCase()
+        .replace(/\s+/g, "")
+        .split("+")
+        .map((t) => t.trim())
+        .join("+")
+
+    const signatureFromEvent = (e: KeyboardEvent) => {
+      const parts: string[] = []
+      if (e.ctrlKey) parts.push("ctrl")
+      if (e.shiftKey) parts.push("shift")
+      if (e.altKey) parts.push("alt")
+      if (e.metaKey) parts.push("meta")
+
+      // Prefer code for Space and function keys
+      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
+      parts.push(key)
+      return parts.join("+")
+    }
+
+    const shortcutMap = new Map<string, string>()
+    for (const s of shortcuts) {
+      if (!s.enabled) continue
+      shortcutMap.set(normalizeSignature(s.keys), s.id)
+    }
+
+    let lastGAt = 0
+
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't handle if in input or inline edit mode
       const target = e.target as HTMLElement
@@ -36,18 +75,49 @@ export function useFileExplorerKeyboard({
 
       if (inlineEditMode) return
 
-      // Settings (Ctrl+,)
-      if ((e.ctrlKey || e.metaKey) && e.key === ",") {
-        e.preventDefault()
-        openSettings()
-        return
-      }
-
-      // Quick filter toggle (Ctrl+Shift+F)
-      if (e.ctrlKey && e.shiftKey && e.key === "F") {
-        e.preventDefault()
-        toggleQuickFilter()
-        return
+      // Vim navigation basic: j/k/select next/prev, gg -> top, G -> bottom
+      if (enableVim && !isInput) {
+        if (e.key === "j") {
+          e.preventDefault()
+          const sel = useSelectionStore.getState().getSelectedPaths()
+          const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
+          if (!files || files.length === 0) return
+          const last = sel[0] || files[0].path
+          const idx = files.findIndex((f) => f.path === last)
+          const next = files[Math.min(files.length - 1, (idx === -1 ? -1 : idx) + 1)]
+          if (next) useSelectionStore.getState().selectFile(next.path)
+          return
+        }
+        if (e.key === "k") {
+          e.preventDefault()
+          const sel = useSelectionStore.getState().getSelectedPaths()
+          const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
+          if (!files || files.length === 0) return
+          const last = sel[0] || files[0].path
+          const idx = files.findIndex((f) => f.path === last)
+          const prev = files[Math.max(0, (idx === -1 ? 0 : idx) - 1)]
+          if (prev) useSelectionStore.getState().selectFile(prev.path)
+          return
+        }
+        if (e.key === "g") {
+          const now = Date.now()
+          if (now - lastGAt < 350) {
+            // gg -> go to first
+            e.preventDefault()
+            const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
+            if (files && files.length > 0) useSelectionStore.getState().selectFile(files[0].path)
+            lastGAt = 0
+            return
+          }
+          lastGAt = now
+        }
+        if (e.key === "G") {
+          e.preventDefault()
+          const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
+          if (files && files.length > 0)
+            useSelectionStore.getState().selectFile(files[files.length - 1].path)
+          return
+        }
       }
 
       // If in input (including quick filter), only handle Escape
@@ -55,52 +125,51 @@ export function useFileExplorerKeyboard({
         return
       }
 
+      // Check settings shortcuts first
+      const sig = signatureFromEvent(e)
+      const action = shortcutMap.get(sig)
+      if (action) {
+        e.preventDefault()
+        switch (action) {
+          case "copy":
+            onCopy()
+            break
+          case "cut":
+            onCut()
+            break
+          case "paste":
+            onPaste()
+            break
+          case "delete":
+            onDelete()
+            break
+          case "newFolder":
+            onStartNewFolder()
+            break
+          case "refresh":
+            onRefresh()
+            break
+          case "quickFilter":
+          case "search":
+            toggleQuickFilter()
+            break
+          case "settings":
+            openSettings()
+            break
+          case "commandPalette":
+            useCommandPaletteStore.getState().toggle()
+            break
+          default:
+            break
+        }
+        return
+      }
+
+      // Fallbacks for older hardcoded behavior
       // Quick Look (Space)
       if (e.code === "Space" && onQuickLook) {
         e.preventDefault()
         onQuickLook()
-        return
-      }
-
-      // Copy (Ctrl+C)
-      if (e.ctrlKey && e.key === "c") {
-        e.preventDefault()
-        onCopy()
-        return
-      }
-
-      // Cut (Ctrl+X)
-      if (e.ctrlKey && e.key === "x") {
-        e.preventDefault()
-        onCut()
-        return
-      }
-
-      // Paste (Ctrl+V)
-      if (e.ctrlKey && e.key === "v") {
-        e.preventDefault()
-        onPaste()
-        return
-      }
-
-      // Delete
-      if (e.key === "Delete") {
-        e.preventDefault()
-        onDelete()
-        return
-      }
-
-      // New folder (Ctrl+Shift+N)
-      if (e.ctrlKey && e.shiftKey && e.key === "N") {
-        e.preventDefault()
-        onStartNewFolder()
-        return
-      }
-
-      // Refresh (F5)
-      if (e.key === "F5") {
-        e.preventDefault()
-        onRefresh()
         return
       }
 
@@ -125,8 +194,9 @@ export function useFileExplorerKeyboard({
         return
       }
 
-      // Start typing to activate quick filter
+      // Start typing to activate quick filter (disabled in vim mode)
       if (
+        !enableVim &&
         !e.ctrlKey &&
         !e.altKey &&
         !e.metaKey &&
@@ -154,5 +224,7 @@ export function useFileExplorerKeyboard({
     inlineEditMode,
     toggleQuickFilter,
     openSettings,
+    shortcuts,
+    enableVim,
   ])
 }

@@ -1,6 +1,7 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
 import { useCallback, useRef } from "react"
 import { type SortConfig, type SortField, useSortingStore } from "@/features/sorting"
+import { useFileDisplaySettings } from "@/features/settings"
 import { cn } from "@/shared/lib"
 
 interface ColumnHeaderProps {
@@ -108,27 +109,32 @@ export function ColumnHeader({ columnWidths, onColumnResize, className }: Column
         <ResizeHandle onResize={handleResize("size")} />
       </div>
       {/* Size column */}
-      <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.size }}>
-        <SortableHeader
-          field="size"
-          label="Размер"
-          sortConfig={sortConfig}
-          onSort={setSortField}
-          className="justify-end"
-        />
-        <ResizeHandle onResize={handleResize("date")} />
-      </div>
+      {useFileDisplaySettings().showFileSizes && (
+        <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.size }}>
+          <SortableHeader
+            field="size"
+            label="Размер"
+            sortConfig={sortConfig}
+            onSort={setSortField}
+            className="justify-end"
+          />
+          <ResizeHandle onResize={handleResize("date")} />
+        </div>
+      )}
+
       {/* Date column */}
-      <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.date }}>
-        <SortableHeader
-          field="modified"
-          label="Изменён"
-          sortConfig={sortConfig}
-          onSort={setSortField}
-          className="justify-end"
-        />
-        <ResizeHandle onResize={handleResize("padding")} />
-      </div>
+      {useFileDisplaySettings().showFileDates && (
+        <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.date }}>
+          <SortableHeader
+            field="modified"
+            label="Изменён"
+            sortConfig={sortConfig}
+            onSort={setSortField}
+            className="justify-end"
+          />
+          <ResizeHandle onResize={handleResize("padding")} />
+        </div>
+      )}
       {/* Padding column */}
       <div className="shrink-0" style={{ width: columnWidths.padding }} />
     </div>

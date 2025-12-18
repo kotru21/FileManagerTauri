@@ -9,6 +9,7 @@ import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { joinPath } from "@/shared/lib"
 import { toast } from "@/shared/ui"
+import { useConfirmStore } from "@/features/confirm"
 
 interface UseFileExplorerHandlersOptions {
   files: FileEntry[]
@@ -199,9 +200,8 @@ export function useFileExplorerHandlers({
         .filter((name) => destinationNames.includes(name))
 
       if (conflictNames.length > 0 && behaviorSettings.confirmOverwrite) {
-        const ok = window.confirm(
-          `В целевой папке уже существуют файлы: ${conflictNames.join(", ")}. Перезаписать?`,
-        )
+        const message = `В целевой папке уже существуют файлы: ${conflictNames.join(", ")}. Перезаписать?`
+        const ok = await useConfirmStore.getState().open("Перезаписать файлы?", message)
         if (!ok) return
       }
 

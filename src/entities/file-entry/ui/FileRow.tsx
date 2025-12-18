@@ -49,9 +49,9 @@ export const FileRow = memo(function FileRow({
   // Instrument render counts to help diagnose excessive re-renders in large directories
   // Note: this is for debugging purposes — kept lightweight and safe in production.
   try {
-    const rc = (globalThis as any).__fm_renderCounts || { fileRows: 0 }
-    rc.fileRows = (rc.fileRows || 0) + 1
-    ;(globalThis as any).__fm_renderCounts = rc
+    const rc = globalThis.__fm_renderCounts ?? { fileRows: 0 }
+    rc.fileRows = (rc.fileRows ?? 0) + 1
+    globalThis.__fm_renderCounts = rc
   } catch {
     /* ignore */
   }
@@ -131,7 +131,7 @@ export const FileRow = memo(function FileRow({
       ref={rowRef}
       className={cn(
         "group flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none",
-        "hover:bg-accent/50 transition-colors duration-[var(--transition-duration)]",
+        "hover:bg-accent/50 transition-colors duration-(--transition-duration)",
         isSelected && "bg-accent",
         isFocused && "ring-1 ring-primary ring-inset",
         isDragOver && "bg-accent/70 ring-2 ring-primary",
