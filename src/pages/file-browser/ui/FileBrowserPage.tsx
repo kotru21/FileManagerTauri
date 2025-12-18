@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { ImperativePanelHandle } from "react-resizable-panels"
+import type { PanelImperativeHandle } from "react-resizable-panels"
 import { fileKeys } from "@/entities/file-entry"
 import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
 import { ConfirmDialog } from "@/features/confirm"
@@ -96,8 +96,8 @@ export function FileBrowserPage() {
   const [quickLookFile, setQuickLookFile] = useState<FileEntry | null>(null)
 
   // Panel refs for imperative control
-  const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
-  const previewPanelRef = useRef<ImperativePanelHandle>(null)
+  const sidebarPanelRef = useRef<PanelImperativeHandle>(null)
+  const previewPanelRef = useRef<PanelImperativeHandle>(null)
 
   // Files cache for preview lookup
   const filesRef = useRef<FileEntry[]>([])
@@ -296,7 +296,7 @@ export function FileBrowserPage() {
         </div>
 
         {/* Main Content */}
-        <ResizablePanelGroup direction="horizontal" className="flex-1">
+        <ResizablePanelGroup orientation="horizontal" className="flex-1">
           {/* Sidebar */}
           {panelLayout.showSidebar && (
             <>
@@ -305,19 +305,19 @@ export function FileBrowserPage() {
                 key={
                   panelLayout.sidebarSizeLocked ? `sidebar-${panelLayout.sidebarSize}` : undefined
                 }
-                ref={sidebarPanelRef}
-                defaultSize={panelLayout.sidebarSize}
-                minSize={10}
-                maxSize={30}
+                panelRef={sidebarPanelRef}
+                defaultSize={`${panelLayout.sidebarSize}%`}
+                minSize="10%"
+                maxSize="30%"
                 collapsible
-                collapsedSize={4}
-                onResize={(size) => {
+                collapsedSize="4%"
+                onResize={(panelSize) => {
                   // allow runtime resizing only when not locked
-                  if (!panelLayout.sidebarSizeLocked)
+                  if (!panelLayout.sidebarSizeLocked) {
+                    const size = panelSize.asPercentage
                     setLayout({ sidebarSize: size, sidebarCollapsed: size <= 4.1 })
+                  }
                 }}
-                onCollapse={() => setLayout({ sidebarCollapsed: true })}
-                onExpand={() => setLayout({ sidebarCollapsed: false })}
               >
                 <Sidebar collapsed={panelLayout.sidebarCollapsed} />
               </ResizablePanel>
@@ -325,7 +325,7 @@ export function FileBrowserPage() {
             </>
           )}
 
-          <ResizablePanel defaultSize={mainDefaultSize} minSize={30}>
+          <ResizablePanel defaultSize={`${mainDefaultSize}%`} minSize="30%">
             {showSearchResults ? (
               <ScrollArea className="h-full">
                 <div className="p-2 space-y-1">
@@ -353,12 +353,15 @@ export function FileBrowserPage() {
                     ? `preview-${panelLayout.previewPanelSize}`
                     : undefined
                 }
-                ref={previewPanelRef}
-                defaultSize={panelLayout.previewPanelSize}
-                minSize={15}
-                maxSize={40}
-                onResize={(size) => {
-                  if (!panelLayout.previewSizeLocked) setLayout({ previewPanelSize: size })
+                panelRef={previewPanelRef}
+                defaultSize={`${panelLayout.previewPanelSize}%`}
+                minSize="15%"
+                maxSize="40%"
+                onResize={(panelSize) => {
+                  if (!panelLayout.previewSizeLocked) {
+                    const size = panelSize.asPercentage
+                    setLayout({ previewPanelSize: size })
+                  }
                 }}
               >
                 <PreviewPanel file={selectedFile} onClose={() => setQuickLookFile(null)} />
