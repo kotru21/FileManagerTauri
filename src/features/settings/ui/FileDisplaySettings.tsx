@@ -151,26 +151,52 @@ export const FileDisplaySettings = memo(function FileDisplaySettings() {
             <Image size={16} />
             Размер миниатюр
           </h3>
-          <div className="flex gap-2">
-            {thumbnailSizes.map((size) => (
-              <button
-                key={size.id}
-                type="button"
-                onClick={handleThumbnailSizeChange(size.id)}
-                className={cn(
-                  "flex flex-col items-center gap-2 p-3 rounded-md border transition-all",
-                  fileDisplay.thumbnailSize === size.id
-                    ? "border-primary bg-primary/10"
-                    : "border-border hover:border-muted-foreground/50",
-                )}
+          <div className="flex gap-4 items-center">
+            <div className="flex gap-2">
+              {thumbnailSizes.map((size) => (
+                <button
+                  key={size.id}
+                  type="button"
+                  onClick={handleThumbnailSizeChange(size.id)}
+                  className={cn(
+                    "flex flex-col items-center gap-2 p-3 rounded-md border transition-all",
+                    fileDisplay.thumbnailSize === size.id
+                      ? "border-primary bg-primary/10"
+                      : "border-border hover:border-muted-foreground/50",
+                  )}
+                >
+                  <div
+                    className="bg-muted rounded"
+                    style={{ width: size.size / 2, height: size.size / 2 }}
+                  />
+                  <span className="text-xs">{size.label}</span>
+                </button>
+              ))}
+            </div>
+
+            {/* Live preview box */}
+            <div className="flex flex-col items-center gap-2">
+              <span className="text-xs text-muted-foreground">Preview</span>
+              <div
+                className="rounded-md border bg-background flex items-center justify-center"
+                style={{
+                  width: thumbnailSizes.find((s) => s.id === fileDisplay.thumbnailSize)?.size || 64,
+                  height:
+                    thumbnailSizes.find((s) => s.id === fileDisplay.thumbnailSize)?.size || 64,
+                }}
               >
-                <div
-                  className="bg-muted rounded"
-                  style={{ width: size.size / 2, height: size.size / 2 }}
+                <Image
+                  size={Math.max(
+                    12,
+                    Math.floor(
+                      (thumbnailSizes.find((s) => s.id === fileDisplay.thumbnailSize)?.size || 64) /
+                        3,
+                    ),
+                  )}
+                  className="text-muted-foreground"
                 />
-                <span className="text-xs">{size.label}</span>
-              </button>
-            ))}
+              </div>
+            </div>
           </div>
         </section>
 

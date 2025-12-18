@@ -18,6 +18,81 @@
   --accent-color: #3b82f6;
 }
 
+/* Theme overrides applied via html.dark / html.light classes. This makes class-based
+   theme switching effective even if Tailwind is configured to use media-based dark
+   mode. We set the main color variables so components relying on CSS variables update. */
+html.dark {
+  --color-background: oklch(0.145 0 0);
+  --color-foreground: oklch(0.985 0 0);
+  --color-muted: oklch(0.269 0 0);
+  --color-muted-foreground: oklch(0.708 0 0);
+  --color-accent: oklch(0.269 0 0);
+  --color-accent-foreground: oklch(0.985 0 0);
+  --color-primary: oklch(0.985 0 0);
+  --color-primary-foreground: oklch(0.145 0 0);
+}
+
+html.light {
+  /* Invert background/foreground for light mode */
+  --color-background: oklch(0.985 0 0);
+  --color-foreground: oklch(0.145 0 0);
+  --color-muted: oklch(0.7 0 0);
+  --color-muted-foreground: oklch(0.2 0 0);
+  --color-accent-foreground: oklch(0.145 0 0);
+  --color-primary-foreground: oklch(0.985 0 0);
+}
+
+/* Ensure Tailwind utility-like classes reflect CSS variables for accent/primary
+   to make dynamic user-selected accent colors apply immediately at runtime. */
+.bg-accent {
+  background-color: var(--accent-color, var(--color-accent));
+}
+.bg-accent\/50 {
+  background-color: rgba(var(--accent-color-rgb, 59 130 246), 0.5);
+}
+.bg-accent\/70 {
+  background-color: rgba(var(--accent-color-rgb, 59 130 246), 0.7);
+}
+.hover\:bg-accent\/50:hover {
+  background-color: rgba(var(--accent-color-rgb, 59 130 246), 0.5);
+}
+.text-accent-foreground {
+  color: var(--accent-color-foreground, var(--color-accent-foreground, #fff));
+}
+/* Icon helpers: ensure icon elements can be colored by accent variables */
+.icon-accent {
+  color: var(--accent-color, var(--color-accent));
+  stroke: var(--accent-color, var(--color-accent));
+}
+.icon-accent-foreground {
+  color: var(--accent-color-foreground, var(--color-primary-foreground, #fff));
+  stroke: var(--accent-color-foreground, var(--color-primary-foreground, #fff));
+}
+/* Make SVG icons follow current text color by default. Do not fill by default so outlined icons remain outlined. */
+svg {
+  color: inherit;
+  stroke: currentColor;
+  fill: none; /* default: no fill; use .icon-fill-current or inline fill prop to fill */
+}
+
+/* Utility to fill icon with currentColor when needed */
+.icon-fill-current {
+  fill: currentColor;
+}
+
+/* Utility to fill icon explicitly with accent color */
+.icon-fill-accent {
+  fill: var(--accent-color, var(--color-accent));
+  color: var(--accent-color, var(--color-accent));
+}
+.ring-primary {
+  /* Fallback ring using accent color */
+  box-shadow: 0 0 0 2px var(--accent-color, var(--color-accent));
+}
+.border-primary {
+  border-color: var(--accent-color, var(--color-accent));
+}
+
 * {
   border-color: var(--color-border);
 }

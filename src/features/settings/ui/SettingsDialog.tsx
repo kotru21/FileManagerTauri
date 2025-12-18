@@ -82,7 +82,7 @@ export const SettingsDialog = memo(function SettingsDialog() {
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
-      <DialogContent className="max-w-3xl h-150 flex flex-col p-0 gap-0">
+      <DialogContent hideDefaultClose className="max-w-3xl h-150 flex flex-col p-0 gap-0">
         <DialogHeader className="px-6 py-4 border-b border-border">
           <div className="flex items-center justify-between">
             <DialogTitle>Настройки</DialogTitle>
@@ -109,7 +109,7 @@ export const SettingsDialog = memo(function SettingsDialog() {
                 <RotateCcw size={16} />
               </Button>
               <Separator orientation="vertical" className="h-6" />
-              <Button variant="ghost" size="icon" onClick={close}>
+              <Button variant="ghost" size="icon" onClick={close} title="Закрыть настройки">
                 <X size={18} />
               </Button>
             </div>

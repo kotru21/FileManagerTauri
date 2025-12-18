@@ -73,9 +73,10 @@ export function UndoToast({ operation, onUndo, duration = 5000 }: UndoToastProps
 }
 
 // Hook to show undo toast for last operation
-export function useUndoToast() {
+export function useUndoToast(onOperation?: (op: Operation) => void) {
   const [currentOperation, setCurrentOperation] = useState<Operation | null>(null)
   const { undoLastOperation } = useOperationsHistoryStore()
+  const operations = useOperationsHistoryStore((s) => s.operations)
 
   const showUndo = useCallback((operation: Operation) => {
     setCurrentOperation(operation)
@@ -90,6 +91,14 @@ export function useUndoToast() {
     },
     [undoLastOperation],
   )
+
+  // Auto-show toasts for new operations and call optional callback
+  useEffect(() => {
+    if (!operations || operations.length === 0) return
+    const op = operations[0]
+    if (onOperation) onOperation(op)
+    if (op.canUndo) showUndo(op)
+  }, [operations, onOperation, showUndo])
 
   const toast = currentOperation ? (
     <UndoToast operation={currentOperation} onUndo={handleUndo} />

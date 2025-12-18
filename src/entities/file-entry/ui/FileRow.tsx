@@ -46,11 +46,24 @@ export const FileRow = memo(function FileRow({
   onToggleBookmark,
   columnWidths = { size: 100, date: 180, padding: 8 },
 }: FileRowProps) {
+  // Instrument render counts to help diagnose excessive re-renders in large directories
+  // Note: this is for debugging purposes — kept lightweight and safe in production.
+  try {
+    const rc = (globalThis as any).__fm_renderCounts || { fileRows: 0 }
+    rc.fileRows = (rc.fileRows || 0) + 1
+    ;(globalThis as any).__fm_renderCounts = rc
+  } catch {
+    /* ignore */
+  }
   const rowRef = useRef<HTMLDivElement>(null)
   const [isDragOver, setIsDragOver] = useState(false)
 
   // Get display settings
   const displaySettings = useFileDisplaySettings()
+
+  // Map thumbnailSize setting to icon size for list mode
+  const iconSizeMap: Record<string, number> = { small: 14, medium: 18, large: 22 }
+  const iconSize = iconSizeMap[displaySettings.thumbnailSize] ?? 18
 
   // Scroll into view when focused
   useEffect(() => {
@@ -125,6 +138,7 @@ export const FileRow = memo(function FileRow({
         isCut && "opacity-50",
       )}
       onClick={onSelect}
+      onContextMenu={onSelect}
       onDoubleClick={onOpen}
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
@@ -134,7 +148,12 @@ export const FileRow = memo(function FileRow({
       data-path={file.path}
     >
       {/* Icon */}
-      <FileIcon extension={file.extension} isDir={file.is_dir} className="shrink-0" size={18} />
+      <FileIcon
+        extension={file.extension}
+        isDir={file.is_dir}
+        className="shrink-0"
+        size={iconSize}
+      />
 
       {/* Name */}
       <span className="flex-1 truncate text-sm file-name">{displayName}</span>

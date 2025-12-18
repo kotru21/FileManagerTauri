@@ -18,8 +18,8 @@ import { useBookmarksStore } from "@/features/bookmarks"
 import { useNavigationStore } from "@/features/navigation"
 import { useQuickFilterStore } from "@/features/quick-filter"
 import { SearchBar } from "@/features/search-content"
-import { useSettingsStore } from "@/features/settings"
-import { useViewModeStore, ViewModeToggle } from "@/features/view-mode"
+import { useFileDisplaySettings, useSettingsStore } from "@/features/settings"
+import { ViewModeToggle } from "@/features/view-mode"
 import { cn } from "@/shared/lib"
 import { Button, Separator, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
 
@@ -43,9 +43,14 @@ export function Toolbar({
   className,
 }: ToolbarProps) {
   const { currentPath, goBack, goForward, goUp, canGoBack, canGoForward } = useNavigationStore()
-  const { settings, toggleHidden } = useViewModeStore()
+  const displaySettings = useFileDisplaySettings()
   const { isBookmarked, addBookmark, removeBookmark, getBookmarkByPath } = useBookmarksStore()
   const openSettings = useSettingsStore((s) => s.open)
+
+  const toggleHidden = () =>
+    useSettingsStore
+      .getState()
+      .updateFileDisplay({ showHiddenFiles: !displaySettings.showHiddenFiles })
 
   const [showSearch, setShowSearch] = useState(false)
 
@@ -149,13 +154,17 @@ export function Toolbar({
               variant="ghost"
               size="icon"
               onClick={toggleHidden}
-              className={cn("h-8 w-8", settings.showHidden && "bg-accent")}
+              className={cn("h-8 w-8", displaySettings.showHiddenFiles && "bg-accent")}
             >
-              {settings.showHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              {displaySettings.showHiddenFiles ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {settings.showHidden ? "Скрыть скрытые файлы" : "Показать скрытые файлы"}
+            {displaySettings.showHiddenFiles ? "Скрыть скрытые файлы" : "Показать скрытые файлы"}
           </TooltipContent>
         </Tooltip>
 

@@ -1,12 +1,11 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Eye } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
-import { FileIcon, FileThumbnail } from "@/entities/file-entry"
+import { FileThumbnail } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
 import { useBehaviorSettings, useFileDisplaySettings } from "@/features/settings"
-import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
-import { cn, formatBytes } from "@/shared/lib"
+import { cn } from "@/shared/lib"
 import { parseDragData } from "@/shared/lib/drag-drop"
 
 interface FileGridProps {
