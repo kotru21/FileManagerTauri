@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 
-import { act, cleanup, render } from "@testing-library/react"
+import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
 import { describe, expect, it } from "vitest"
 import { useSelectionStore } from "@/features/file-selection"
 import { useNavigationStore } from "@/features/navigation"
@@ -32,8 +32,12 @@ const files: FileEntry[] = [
 ]
 
 function setupHandlers() {
-  useSelectionStore.getState().clearSelection()
-  useNavigationStore.getState().navigate("/")
+  // Use setState wrapped in act to avoid touching internals via getState
+  act(() => {
+    // Use public store APIs to reset state
+    useSelectionStore.getState().clearSelection()
+    useNavigationStore.getState().navigate("/")
+  })
 
   let handlers!: ReturnType<typeof useFileExplorerHandlers>
 
@@ -49,7 +53,17 @@ function setupHandlers() {
       onStartCopyWithProgress: () => {},
     })
     handlers = h
-    return null
+
+    // Use stable primitive selector to avoid re-render/cache warnings
+    const selectedStr = useSelectionStore((s) => Array.from(s.selectedPaths).join(","))
+    const current = useNavigationStore((s) => s.currentPath ?? "")
+
+    return (
+      <div>
+        <div data-testid="selected">{selectedStr}</div>
+        <div data-testid="current">{current}</div>
+      </div>
+    )
   }
 
   let root: ReturnType<typeof render> | undefined
@@ -59,6 +73,11 @@ function setupHandlers() {
 
   return {
     getHandlers: () => handlers,
+    getSelected: () => {
+      const s = screen.getByTestId("selected").textContent || ""
+      return s.length > 0 ? s.split(",") : []
+    },
+    getCurrent: () => screen.getByTestId("current").textContent || "",
     cleanup: () => {
       try {
         cleanup()
@@ -75,14 +94,14 @@ function setupHandlers() {
 }
 
 describe("click behavior", () => {
-  it("doubleClickToOpen=true -> single click selects, does not navigate", () => {
+  it("doubleClickToOpen=true -> single click selects, does not navigate", async () => {
     act(() =>
       useSettingsStore
         .getState()
         .updateBehavior({ doubleClickToOpen: true, singleClickToSelect: true }),
     )
 
-    const { getHandlers, cleanup } = setupHandlers()
+    const { getHandlers, getSelected, getCurrent, cleanup } = setupHandlers()
     const handlers = getHandlers()
 
     act(() =>
@@ -93,8 +112,10 @@ describe("click behavior", () => {
       } as unknown as React.MouseEvent),
     )
 
-    expect(useSelectionStore.getState().getSelectedPaths()).toEqual(["/dir1"])
-    expect(useNavigationStore.getState().currentPath).not.toBe("/dir1")
+    await waitFor(() => {
+      expect(getSelected()).toEqual(["/dir1"])
+      expect(getCurrent()).not.toBe("/dir1")
+    })
 
     cleanup()
   })
@@ -106,7 +127,7 @@ describe("click behavior", () => {
         .updateBehavior({ doubleClickToOpen: false, singleClickToSelect: true }),
     )
 
-    const { getHandlers, cleanup } = setupHandlers()
+    const { getHandlers, getSelected, getCurrent, cleanup } = setupHandlers()
     const handlers = getHandlers()
 
     act(() =>
@@ -120,8 +141,10 @@ describe("click behavior", () => {
     // allow requestAnimationFrame
     await new Promise((r) => setTimeout(r, 20))
 
-    expect(useSelectionStore.getState().getSelectedPaths()).toEqual(["/dir1"])
-    expect(useNavigationStore.getState().currentPath).toBe("/dir1")
+    await waitFor(() => {
+      expect(getSelected()).toEqual(["/dir1"])
+      expect(getCurrent()).toBe("/dir1")
+    })
 
     cleanup()
   })
@@ -133,7 +156,7 @@ describe("click behavior", () => {
         .updateBehavior({ doubleClickToOpen: false, singleClickToSelect: false }),
     )
 
-    const { getHandlers, cleanup } = setupHandlers()
+    const { getHandlers, getSelected, getCurrent, cleanup } = setupHandlers()
     const handlers = getHandlers()
 
     act(() =>
@@ -147,8 +170,10 @@ describe("click behavior", () => {
     // allow requestAnimationFrame
     await new Promise((r) => setTimeout(r, 20))
 
-    expect(useSelectionStore.getState().getSelectedPaths()).toEqual([])
-    expect(useNavigationStore.getState().currentPath).toBe("/dir1")
+    await waitFor(() => {
+      expect(getSelected()).toEqual([])
+      expect(getCurrent()).toBe("/dir1")
+    })
 
     cleanup()
   })

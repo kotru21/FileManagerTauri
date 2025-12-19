@@ -30,12 +30,13 @@ describe("Toolbar", () => {
     )
 
     const btn = screen.getByLabelText("Быстрый фильтр")
-    expect(useQuickFilterStore.getState().isActive).toBe(false)
+    // Verify via DOM instead of reading store internals
+    expect(btn.classList.contains("bg-accent")).toBe(false)
 
     fireEvent.click(btn)
-    expect(useQuickFilterStore.getState().isActive).toBe(true)
+    expect(btn.classList.contains("bg-accent")).toBe(true)
 
     fireEvent.click(btn)
-    expect(useQuickFilterStore.getState().isActive).toBe(false)
+    expect(btn.classList.contains("bg-accent")).toBe(false)
   })
 })
