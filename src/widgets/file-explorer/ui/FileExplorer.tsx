@@ -230,7 +230,13 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     } catch (error) {
       toast.error(`Ошибка удаления: ${error}`)
     }
-  }, [getSelectedPaths, behaviorSettings.confirmDelete, deleteEntries, clearSelection, openDeleteConfirm])
+  }, [
+    getSelectedPaths,
+    behaviorSettings.confirmDelete,
+    deleteEntries,
+    clearSelection,
+    openDeleteConfirm,
+  ])
 
   // Quick Look handler
   const handleQuickLook = useCallback(() => {

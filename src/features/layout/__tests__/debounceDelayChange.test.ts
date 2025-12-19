@@ -1,8 +1,8 @@
 /// <reference types="vitest" />
 
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { initLayoutSync } from "@/features/layout/sync"
 import { useLayoutStore } from "@/features/layout"
+import { initLayoutSync } from "@/features/layout/sync"
 import { useSettingsStore } from "@/features/settings"
 
 describe("layout sync - debounceDelay change", () => {

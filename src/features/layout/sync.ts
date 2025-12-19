@@ -63,9 +63,12 @@ export function initLayoutSync() {
 
   // Subscribe to performance debounce setting so we react to updates without
   // repeatedly querying getState inside the timeout handler.
-  perfUnsub = useSettingsStore.subscribe((s) => s.settings.performance.debounceDelay, (d) => {
-    debounceDelay = d ?? 150
-  })
+  perfUnsub = useSettingsStore.subscribe(
+    (s) => s.settings.performance.debounceDelay,
+    (d) => {
+      debounceDelay = d ?? 150
+    },
+  )
 
   const scheduleFlush = () => {
     if (layoutDebounceTimer) clearTimeout(layoutDebounceTimer)

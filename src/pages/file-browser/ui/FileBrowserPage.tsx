@@ -160,6 +160,8 @@ export function FileBrowserPage() {
   // Show search results when we have results
   const showSearchResults = searchResults.length > 0 || isSearching
 
+  const selectFile = useSelectionStore((s) => s.selectFile)
+
   // Handle search result selection
   const handleSearchResultSelect = useCallback(
     async (path: string) => {
@@ -171,11 +173,11 @@ export function FileBrowserPage() {
 
         // Select the file after navigation
         setTimeout(() => {
-          useSelectionStore.getState().selectFile(path)
+          selectFile(path)
         }, 100)
       }
     },
-    [navigate, resetSearch],
+    [navigate, resetSearch, selectFile],
   )
 
   // Quick Look handler
@@ -211,17 +213,20 @@ export function FileBrowserPage() {
     }
   }, [currentPath, queryClient])
 
+  const startNewFolder = useInlineEditStore((s) => s.startNewFolder)
+  const startNewFile = useInlineEditStore((s) => s.startNewFile)
+
   const handleNewFolder = useCallback(() => {
     if (currentPath) {
-      useInlineEditStore.getState().startNewFolder(currentPath)
+      startNewFolder(currentPath)
     }
-  }, [currentPath])
+  }, [currentPath, startNewFolder])
 
   const handleNewFile = useCallback(() => {
     if (currentPath) {
-      useInlineEditStore.getState().startNewFile(currentPath)
+      startNewFile(currentPath)
     }
-  }, [currentPath])
+  }, [currentPath, startNewFile])
 
   const performDelete = useCallback(async () => {
     const paths = Array.from(selectedPaths)
