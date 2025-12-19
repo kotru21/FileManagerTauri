@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { FileEntry } from "@/shared/api/tauri"
 import { filterEntries, type SortConfig, sortEntries } from "../types"
 
-// Helper для создания тестовых файлов
+// Helper to create test files
 function createFileEntry(overrides: Partial<FileEntry> = {}): FileEntry {
   return {
     name: "test.txt",

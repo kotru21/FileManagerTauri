@@ -29,7 +29,7 @@ export const useToastStore = create<ToastState>((set, get) => ({
       toasts: [...state.toasts, newToast],
     }))
 
-    // Автоматическое удаление
+    // Automatic removal
     if (toast.duration !== 0) {
       setTimeout(() => {
         get().removeToast(id)
@@ -50,7 +50,7 @@ export const useToastStore = create<ToastState>((set, get) => ({
   },
 }))
 
-// Удобные хелперы
+// Convenience helpers
 export const toast = {
   info: (message: string, duration?: number) =>
     useToastStore.getState().addToast({ message, type: "info", duration }),

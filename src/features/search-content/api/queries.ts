@@ -1,7 +1,7 @@
 import { useQuery } from "@tanstack/react-query"
 import { commands, type Result, type SearchOptions } from "@/shared/api/tauri"
 
-// Хелпер для распаковки Result из tauri-specta
+// Helper to unwrap Result from tauri-specta
 function unwrapResult<T, E>(result: Result<T, E>): T {
   if (result.status === "ok") {
     return result.data

@@ -30,7 +30,7 @@ export function InlineEditRow({
       requestAnimationFrame(() => {
         if (!inputRef.current) return
         inputRef.current.focus()
-        // Для переименования выделяем имя без расширения
+        // When renaming, select the filename without the extension
         if (mode === "rename" && initialName) {
           const dotIndex = initialName.lastIndexOf(".")
           if (dotIndex > 0) {
@@ -49,12 +49,12 @@ export function InlineEditRow({
     if (!name.trim()) {
       return "Имя не может быть пустым"
     }
-    // Windows forbidden characters
+    // Forbidden characters (Windows)
     const forbiddenChars = /[<>:"/\\|?*]/
     if (forbiddenChars.test(name)) {
       return "Имя содержит недопустимые символы"
     }
-    // Reserved Windows names
+    // Reserved names (Windows)
     const reserved = /^(con|prn|aux|nul|com[1-9]|lpt[1-9])$/i
     if (reserved.test(name.split(".")[0])) {
       return "Это имя зарезервировано системой"
@@ -86,7 +86,7 @@ export function InlineEditRow({
   )
 
   const handleBlur = useCallback(() => {
-    // Небольшая задержка чтобы проверить не был ли клик по кнопке
+    // Delay to allow button click to register
     setTimeout(() => {
       if (document.activeElement !== inputRef.current) {
         if (value.trim()) {

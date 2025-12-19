@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
+  ColumnHeader,
   FileRow,
   filterEntries,
   sortEntries,
@@ -23,6 +24,7 @@ import { QuickFilterBar, useQuickFilterStore } from "@/features/quick-filter"
 import {
   useBehaviorSettings,
   useFileDisplaySettings,
+  useLayoutSettings,
   usePerformanceSettings,
 } from "@/features/settings"
 import { useSortingStore } from "@/features/sorting"
@@ -49,6 +51,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   // Get all settings
   const displaySettings = useFileDisplaySettings()
   const behaviorSettings = useBehaviorSettings()
+  const layoutSettings = useLayoutSettings()
 
   // Quick filter
   const { filter: quickFilter, isActive: isQuickFilterActive } = useQuickFilterStore()
@@ -271,6 +274,17 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     if (files.length < simpleListThreshold) {
       return (
         <div className="h-full overflow-auto">
+          {layoutSettings.showColumnHeadersInSimpleList && (
+            <div className="px-2">
+              <ColumnHeader
+                columnWidths={useLayoutStore.getState().layout.columnWidths}
+                onColumnResize={(column, width) =>
+                  useLayoutStore.getState().setColumnWidth(column, width)
+                }
+              />
+            </div>
+          )}
+
           {files.map((file) => (
             <div key={file.path} className="px-2">
               <FileRow

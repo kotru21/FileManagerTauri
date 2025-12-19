@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, waitFor } from "@testing-library/react"
-import { act } from "react-dom/test-utils"
+import { act } from "react"
 import { beforeEach, describe, expect, it } from "vitest"
 import { useLayoutStore } from "@/features/layout"
 import { useLayoutSettings, useSettingsStore } from "@/features/settings"

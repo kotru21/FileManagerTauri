@@ -22,11 +22,14 @@ describe("layout sync module", () => {
     cleanup()
   })
 
-  it("syncs runtime -> settings on change", () => {
+  it("syncs runtime -> settings on change", async () => {
     const cleanup = initLayoutSync()
 
     // change runtime
     useLayoutStore.getState().setSidebarSize(29)
+
+    // Wait for debounce window to pass
+    await new Promise((r) => setTimeout(r, 220))
 
     const settings = useSettingsStore.getState().settings.layout.panelLayout
     expect(settings.sidebarSize).toBe(29)
@@ -34,13 +37,17 @@ describe("layout sync module", () => {
     cleanup()
   })
 
-  it("syncs column widths both ways", () => {
+  it("syncs column widths both ways", async () => {
     const cleanup = initLayoutSync()
 
     useSettingsStore.getState().updateColumnWidths({ size: 140 })
     expect(useLayoutStore.getState().layout.columnWidths.size).toBe(140)
 
     useLayoutStore.getState().setColumnWidth("date", 200)
+
+    // Wait for debounce window to pass
+    await new Promise((r) => setTimeout(r, 220))
+
     expect(useSettingsStore.getState().settings.layout.columnWidths.date).toBe(200)
 
     cleanup()
