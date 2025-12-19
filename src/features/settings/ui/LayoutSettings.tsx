@@ -329,6 +329,14 @@ export const LayoutSettings = memo(function LayoutSettings() {
               onChange={(v) => updateLayout({ compactMode: v })}
               icon={<EyeOff size={16} className="text-muted-foreground" />}
             />
+
+            <Toggle
+              label="Заголовки колонок в простом списке"
+              description="Показывать названия колонок даже при использовании простого (не виртуального) списка"
+              checked={layout.showColumnHeadersInSimpleList}
+              onChange={(v) => updateLayout({ showColumnHeadersInSimpleList: v })}
+              icon={<Columns size={16} className="text-muted-foreground" />}
+            />
           </div>
         </section>
 

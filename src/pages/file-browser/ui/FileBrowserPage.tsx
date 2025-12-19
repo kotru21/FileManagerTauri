@@ -77,6 +77,17 @@ export function FileBrowserPage() {
     return () => {
       mounted = false
       cleanup()
+      // cancel any outstanding RAFs
+      if (sidebarRafRef.current !== null) {
+        window.cancelAnimationFrame(sidebarRafRef.current)
+        sidebarRafRef.current = null
+        sidebarPendingRef.current = null
+      }
+      if (previewRafRef.current !== null) {
+        window.cancelAnimationFrame(previewRafRef.current)
+        previewRafRef.current = null
+        previewPendingRef.current = null
+      }
     }
   }, [])
 
@@ -98,6 +109,12 @@ export function FileBrowserPage() {
   // Panel refs for imperative control
   const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
   const previewPanelRef = useRef<ImperativePanelHandle>(null)
+
+  // RAF batching refs to throttle high-frequency resize events
+  const sidebarPendingRef = useRef<{ size: number } | null>(null)
+  const sidebarRafRef = useRef<number | null>(null)
+  const previewPendingRef = useRef<{ size: number } | null>(null)
+  const previewRafRef = useRef<number | null>(null)
 
   // Files cache for preview lookup
   const filesRef = useRef<FileEntry[]>([])
@@ -313,8 +330,25 @@ export function FileBrowserPage() {
                 collapsedSize={4}
                 onResize={(size) => {
                   // allow runtime resizing only when not locked
-                  if (!panelLayout.sidebarSizeLocked)
-                    setLayout({ sidebarSize: size, sidebarCollapsed: size <= 4.1 })
+                  if (!panelLayout.sidebarSizeLocked) {
+                    // Throttle updates to once per animation frame to avoid jank
+                    // store pending size in a ref and apply once per RAF
+                    if (!sidebarPendingRef.current) sidebarPendingRef.current = { size }
+                    else sidebarPendingRef.current.size = size
+                    if (sidebarRafRef.current === null) {
+                      sidebarRafRef.current = window.requestAnimationFrame(() => {
+                        const pending = sidebarPendingRef.current
+                        sidebarPendingRef.current = null
+                        sidebarRafRef.current = null
+                        if (pending) {
+                          setLayout({
+                            sidebarSize: pending.size,
+                            sidebarCollapsed: pending.size <= 4.1,
+                          })
+                        }
+                      })
+                    }
+                  }
                 }}
                 onCollapse={() => setLayout({ sidebarCollapsed: true })}
                 onExpand={() => setLayout({ sidebarCollapsed: false })}
@@ -358,7 +392,19 @@ export function FileBrowserPage() {
                 minSize={15}
                 maxSize={40}
                 onResize={(size) => {
-                  if (!panelLayout.previewSizeLocked) setLayout({ previewPanelSize: size })
+                  if (!panelLayout.previewSizeLocked) {
+                    if (!previewPendingRef.current) previewPendingRef.current = { size }
+                    else previewPendingRef.current.size = size
+
+                    if (previewRafRef.current === null) {
+                      previewRafRef.current = window.requestAnimationFrame(() => {
+                        const pending = previewPendingRef.current
+                        previewPendingRef.current = null
+                        previewRafRef.current = null
+                        if (pending) setLayout({ previewPanelSize: pending.size })
+                      })
+                    }
+                  }
                 }}
               >
                 <PreviewPanel file={selectedFile} onClose={() => setQuickLookFile(null)} />

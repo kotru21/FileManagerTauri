@@ -4,8 +4,8 @@ export type InlineEditMode = "new-folder" | "new-file" | "rename" | null
 
 interface InlineEditState {
   mode: InlineEditMode
-  targetPath: string | null // для rename - путь к файлу
-  parentPath: string | null // для new - путь к папке
+  targetPath: string | null // for rename - path to file
+  parentPath: string | null // for new - path to parent folder
 
   startNewFolder: (parentPath: string) => void
   startNewFile: (parentPath: string) => void

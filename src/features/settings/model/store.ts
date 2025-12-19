@@ -1,3 +1,4 @@
+import { z } from "zod"
 import { create } from "zustand"
 import { persist, subscribeWithSelector } from "zustand/middleware"
 import type { ColumnWidths, PanelLayout } from "@/features/layout"
@@ -52,6 +53,8 @@ const defaultLayout: LayoutSettings = {
   showToolbar: true,
   showBreadcrumbs: true,
   compactMode: false,
+  // By default keep previous behavior (no headers in simple list)
+  showColumnHeadersInSimpleList: false,
 }
 
 const defaultPerformance: PerformanceSettings = {
@@ -123,6 +126,46 @@ interface SettingsState {
 }
 
 const generateId = () => Math.random().toString(36).substring(2, 9)
+
+export async function migrateSettings(persistedState: unknown, fromVersion: number) {
+  // If no persisted state, nothing to do
+  if (!persistedState || typeof persistedState !== "object") return persistedState
+
+  const isObject = (v: unknown): v is Record<string, unknown> =>
+    typeof v === "object" && v !== null && !Array.isArray(v)
+
+  // If already correct version, return as-is
+  if (fromVersion === SETTINGS_VERSION) return persistedState
+
+  // Attempt to deep-merge persisted settings with defaults
+  const persisted = persistedState as Record<string, unknown>
+  const base =
+    persisted.settings && isObject(persisted.settings)
+      ? (persisted.settings as Record<string, unknown>)
+      : {}
+
+  const deepMerge = (baseV: unknown, patch: unknown): unknown => {
+    if (!isObject(baseV) || !isObject(patch)) return patch === undefined ? baseV : patch
+    const out: Record<string, unknown> = { ...(baseV as Record<string, unknown>) }
+    for (const key of Object.keys(patch as Record<string, unknown>)) {
+      const pv = (patch as Record<string, unknown>)[key]
+      const bv = (baseV as Record<string, unknown>)[key]
+      if (Array.isArray(pv)) {
+        out[key] = pv
+      } else if (isObject(pv) && isObject(bv)) {
+        out[key] = deepMerge(bv, pv)
+      } else {
+        out[key] = pv
+      }
+    }
+    return out
+  }
+
+  const merged = deepMerge(defaultSettings, base) as unknown as AppSettings
+  merged.version = SETTINGS_VERSION
+
+  return { settings: merged }
+}
 
 export const useSettingsStore = create<SettingsState>()(
   persist(
@@ -307,89 +350,69 @@ export const useSettingsStore = create<SettingsState>()(
         try {
           const importedRaw = JSON.parse(json)
 
-          // Basic runtime validation — ensure top-level shape and basic field types.
-          function isValidTheme(v: unknown): v is "dark" | "light" | "system" {
-            return v === "dark" || v === "light" || v === "system"
-          }
+          // Validate with Zod schema (partial import allowed)
+          const appearanceSchema = z.object({
+            theme: z.enum(["dark", "light", "system"]).optional(),
+            fontSize: z.enum(["small", "medium", "large"]).optional(),
+            accentColor: z.string().optional(),
+            enableAnimations: z.boolean().optional(),
+            reducedMotion: z.boolean().optional(),
+          })
 
-          function isValidFontSize(v: unknown): v is "small" | "medium" | "large" {
-            return v === "small" || v === "medium" || v === "large"
-          }
+          const behaviorSchema = z.object({
+            confirmDelete: z.boolean().optional(),
+            confirmOverwrite: z.boolean().optional(),
+            doubleClickToOpen: z.boolean().optional(),
+            singleClickToSelect: z.boolean().optional(),
+            autoRefreshOnFocus: z.boolean().optional(),
+            rememberLastPath: z.boolean().optional(),
+            openFoldersInNewTab: z.boolean().optional(),
+          })
 
-          function isObject(v: unknown): v is Record<string, unknown> {
-            return typeof v === "object" && v !== null && !Array.isArray(v)
-          }
+          const fileDisplaySchema = z.object({
+            showFileExtensions: z.boolean().optional(),
+            showFileSizes: z.boolean().optional(),
+            showFileDates: z.boolean().optional(),
+            showHiddenFiles: z.boolean().optional(),
+            dateFormat: z.enum(["relative", "absolute"]).optional(),
+            thumbnailSize: z.enum(["small", "medium", "large"]).optional(),
+          })
 
-          const validate = (input: unknown): boolean => {
-            if (!isObject(input)) return false
-            // appearance
-            if (input.appearance) {
-              const a = input.appearance
-              if (!isObject(a)) return false
-              if (a.theme !== undefined && !isValidTheme(a.theme)) return false
-              if (a.fontSize !== undefined && !isValidFontSize(a.fontSize)) return false
-              if (a.accentColor !== undefined && typeof a.accentColor !== "string") return false
-              if (a.enableAnimations !== undefined && typeof a.enableAnimations !== "boolean")
-                return false
-              if (a.reducedMotion !== undefined && typeof a.reducedMotion !== "boolean")
-                return false
-            }
+          const layoutSchema = z.object({
+            currentPreset: z.string().optional(),
+            panelLayout: z.any().optional(),
+            columnWidths: z.any().optional(),
+            showStatusBar: z.boolean().optional(),
+            showToolbar: z.boolean().optional(),
+            showBreadcrumbs: z.boolean().optional(),
+            compactMode: z.boolean().optional(),
+            showColumnHeadersInSimpleList: z.boolean().optional(),
+          })
 
-            // behavior
-            if (input.behavior) {
-              const b = input.behavior
-              if (!isObject(b)) return false
-              const boolKeys = [
-                "confirmDelete",
-                "confirmOverwrite",
-                "doubleClickToOpen",
-                "singleClickToSelect",
-                "autoRefreshOnFocus",
-                "rememberLastPath",
-                "openFoldersInNewTab",
-              ]
-              for (const k of boolKeys) {
-                if (b[k] !== undefined && typeof b[k] !== "boolean") return false
-              }
-            }
+          const performanceSchema = z.object({
+            virtualListThreshold: z.number().optional(),
+            thumbnailCacheSize: z.number().optional(),
+            maxSearchResults: z.number().optional(),
+            debounceDelay: z.number().optional(),
+            lazyLoadImages: z.boolean().optional(),
+          })
 
-            // fileDisplay
-            if (input.fileDisplay) {
-              const f = input.fileDisplay
-              if (!isObject(f)) return false
-              if (f.showFileExtensions !== undefined && typeof f.showFileExtensions !== "boolean")
-                return false
-              if (f.showFileSizes !== undefined && typeof f.showFileSizes !== "boolean")
-                return false
-              if (f.showFileDates !== undefined && typeof f.showFileDates !== "boolean")
-                return false
-              if (f.showHiddenFiles !== undefined && typeof f.showHiddenFiles !== "boolean")
-                return false
-              if (
-                f.dateFormat !== undefined &&
-                !(f.dateFormat === "relative" || f.dateFormat === "absolute")
-              )
-                return false
-              if (
-                f.thumbnailSize !== undefined &&
-                !(
-                  f.thumbnailSize === "small" ||
-                  f.thumbnailSize === "medium" ||
-                  f.thumbnailSize === "large"
-                )
-              )
-                return false
-            }
+          const keyboardSchema = z.object({
+            shortcuts: z.any().optional(),
+            enableVimMode: z.boolean().optional(),
+          })
 
-            // layout, performance, keyboard are optional and will be lightly validated
-            if (input.layout && !isObject(input.layout)) return false
-            if (input.performance && !isObject(input.performance)) return false
-            if (input.keyboard && !isObject(input.keyboard)) return false
+          const settingsImportSchema = z.object({
+            appearance: appearanceSchema.optional(),
+            behavior: behaviorSchema.optional(),
+            fileDisplay: fileDisplaySchema.optional(),
+            layout: layoutSchema.optional(),
+            performance: performanceSchema.optional(),
+            keyboard: keyboardSchema.optional(),
+            version: z.number().optional(),
+          })
 
-            return true
-          }
-
-          if (!validate(importedRaw)) return false
+          if (!settingsImportSchema.safeParse(importedRaw).success) return false
 
           const imported = importedRaw as Partial<AppSettings>
 
@@ -402,6 +425,9 @@ export const useSettingsStore = create<SettingsState>()(
           }
 
           // Deep merge helper — arrays in imported override defaults, objects are merged recursively
+          const isObject = (v: unknown): v is Record<string, unknown> =>
+            typeof v === "object" && v !== null && !Array.isArray(v)
+
           const deepMerge = (base: unknown, patch: unknown): unknown => {
             if (!isObject(base) || !isObject(patch)) return patch === undefined ? base : patch
             const out: Record<string, unknown> = { ...(base as Record<string, unknown>) }
@@ -435,6 +461,7 @@ export const useSettingsStore = create<SettingsState>()(
     {
       name: "app-settings",
       version: SETTINGS_VERSION,
+      migrate: migrateSettings,
       partialize: (state) => ({ settings: state.settings }),
     },
   ),

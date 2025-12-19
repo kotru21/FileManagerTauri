@@ -55,6 +55,8 @@ export interface LayoutSettings {
   showToolbar: boolean
   showBreadcrumbs: boolean
   compactMode: boolean
+  // Whether to show column headers even when using the simple (non-virtual) list
+  showColumnHeadersInSimpleList: boolean
 }
 
 export interface PerformanceSettings {

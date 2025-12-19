@@ -25,7 +25,7 @@ export function useSearchWithProgress() {
     setProgress,
   } = useSearchStore()
 
-  // Очистка слушателя при размонтировании
+  // Cleanup listener on unmount
   useEffect(() => {
     return () => {
       if (unlistenRef.current) {
@@ -45,7 +45,7 @@ export function useSearchWithProgress() {
 
     console.log("Starting search:", { query, searchPath, searchContent })
 
-    // Удаляем предыдущий слушатель
+    // Remove previous listener
     if (unlistenRef.current) {
       unlistenRef.current()
       unlistenRef.current = null
@@ -56,10 +56,10 @@ export function useSearchWithProgress() {
     setResults([])
 
     try {
-      // Подписываемся на события прогресса с throttle
+      // Subscribe to progress events with throttle
       unlistenRef.current = await listen<SearchProgressEvent>("search-progress", (event) => {
         const now = Date.now()
-        // Throttle: обновляем UI максимум раз в 100ms
+        // Throttle: update UI at most once every 100ms
         if (now - lastUpdateRef.current > 100) {
           lastUpdateRef.current = now
           setProgress({
@@ -99,7 +99,7 @@ export function useSearchWithProgress() {
       setIsSearching(false)
       setProgress(null)
 
-      // Очищаем слушатель
+      // Clear listener
       if (unlistenRef.current) {
         unlistenRef.current()
         unlistenRef.current = null

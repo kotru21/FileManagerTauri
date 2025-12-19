@@ -51,6 +51,18 @@ function SortableHeader({ field, label, sortConfig, onSort, className }: Sortabl
 
 function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
   const startXRef = useRef(0)
+  const pendingDelta = useRef(0)
+  const rafRef = useRef<number | null>(null)
+
+  const flush = useCallback(() => {
+    if (pendingDelta.current !== 0) {
+      onResize(pendingDelta.current)
+      pendingDelta.current = 0
+    }
+    if (rafRef.current !== null) {
+      rafRef.current = null
+    }
+  }, [onResize])
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -60,10 +72,19 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
       const handleMove = (moveEvent: MouseEvent) => {
         const delta = moveEvent.clientX - startXRef.current
         startXRef.current = moveEvent.clientX
-        onResize(delta)
+        // accumulate delta and schedule a single RAF flush per frame
+        pendingDelta.current += delta
+        if (rafRef.current === null) {
+          rafRef.current = window.requestAnimationFrame(flush)
+        }
       }
 
       const handleUp = () => {
+        if (rafRef.current !== null) {
+          window.cancelAnimationFrame(rafRef.current)
+          rafRef.current = null
+        }
+        flush()
         document.removeEventListener("mousemove", handleMove)
         document.removeEventListener("mouseup", handleUp)
       }
@@ -71,7 +92,7 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
       document.addEventListener("mousemove", handleMove)
       document.addEventListener("mouseup", handleUp)
     },
-    [onResize],
+    [flush],
   )
 
   return (
