@@ -27,11 +27,10 @@ export function useRegisterCommands({
   const { startNewFolder, startNewFile } = useInlineEditStore()
   const { setViewMode } = useViewModeStore()
   const displaySettings = useFileDisplaySettings()
+  const updateFileDisplay = useSettingsStore((s) => s.updateFileDisplay)
   const toggleHidden = useCallback(() => {
-    useSettingsStore
-      .getState()
-      .updateFileDisplay({ showHiddenFiles: !displaySettings.showHiddenFiles })
-  }, [displaySettings.showHiddenFiles])
+    updateFileDisplay({ showHiddenFiles: !displaySettings.showHiddenFiles })
+  }, [displaySettings.showHiddenFiles, updateFileDisplay])
   const { toggle: toggleQuickFilter } = useQuickFilterStore()
   const { isBookmarked, addBookmark, removeBookmark, getBookmarkByPath } = useBookmarksStore()
 

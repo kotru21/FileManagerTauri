@@ -54,11 +54,9 @@ export function Toolbar({
   const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
   const getBookmarkByPath = useBookmarksStore((s) => s.getBookmarkByPath)
   const openSettings = useSettingsStore((s) => s.open)
+  const updateFileDisplay = useSettingsStore((s) => s.updateFileDisplay)
 
-  const toggleHidden = () =>
-    useSettingsStore
-      .getState()
-      .updateFileDisplay({ showHiddenFiles: !displaySettings.showHiddenFiles })
+  const toggleHidden = () => updateFileDisplay({ showHiddenFiles: !displaySettings.showHiddenFiles })
 
   const [showSearch, setShowSearch] = useState(false)
 
