@@ -13,7 +13,7 @@ describe("layout sync - debounceDelay change", () => {
 
   it("respects updated debounceDelay from settings", async () => {
     vi.useFakeTimers()
-    const spy = vi.spyOn(useSettingsStore.getState(), "updateLayout")
+    const spy = vi.spyOn(useSettingsStore, "setState")
 
     const cleanup = initLayoutSync()
 
