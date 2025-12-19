@@ -42,9 +42,17 @@ export function Toolbar({
   showPreview,
   className,
 }: ToolbarProps) {
-  const { currentPath, goBack, goForward, goUp, canGoBack, canGoForward } = useNavigationStore()
+  const currentPath = useNavigationStore((s) => s.currentPath)
+  const goBack = useNavigationStore((s) => s.goBack)
+  const goForward = useNavigationStore((s) => s.goForward)
+  const goUp = useNavigationStore((s) => s.goUp)
+  const canGoBack = useNavigationStore((s) => s.canGoBack)
+  const canGoForward = useNavigationStore((s) => s.canGoForward)
   const displaySettings = useFileDisplaySettings()
-  const { isBookmarked, addBookmark, removeBookmark, getBookmarkByPath } = useBookmarksStore()
+  const isBookmarked = useBookmarksStore((s) => s.isBookmarked)
+  const addBookmark = useBookmarksStore((s) => s.addBookmark)
+  const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
+  const getBookmarkByPath = useBookmarksStore((s) => s.getBookmarkByPath)
   const openSettings = useSettingsStore((s) => s.open)
 
   const toggleHidden = () =>
@@ -65,6 +73,9 @@ export function Toolbar({
       addBookmark(currentPath)
     }
   }
+
+  const toggleQuickFilter = useQuickFilterStore((s) => s.toggle)
+  const isQuickFilterActive = useQuickFilterStore((s) => s.isActive)
 
   return (
     <div className={cn("flex items-center gap-1 p-2 border-b border-border", className)}>
@@ -193,8 +204,9 @@ export function Toolbar({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => useQuickFilterStore.getState().toggle()}
-            className={cn("h-8 w-8", useQuickFilterStore.getState().isActive && "bg-accent")}
+            aria-label="Быстрый фильтр"
+            onClick={toggleQuickFilter}
+            className={cn("h-8 w-8", isQuickFilterActive && "bg-accent")}
           >
             <Filter className="h-4 w-4" />
           </Button>
@@ -224,7 +236,13 @@ export function Toolbar({
 
       <Tooltip>
         <TooltipTrigger asChild>
-          <Button variant="ghost" size="icon" onClick={openSettings} className="h-8 w-8">
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Настройки"
+            onClick={openSettings}
+            className="h-8 w-8"
+          >
             <Settings className="h-4 w-4" />
           </Button>
         </TooltipTrigger>
@@ -238,6 +256,7 @@ export function Toolbar({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Поиск"
               onClick={() => {
                 // Toggle local search popover
                 setShowSearch((s) => !s)

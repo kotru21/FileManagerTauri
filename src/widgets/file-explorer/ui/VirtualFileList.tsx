@@ -52,13 +52,20 @@ export function VirtualFileList({
 }: VirtualFileListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
   const { mode, targetPath } = useInlineEditStore()
-  const { layout } = useLayoutStore()
+  const columnWidths = useLayoutStore((s) => s.layout.columnWidths)
+  const setColumnWidth = useLayoutStore((s) => s.setColumnWidth)
 
   // Get clipboard state for cut indication
-  const { paths: cutPaths, isCut } = useClipboardStore()
+  const cutPaths = useClipboardStore((s) => s.paths)
+  const isCut = useClipboardStore((s) => s.isCut)
 
   // Get bookmarks state
-  const { isBookmarked, addBookmark, removeBookmark } = useBookmarksStore()
+  const isBookmarked = useBookmarksStore((s) => s.isBookmarked)
+  const addBookmark = useBookmarksStore((s) => s.addBookmark)
+  const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
+  const getBookmarkByPath = useBookmarksStore((s) => s.getBookmarkByPath)
+  const inlineCancel = useInlineEditStore((s) => s.cancel)
+  const startRename = useInlineEditStore((s) => s.startRename)
 
   const safeSelectedPaths = useMemo(() => {
     return selectedPaths instanceof Set ? selectedPaths : new Set<string>()
@@ -144,13 +151,13 @@ export function VirtualFileList({
   const handleToggleBookmark = useCallback(
     (path: string) => () => {
       if (isBookmarked(path)) {
-        const bookmark = useBookmarksStore.getState().getBookmarkByPath(path)
+        const bookmark = getBookmarkByPath(path)
         if (bookmark) removeBookmark(bookmark.id)
       } else {
         addBookmark(path)
       }
     },
-    [isBookmarked, addBookmark, removeBookmark],
+    [isBookmarked, addBookmark, removeBookmark, getBookmarkByPath],
   )
 
   // Memoize file path getter
@@ -167,9 +174,9 @@ export function VirtualFileList({
     <div className={cn("flex flex-col h-full", className)}>
       {/* Column Header */}
       <ColumnHeader
-        columnWidths={layout.columnWidths}
+        columnWidths={columnWidths}
         onColumnResize={(column, width) => {
-          useLayoutStore.getState().setColumnWidth(column, width)
+          setColumnWidth(column, width)
         }}
         className="shrink-0"
       />
@@ -196,8 +203,8 @@ export function VirtualFileList({
                       if (mode === "new-folder") onCreateFolder?.(name)
                       else if (mode === "new-file") onCreateFile?.(name)
                     }}
-                    onCancel={() => useInlineEditStore.getState().cancel()}
-                    columnWidths={layout.columnWidths}
+                    onCancel={() => inlineCancel()}
+                    columnWidths={columnWidths}
                   />
                 </div>
               )
@@ -225,8 +232,8 @@ export function VirtualFileList({
                     mode="rename"
                     initialName={file.name}
                     onConfirm={(newName) => onRename?.(file.path, newName)}
-                    onCancel={() => useInlineEditStore.getState().cancel()}
-                    columnWidths={layout.columnWidths}
+                    onCancel={() => inlineCancel()}
+                    columnWidths={columnWidths}
                   />
                 </div>
               )
@@ -255,11 +262,11 @@ export function VirtualFileList({
                   getSelectedPaths={handleGetSelectedPaths}
                   onCopy={onCopy}
                   onCut={onCut}
-                  onRename={() => useInlineEditStore.getState().startRename(file.path)}
+                  onRename={() => startRename(file.path)}
                   onDelete={onDelete}
                   onQuickLook={onQuickLook ? handleQuickLook(file) : undefined}
                   onToggleBookmark={handleToggleBookmark(file.path)}
-                  columnWidths={layout.columnWidths}
+                  columnWidths={columnWidths}
                 />
               </div>
             )

@@ -6,7 +6,6 @@ import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
 import { useBehaviorSettings } from "@/features/settings"
-import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { joinPath } from "@/shared/lib"
 import { toast } from "@/shared/ui"
@@ -52,10 +51,6 @@ export function useFileExplorerHandlers({
       if ((e.ctrlKey || e.metaKey) && behaviorSettings.openFoldersInNewTab) {
         const file = files.find((f) => f.path === path)
         if (file?.is_dir) {
-          const { addTab } = useTabsStore.getState()
-          requestAnimationFrame(() => addTab(path))
-          // Do not change selection when opening in new tab
-          return
         }
       }
 

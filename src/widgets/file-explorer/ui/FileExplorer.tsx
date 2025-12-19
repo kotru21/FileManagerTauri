@@ -1,7 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react"
 import {
-  ColumnHeader,
-  FileRow,
   filterEntries,
   sortEntries,
   useCopyEntries,
@@ -34,8 +32,7 @@ import { cn } from "@/shared/lib"
 import { toast } from "@/shared/ui"
 import { CopyProgressDialog } from "@/widgets/progress-dialog"
 import { useFileExplorerHandlers, useFileExplorerKeyboard } from "../lib"
-import { FileGrid } from "./FileGrid"
-import { VirtualFileList } from "./VirtualFileList"
+import { FileExplorerView } from "./FileExplorer.view"
 
 interface FileExplorerProps {
   className?: string
@@ -65,6 +62,13 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   const selectedPaths = useSelectionStore((s) => s.selectedPaths)
   const clearSelection = useSelectionStore((s) => s.clearSelection)
   const getSelectedPaths = useSelectionStore((s) => s.getSelectedPaths)
+
+  // Layout selectors to avoid getState() in render
+  const columnWidths = useLayoutStore((s) => s.layout.columnWidths)
+  const setColumnWidth = useLayoutStore((s) => s.setColumnWidth)
+
+  // Clipboard selectors
+  const clipboardHasContent = useClipboardStore((s) => s.hasContent)
 
   // Data fetching - prefer streaming directory for faster incremental rendering
   const dirQuery = useDirectoryContents(currentPath)
@@ -251,87 +255,38 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
 
   const performanceSettings = usePerformanceSettings()
 
-  const renderContent = () => {
-    if (isLoading) {
-      return <div className="flex-1 flex items-center justify-center">Загрузка...</div>
-    }
+  // Use separate view component to keep FileExplorer container-focused
+  import("./FileExplorer.view").then(() => {})
 
-    if (viewSettings.mode === "grid") {
-      return (
-        <FileGrid
-          files={files}
-          selectedPaths={selectedPaths}
-          onSelect={handlers.handleSelect}
-          onOpen={handlers.handleOpen}
-          onDrop={handlers.handleDrop}
-          onQuickLook={onQuickLook}
-        />
-      )
-    }
-
-    // Use virtualized list once files count reaches the configured threshold
-    const simpleListThreshold = performanceSettings.virtualListThreshold
-    if (files.length < simpleListThreshold) {
-      return (
-        <div className="h-full overflow-auto">
-          {layoutSettings.showColumnHeadersInSimpleList && (
-            <div className="px-2">
-              <ColumnHeader
-                columnWidths={useLayoutStore.getState().layout.columnWidths}
-                onColumnResize={(column, width) =>
-                  useLayoutStore.getState().setColumnWidth(column, width)
-                }
-              />
-            </div>
-          )}
-
-          {files.map((file) => (
-            <div key={file.path} className="px-2">
-              <FileRow
-                file={file}
-                isSelected={selectedPaths.has(file.path)}
-                isFocused={false}
-                isCut={
-                  useClipboardStore.getState().isCut() &&
-                  useClipboardStore.getState().paths.includes(file.path)
-                }
-                isBookmarked={false}
-                onSelect={(e) => handlers.handleSelect(file.path, e as unknown as React.MouseEvent)}
-                onOpen={() => handlers.handleOpen(file.path, file.is_dir)}
-                onDrop={handlers.handleDrop}
-                getSelectedPaths={getSelectedPaths}
-                onRename={() => handlers.handleRename(file.path, file.name)}
-                onCopy={handlers.handleCopy}
-                onCut={handlers.handleCut}
-                onDelete={handleDelete}
-                onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
-                onToggleBookmark={() => {}}
-                columnWidths={useLayoutStore.getState().layout.columnWidths}
-              />
-            </div>
-          ))}
-        </div>
-      )
-    }
-
-    return (
-      <VirtualFileList
-        files={files}
-        selectedPaths={selectedPaths}
-        onSelect={handlers.handleSelect}
-        onOpen={handlers.handleOpen}
-        onDrop={handlers.handleDrop}
-        getSelectedPaths={getSelectedPaths}
-        onCreateFolder={handlers.handleCreateFolder}
-        onCreateFile={handlers.handleCreateFile}
-        onRename={handlers.handleRename}
-        onCopy={handlers.handleCopy}
-        onCut={handlers.handleCut}
-        onDelete={handleDelete}
-        onQuickLook={onQuickLook}
-      />
-    )
-  }
+  const content = (
+    <FileExplorerView
+      className={className}
+      isLoading={isLoading}
+      files={files}
+      processedFilesCount={processedFiles.length}
+      selectedPaths={selectedPaths}
+      onQuickLook={onQuickLook}
+      handlers={{
+        handleSelect: handlers.handleSelect,
+        handleOpen: handlers.handleOpen,
+        handleDrop: handlers.handleDrop,
+        handleCreateFolder: handlers.handleCreateFolder,
+        handleCreateFile: handlers.handleCreateFile,
+        handleRename: handlers.handleRename,
+        handleCopy: handlers.handleCopy,
+        handleCut: handlers.handleCut,
+        handlePaste: handlers.handlePaste,
+        handleDelete: handlers.handleDelete,
+        handleStartNewFolder: handlers.handleStartNewFolder,
+        handleStartNewFile: handlers.handleStartNewFile,
+      }}
+      viewMode={viewSettings.mode}
+      showColumnHeadersInSimpleList={layoutSettings.showColumnHeadersInSimpleList}
+      columnWidths={columnWidths}
+      setColumnWidth={setColumnWidth}
+      performanceThreshold={performanceSettings.virtualListThreshold}
+    />
+  )
 
   return (
     <FileContextMenu
@@ -344,7 +299,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       onNewFolder={handlers.handleStartNewFolder}
       onNewFile={handlers.handleStartNewFile}
       onRefresh={() => refetch()}
-      canPaste={useClipboardStore.getState().hasContent()}
+      canPaste={clipboardHasContent()}
     >
       <div
         className={cn("flex flex-col h-full", className)}
@@ -360,7 +315,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
         )}
 
         {/* Content */}
-        {renderContent()}
+        {content}
 
         {/* Copy Progress Dialog */}
         <CopyProgressDialog

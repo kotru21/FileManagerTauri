@@ -32,6 +32,11 @@ export function useFileExplorerKeyboard({
   const { toggle: toggleQuickFilter } = useQuickFilterStore()
   const { open: openSettings } = useSettingsStore()
 
+  // Selectors to avoid getState() in event handlers
+  const getSelectedPaths = useSelectionStore((s) => s.getSelectedPaths)
+  const selectFile = useSelectionStore((s) => s.selectFile)
+  const toggleCommandPalette = useCommandPaletteStore((s) => s.toggle)
+
   const keyboardSettings = useKeyboardSettings()
   const shortcuts = keyboardSettings.shortcuts
   const enableVim = keyboardSettings.enableVimMode
@@ -78,24 +83,24 @@ export function useFileExplorerKeyboard({
       if (enableVim && !isInput) {
         if (e.key === "j") {
           e.preventDefault()
-          const sel = useSelectionStore.getState().getSelectedPaths()
+          const sel = getSelectedPaths()
           const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
           if (!files || files.length === 0) return
           const last = sel[0] || files[0].path
           const idx = files.findIndex((f) => f.path === last)
           const next = files[Math.min(files.length - 1, (idx === -1 ? -1 : idx) + 1)]
-          if (next) useSelectionStore.getState().selectFile(next.path)
+          if (next) selectFile(next.path)
           return
         }
         if (e.key === "k") {
           e.preventDefault()
-          const sel = useSelectionStore.getState().getSelectedPaths()
+          const sel = getSelectedPaths()
           const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
           if (!files || files.length === 0) return
           const last = sel[0] || files[0].path
           const idx = files.findIndex((f) => f.path === last)
           const prev = files[Math.max(0, (idx === -1 ? 0 : idx) - 1)]
-          if (prev) useSelectionStore.getState().selectFile(prev.path)
+          if (prev) selectFile(prev.path)
           return
         }
         if (e.key === "g") {
@@ -104,7 +109,7 @@ export function useFileExplorerKeyboard({
             // gg -> go to first
             e.preventDefault()
             const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
-            if (files && files.length > 0) useSelectionStore.getState().selectFile(files[0].path)
+            if (files && files.length > 0) selectFile(files[0].path)
             lastGAt = 0
             return
           }
@@ -113,8 +118,7 @@ export function useFileExplorerKeyboard({
         if (e.key === "G") {
           e.preventDefault()
           const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
-          if (files && files.length > 0)
-            useSelectionStore.getState().selectFile(files[files.length - 1].path)
+          if (files && files.length > 0) selectFile(files[files.length - 1].path)
           return
         }
       }
@@ -156,7 +160,7 @@ export function useFileExplorerKeyboard({
             openSettings()
             break
           case "commandPalette":
-            useCommandPaletteStore.getState().toggle()
+            toggleCommandPalette()
             break
           default:
             break
@@ -225,5 +229,8 @@ export function useFileExplorerKeyboard({
     openSettings,
     shortcuts,
     enableVim,
+    getSelectedPaths,
+    selectFile,
+    toggleCommandPalette,
   ])
 }
