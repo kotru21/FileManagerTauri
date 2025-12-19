@@ -41,8 +41,15 @@ export const useViewModeStore = create<ViewModeState>()(
 
       // Toggle hidden files via settings store to avoid a secondary source of truth
       toggleHidden: () => {
-        const current = useSettingsStore.getState().settings.fileDisplay.showHiddenFiles
-        useSettingsStore.getState().updateFileDisplay({ showHiddenFiles: !current })
+        useSettingsStore.setState((s) => ({
+          settings: {
+            ...s.settings,
+            fileDisplay: {
+              ...s.settings.fileDisplay,
+              showHiddenFiles: !s.settings.fileDisplay.showHiddenFiles,
+            },
+          },
+        }))
       },
 
       setGridSize: (size: "small" | "medium" | "large") => {
@@ -78,7 +85,12 @@ export const useViewModeStore = create<ViewModeState>()(
           if (persisted && typeof persisted.showHidden === "boolean") {
             const s = persisted.showHidden
             // Push to settings store
-            useSettingsStore.getState().updateFileDisplay({ showHiddenFiles: s })
+            useSettingsStore.setState((state) => ({
+              settings: {
+                ...state.settings,
+                fileDisplay: { ...state.settings.fileDisplay, showHiddenFiles: s },
+              },
+            }))
           }
         } catch {
           /* ignore */
