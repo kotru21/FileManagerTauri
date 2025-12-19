@@ -42,6 +42,7 @@ export function useFileExplorerHandlers({
   } = useClipboardStore()
   const clipboardCopy = useClipboardStore((s) => s.copy)
   const clipboardCut = useClipboardStore((s) => s.cut)
+  const openConfirm = useConfirmStore((s) => s.open)
   const behaviorSettings = useBehaviorSettings()
 
   // Selection handlers
@@ -186,6 +187,10 @@ export function useFileExplorerHandlers({
     startRename(selected[0])
   }, [getSelectedPaths, startRename])
 
+  const handleStartRenameAt = useCallback((path: string) => {
+    startRename(path)
+  }, [startRename])
+
   const handleRename = useCallback(
     async (oldPath: string, newName: string) => {
       try {
@@ -228,7 +233,7 @@ export function useFileExplorerHandlers({
 
       if (conflictNames.length > 0 && behaviorSettings.confirmOverwrite) {
         const message = `В целевой папке уже существуют файлы: ${conflictNames.join(", ")}. Перезаписать?`
-        const ok = await useConfirmStore.getState().open("Перезаписать файлы?", message)
+        const ok = await openConfirm("Перезаписать файлы?", message)
         if (!ok) return
       }
 
@@ -255,6 +260,7 @@ export function useFileExplorerHandlers({
     onStartCopyWithProgress,
     files,
     behaviorSettings.confirmOverwrite,
+    openConfirm,
   ])
 
   const handleDelete = useCallback(async () => {
@@ -313,6 +319,7 @@ export function useFileExplorerHandlers({
     handleStartNewFolder,
     handleStartNewFile,
     handleStartRename,
+    handleStartRenameAt,
     handleCopyPath,
     handleOpenInExplorer,
     handleOpenInTerminal,
