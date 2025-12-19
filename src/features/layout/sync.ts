@@ -101,7 +101,16 @@ export function initLayoutSync() {
       }
 
       if (Object.keys(updates).length > 0) {
-        useSettingsStore.getState().updateLayout(updates)
+        // Apply updates to settings via setState to avoid getState() call and keep a single source of truth
+        useSettingsStore.setState((s) => ({
+          settings: {
+            ...s.settings,
+            layout: {
+              ...s.settings.layout,
+              ...updates,
+            },
+          },
+        }))
       }
     }, delay)
   }

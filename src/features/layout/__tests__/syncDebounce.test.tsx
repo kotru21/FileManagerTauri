@@ -21,7 +21,7 @@ describe("layout sync debounce", () => {
 
   it("batches rapid layout updates into a single settings update", async () => {
     vi.useFakeTimers()
-    const spy = vi.spyOn(useSettingsStore.getState(), "updateLayout")
+    const spy = vi.spyOn(useSettingsStore, "setState")
 
     render(<Harness />)
 
