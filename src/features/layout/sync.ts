@@ -8,6 +8,8 @@ let applyingSettings = false
 let settingsUnsub: (() => void) | null = null
 let columnUnsub: (() => void) | null = null
 let layoutUnsub: (() => void) | null = null
+let perfUnsub: (() => void) | null = null
+let debounceDelay = useSettingsStore.getState().settings.performance.debounceDelay ?? 150
 
 export function initLayoutSync() {
   // Apply current settings -> runtime
@@ -57,16 +59,24 @@ export function initLayoutSync() {
   let layoutDebounceTimer: ReturnType<typeof setTimeout> | null = null
   let pendingLayoutForSync: PanelLayout | null = null
 
+  // Subscribe to performance debounce setting so we react to updates without
+  // repeatedly querying getState inside the timeout handler.
+  perfUnsub = useSettingsStore.subscribe((s) => s.settings.performance.debounceDelay, (d) => {
+    debounceDelay = d ?? 150
+  })
+
   const scheduleFlush = () => {
     if (layoutDebounceTimer) clearTimeout(layoutDebounceTimer)
-    const delay = useSettingsStore.getState().settings.performance.debounceDelay ?? 150
+    const delay = debounceDelay
     layoutDebounceTimer = setTimeout(() => {
       const toSync = pendingLayoutForSync
       pendingLayoutForSync = null
       layoutDebounceTimer = null
       if (!toSync) return
 
-      const settingsPanelNow = useSettingsStore.getState().settings.layout.panelLayout
+      // Read settings once to avoid multiple getState() calls and races
+      const settingsState = useSettingsStore.getState().settings
+      const settingsPanelNow = settingsState.layout.panelLayout
       const updates: Partial<LayoutSettings> = {}
 
       // Panel layout fields to compare
@@ -79,7 +89,7 @@ export function initLayoutSync() {
 
       if (!samePanel) updates.panelLayout = toSync
 
-      const settingsCW = useSettingsStore.getState().settings.layout.columnWidths
+      const settingsCW = settingsState.layout.columnWidths
       if (
         settingsCW.size !== toSync.columnWidths.size ||
         settingsCW.date !== toSync.columnWidths.date ||
@@ -109,6 +119,7 @@ export function initLayoutSync() {
     settingsUnsub?.()
     columnUnsub?.()
     layoutUnsub?.()
+    perfUnsub?.()
     if (layoutDebounceTimer) {
       clearTimeout(layoutDebounceTimer)
       layoutDebounceTimer = null
@@ -116,6 +127,7 @@ export function initLayoutSync() {
     }
     settingsUnsub = null
     layoutUnsub = null
+    perfUnsub = null
   }
 }
 
@@ -123,6 +135,8 @@ export function stopLayoutSync() {
   settingsUnsub?.()
   columnUnsub?.()
   layoutUnsub?.()
+  perfUnsub?.()
   settingsUnsub = null
   layoutUnsub = null
+  perfUnsub = null
 }
