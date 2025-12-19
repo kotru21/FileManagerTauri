@@ -210,6 +210,8 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     },
   })
 
+  const openDeleteConfirm = useDeleteConfirmStore((s) => s.open)
+
   // Delete handler with confirmation based on settings
   const handleDelete = useCallback(async () => {
     const paths = getSelectedPaths()
@@ -217,7 +219,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
 
     // Use confirmDelete from behaviorSettings
     if (behaviorSettings.confirmDelete) {
-      const confirmed = await useDeleteConfirmStore.getState().open(paths, false)
+      const confirmed = await openDeleteConfirm(paths, false)
       if (!confirmed) return
     }
 
@@ -228,7 +230,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     } catch (error) {
       toast.error(`Ошибка удаления: ${error}`)
     }
-  }, [getSelectedPaths, behaviorSettings.confirmDelete, deleteEntries, clearSelection])
+  }, [getSelectedPaths, behaviorSettings.confirmDelete, deleteEntries, clearSelection, openDeleteConfirm])
 
   // Quick Look handler
   const handleQuickLook = useCallback(() => {
@@ -279,6 +281,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
         handleDelete: handlers.handleDelete,
         handleStartNewFolder: handlers.handleStartNewFolder,
         handleStartNewFile: handlers.handleStartNewFile,
+        handleStartRenameAt: handlers.handleStartRenameAt,
       }}
       viewMode={viewSettings.mode}
       showColumnHeadersInSimpleList={layoutSettings.showColumnHeadersInSimpleList}

@@ -1,5 +1,4 @@
 import { ColumnHeader, FileRow } from "@/entities/file-entry"
-import { useInlineEditStore } from "@/features/inline-edit"
 import type { ColumnWidths } from "@/features/layout"
 import type { ViewMode } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
@@ -26,6 +25,7 @@ interface FileExplorerViewProps {
     handleDelete: () => void
     handleStartNewFolder: () => void
     handleStartNewFile: () => void
+    handleStartRenameAt: (path: string) => void
   }
   viewMode: ViewMode
   showColumnHeadersInSimpleList: boolean
@@ -88,7 +88,7 @@ export function FileExplorerView({
               isSelected={selectedPaths.has(file.path)}
               onSelect={(e) => handlers.handleSelect(file.path, e)}
               onOpen={() => handlers.handleOpen(file.path, file.is_dir)}
-              onRename={() => useInlineEditStore.getState().startRename(file.path)}
+              onRename={() => handlers.handleStartRenameAt(file.path)}
               onCopy={handlers.handleCopy}
               onCut={handlers.handleCut}
               onDelete={handlers.handleDelete}
