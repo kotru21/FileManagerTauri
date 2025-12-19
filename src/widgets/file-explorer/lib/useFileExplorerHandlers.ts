@@ -36,8 +36,9 @@ export function useFileExplorerHandlers({
     useSelectionStore()
   const { reset: resetInlineEdit, startNewFolder, startNewFile, startRename } = useInlineEditStore()
   const {
-    paths: clipboardPaths,
-    action: clipboardAction,
+    // Do not rely on closing over clipboard values since handlers may be called after
+    // clipboard store updates without a re-render. We'll read the latest clipboard
+    // values inside handlers when needed.
     clear: clearClipboard,
   } = useClipboardStore()
   const clipboardCopy = useClipboardStore((s) => s.copy)
@@ -225,7 +226,12 @@ export function useFileExplorerHandlers({
   }, [getSelectedPaths, clipboardCut])
 
   const handlePaste = useCallback(async () => {
-    if (!currentPath || clipboardPaths.length === 0) return
+    if (!currentPath) return
+
+    // Read the latest clipboard state at call time so this handler works even if
+    // the clipboard was updated after the hook initially ran.
+    const { paths: clipboardPaths, action: clipboardAction } = useClipboardStore.getState()
+    if (clipboardPaths.length === 0) return
 
     try {
       // Check for name conflicts in destination
@@ -255,8 +261,6 @@ export function useFileExplorerHandlers({
     }
   }, [
     currentPath,
-    clipboardPaths,
-    clipboardAction,
     copyEntries,
     moveEntries,
     clearClipboard,
