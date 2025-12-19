@@ -9,12 +9,14 @@ let settingsUnsub: (() => void) | null = null
 let columnUnsub: (() => void) | null = null
 let layoutUnsub: (() => void) | null = null
 let perfUnsub: (() => void) | null = null
-let debounceDelay = useSettingsStore.getState().settings.performance.debounceDelay ?? 150
+let debounceDelay = 150
 
 export function initLayoutSync() {
   // Apply current settings -> runtime
-  const settingsPanel = useSettingsStore.getState().settings.layout.panelLayout
-  const cw = useSettingsStore.getState().settings.layout.columnWidths
+  const settingsStateInitial = useSettingsStore.getState().settings
+  const settingsPanel = settingsStateInitial.layout.panelLayout
+  const cw = settingsStateInitial.layout.columnWidths
+  debounceDelay = settingsStateInitial.performance.debounceDelay ?? 150
 
   useLayoutStore.getState().applyLayout(settingsPanel)
   // Clamp incoming settings to sensible minimums to avoid zero-width columns
