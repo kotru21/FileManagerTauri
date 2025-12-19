@@ -187,9 +187,12 @@ export function useFileExplorerHandlers({
     startRename(selected[0])
   }, [getSelectedPaths, startRename])
 
-  const handleStartRenameAt = useCallback((path: string) => {
-    startRename(path)
-  }, [startRename])
+  const handleStartRenameAt = useCallback(
+    (path: string) => {
+      startRename(path)
+    },
+    [startRename],
+  )
 
   const handleRename = useCallback(
     async (oldPath: string, newName: string) => {

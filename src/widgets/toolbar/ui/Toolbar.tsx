@@ -56,7 +56,8 @@ export function Toolbar({
   const openSettings = useSettingsStore((s) => s.open)
   const updateFileDisplay = useSettingsStore((s) => s.updateFileDisplay)
 
-  const toggleHidden = () => updateFileDisplay({ showHiddenFiles: !displaySettings.showHiddenFiles })
+  const toggleHidden = () =>
+    updateFileDisplay({ showHiddenFiles: !displaySettings.showHiddenFiles })
 
   const [showSearch, setShowSearch] = useState(false)
 

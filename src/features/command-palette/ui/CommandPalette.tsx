@@ -153,17 +153,19 @@ export function CommandPalette() {
   )
 
   // Global keyboard shortcut
+  const togglePalette = useCommandPaletteStore((s) => s.toggle)
+
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
       if ((e.ctrlKey || e.metaKey) && e.key === "k") {
         e.preventDefault()
-        useCommandPaletteStore.getState().toggle()
+        togglePalette()
       }
     }
 
     window.addEventListener("keydown", handleGlobalKeyDown)
     return () => window.removeEventListener("keydown", handleGlobalKeyDown)
-  }, [])
+  }, [togglePalette])
 
   let globalIndex = 0
 
