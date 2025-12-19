@@ -140,6 +140,7 @@ export function TabBar({ onTabChange, className }: TabBarProps) {
     closeTabsToRight,
     closeAllTabs,
   } = useTabsStore()
+  const getTabById = useTabsStore((s) => s.getTabById)
 
   const dragIndexRef = useRef<number | null>(null)
 
@@ -153,11 +154,11 @@ export function TabBar({ onTabChange, className }: TabBarProps) {
 
   const handleNewTab = useCallback(() => {
     const id = addTab("", "New Tab")
-    const tab = useTabsStore.getState().getTabById(id)
+    const tab = getTabById(id)
     if (tab) {
       onTabChange?.(tab.path)
     }
-  }, [addTab, onTabChange])
+  }, [addTab, onTabChange, getTabById])
 
   const handleContextMenu = useCallback(
     (tabId: string, action: string) => {

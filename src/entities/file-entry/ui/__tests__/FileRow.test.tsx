@@ -37,7 +37,7 @@ test("scrollIntoView uses smooth by default and auto when reducedMotion", () => 
   type ScrollIntoViewFn = (options?: ScrollIntoViewOptions | boolean) => void
   const proto = Element.prototype as unknown as { scrollIntoView?: ScrollIntoViewFn }
   const original = proto.scrollIntoView
-  const scrollSpy = vi.fn<Parameters<ScrollIntoViewFn>, ReturnType<ScrollIntoViewFn>>()
+  const scrollSpy = vi.fn()
   Object.defineProperty(Element.prototype, "scrollIntoView", {
     configurable: true,
     value: scrollSpy,
@@ -56,8 +56,9 @@ test("scrollIntoView uses smooth by default and auto when reducedMotion", () => 
     )
 
     expect(scrollSpy).toHaveBeenCalled()
-    const lastArg = scrollSpy.mock.calls[scrollSpy.mock.calls.length - 1][0]
-    expect(lastArg.behavior).toBe("smooth")
+    const lastCall = scrollSpy.mock.calls[scrollSpy.mock.calls.length - 1] as unknown[] | undefined
+    const lastArg = lastCall ? (lastCall[0] as ScrollIntoViewOptions) : undefined
+    expect(lastArg?.behavior).toBe("smooth")
 
     // Enable reduced motion in settings
     useSettingsStore.getState().updateAppearance({ reducedMotion: true })
@@ -73,8 +74,9 @@ test("scrollIntoView uses smooth by default and auto when reducedMotion", () => 
       />,
     )
 
-    const lastArg2 = scrollSpy.mock.calls[scrollSpy.mock.calls.length - 1][0]
-    expect(lastArg2.behavior).toBe("auto")
+    const lastCall2 = scrollSpy.mock.calls[scrollSpy.mock.calls.length - 1] as unknown[] | undefined
+    const lastArg2 = lastCall2 ? (lastCall2[0] as ScrollIntoViewOptions) : undefined
+    expect(lastArg2?.behavior).toBe("auto")
   } finally {
     // restore original if existed
     if (original === undefined) delete proto.scrollIntoView
