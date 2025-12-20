@@ -9,6 +9,9 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    env:
+      VITE_USE_PERF_LOGS: 'false'
+      USE_PERF_LOGS: 'false'
     steps:
       - name: Checkout repository
         uses: actions/checkout@v4
