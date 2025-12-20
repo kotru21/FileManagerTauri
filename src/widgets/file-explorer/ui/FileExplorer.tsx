@@ -30,6 +30,7 @@ import { useSortingStore } from "@/features/sorting"
 import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
+import { withPerfSync } from "@/shared/lib/perf"
 import { toast } from "@/shared/ui"
 import { CopyProgressDialog } from "@/widgets/progress-dialog"
 import { useFileExplorerHandlers, useFileExplorerKeyboard } from "../lib"
@@ -106,29 +107,30 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
 
   // Process files with sorting and filtering (instrumented)
   const processedFiles = useMemo(() => {
-    const start = performance.now()
-    if (!rawFiles) return []
+    return withPerfSync("processFiles", { path: currentPath, count: rawFiles?.length ?? 0 }, () => {
+      const startLocal = performance.now()
+      if (!rawFiles) return []
 
-    // Filter with settings - use showHiddenFiles from displaySettings
-    const filtered = filterEntries(rawFiles, {
-      showHidden: displaySettings.showHiddenFiles,
-    })
+      // Filter with settings - use showHiddenFiles from displaySettings
+      const filtered = filterEntries(rawFiles, {
+        showHidden: displaySettings.showHiddenFiles,
+      })
 
-    // Sort
-    const sorted = sortEntries(filtered, sortConfig)
+      // Sort
+      const sorted = sortEntries(filtered, sortConfig)
 
-    const duration = performance.now() - start
-    try {
-      console.debug(`[perf] processFiles`, { path: currentPath, count: rawFiles.length, duration })
-      globalThis.__fm_perfLog = {
-        ...(globalThis.__fm_perfLog ?? {}),
-        lastProcess: { path: currentPath, count: rawFiles.length, duration, ts: Date.now() },
+      const duration = performance.now() - startLocal
+      try {
+        globalThis.__fm_perfLog = {
+          ...(globalThis.__fm_perfLog ?? {}),
+          lastProcess: { path: currentPath, count: rawFiles.length, duration, ts: Date.now() },
+        }
+      } catch {
+        /* ignore */
       }
-    } catch {
-      /* ignore */
-    }
 
-    return sorted
+      return sorted
+    })
   }, [rawFiles, displaySettings.showHiddenFiles, sortConfig, currentPath])
 
   // Apply quick filter
@@ -155,29 +157,31 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     try {
       const last = globalThis.__fm_lastNav as { id: string; path: string; t: number } | undefined
       if (last) {
-        const now = performance.now()
-        const navToRender = now - last.t
-        console.debug(`[perf] nav->render`, {
-          id: last.id,
-          path: last.path,
-          navToRender,
-          filesCount: files.length,
-        })
-        globalThis.__fm_perfLog = {
-          ...(globalThis.__fm_perfLog ?? {}),
-          lastRender: {
-            id: last.id,
-            path: last.path,
-            navToRender,
-            filesCount: files.length,
-            ts: Date.now(),
+        withPerfSync(
+          "nav->render",
+          { id: last.id, path: last.path, filesCount: files.length },
+          () => {
+            const now = performance.now()
+            const navToRender = now - last.t
+            globalThis.__fm_perfLog = {
+              ...(globalThis.__fm_perfLog ?? {}),
+              lastRender: {
+                id: last.id,
+                path: last.path,
+                navToRender,
+                filesCount: files.length,
+                ts: Date.now(),
+              },
+            }
           },
-        }
+        )
       } else {
-        globalThis.__fm_perfLog = {
-          ...(globalThis.__fm_perfLog ?? {}),
-          lastRender: { filesCount: files.length, ts: Date.now() },
-        }
+        withPerfSync("nav->render", { filesCount: files.length }, () => {
+          globalThis.__fm_perfLog = {
+            ...(globalThis.__fm_perfLog ?? {}),
+            lastRender: { filesCount: files.length, ts: Date.now() },
+          }
+        })
       }
     } catch {
       /* ignore */

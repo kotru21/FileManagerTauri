@@ -11,6 +11,7 @@ import { useAppearanceSettings, useFileDisplaySettings } from "@/features/settin
 import { useSortingStore } from "@/features/sorting"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
+import { withPerfSync } from "@/shared/lib/perf"
 
 interface VirtualFileListProps {
   files: FileEntry[]
@@ -104,12 +105,13 @@ export function VirtualFileList({
   // Instrument virtualization timings
   useEffect(() => {
     try {
-      const now = Date.now()
-      globalThis.__fm_perfLog = {
-        ...(globalThis.__fm_perfLog ?? {}),
-        virtualizer: { totalRows, overscan: 10, ts: now },
-      }
-      console.debug(`[perf] virtualizer`, { totalRows, overscan: 10 })
+      withPerfSync("virtualizer", { totalRows, overscan: 10 }, () => {
+        const now = Date.now()
+        globalThis.__fm_perfLog = {
+          ...(globalThis.__fm_perfLog ?? {}),
+          virtualizer: { totalRows, overscan: 10, ts: now },
+        }
+      })
     } catch {
       /* ignore */
     }
