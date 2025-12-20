@@ -175,19 +175,19 @@ export function FileBrowserPage() {
     async (path: string) => {
       // Navigate to parent directory
       try {
-      const parentPath = await tauriClient.getParentPath(path)
-      if (parentPath) {
-        navigate(parentPath)
-        resetSearch()
+        const parentPath = await tauriClient.getParentPath(path)
+        if (parentPath) {
+          navigate(parentPath)
+          resetSearch()
 
-        // Select the file after navigation
-        setTimeout(() => {
-          selectFile(path)
-        }, 100)
+          // Select the file after navigation
+          setTimeout(() => {
+            selectFile(path)
+          }, 100)
+        }
+      } catch {
+        // ignore
       }
-    } catch {
-      // ignore
-    }
     },
     [navigate, resetSearch, selectFile],
   )

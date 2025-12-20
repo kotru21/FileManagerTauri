@@ -1,4 +1,11 @@
-import type { DriveInfo, FileEntry, FilePreview, Result, SearchResult, SearchOptions } from "./bindings"
+import type {
+  DriveInfo,
+  FileEntry,
+  FilePreview,
+  Result,
+  SearchOptions,
+  SearchResult,
+} from "./bindings"
 import { commands } from "./bindings"
 
 export function unwrapResult<T, E>(result: Result<T, E>): T {

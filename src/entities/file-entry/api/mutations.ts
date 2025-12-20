@@ -1,8 +1,7 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
 import { commands } from "@/shared/api/tauri"
-import { fileKeys } from "./keys"
-
 import { unwrapResult } from "@/shared/api/tauri/client"
+import { fileKeys } from "./keys"
 
 export function useCreateDirectory() {
   const queryClient = useQueryClient()

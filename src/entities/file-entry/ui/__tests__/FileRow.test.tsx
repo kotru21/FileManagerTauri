@@ -1,7 +1,28 @@
 import { render } from "@testing-library/react"
 import { expect, test, vi } from "vitest"
-import type { FileDisplaySettings } from "@/features/settings"
-import type { FileEntry } from "@/shared/api/tauri"
+
+// Minimal FileDisplaySettings for unit tests
+type FileDisplaySettings = {
+  showFileExtensions: boolean
+  showFileSizes: boolean
+  showFileDates: boolean
+  showHiddenFiles: boolean
+  dateFormat: "relative" | "absolute"
+  thumbnailSize: "small" | "medium" | "large"
+}
+
+// Minimal FileEntry for unit tests
+type FileEntry = {
+  path: string
+  name: string
+  is_dir: boolean
+  is_hidden: boolean
+  extension: string | null
+  size: number
+  modified: number | null
+  created: number | null
+}
+
 import { FileRow } from "../FileRow"
 
 const file: FileEntry = {
