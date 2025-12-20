@@ -1,5 +1,4 @@
 import { memo, useEffect, useRef, useState } from "react"
-import { usePerformanceSettings } from "@/features/settings"
 import { canShowThumbnail, getLocalImageUrl } from "@/shared/lib"
 import { FileIcon } from "./FileIcon"
 
@@ -9,6 +8,11 @@ interface FileThumbnailProps {
   isDir: boolean
   size: number
   className?: string
+  // New prop: performance settings passed from higher layer
+  performanceSettings?: {
+    lazyLoadImages: boolean
+    thumbnailCacheSize: number
+  }
 }
 
 // Shared loading pool to limit concurrent image loads
@@ -66,6 +70,7 @@ export const FileThumbnail = memo(function FileThumbnail({
   isDir,
   size,
   className,
+  performanceSettings,
 }: FileThumbnailProps) {
   const [isLoaded, setIsLoaded] = useState(false)
   const [hasError, setHasError] = useState(false)
@@ -76,7 +81,8 @@ export const FileThumbnail = memo(function FileThumbnail({
 
   const showThumbnail = canShowThumbnail(extension) && !isDir
 
-  const performance = usePerformanceSettings()
+  const performanceDefaults = { lazyLoadImages: true, thumbnailCacheSize: 20 }
+  const performance = performanceSettings ?? performanceDefaults
 
   // Intersection observer for lazy loading (or eager load based on settings)
   useEffect(() => {

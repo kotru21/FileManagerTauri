@@ -30,7 +30,8 @@
         "noStaticElementInteractions": "off",
         "useKeyWithClickEvents": "off",
         "useSemanticElements": "off"
-      }
+      },
+      "style": {}
     }
   },
   "overrides": [
@@ -55,6 +56,59 @@
           "beforeAll",
           "afterAll"
         ]
+      }
+    },
+    {
+      "includes": ["**/src/entities/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/features/*",
+                      "src/features/*",
+                      "./src/features/*",
+                      "*src/features/*"
+                    ],
+                    "message": "Importing from higher FSD layers into 'entities' is forbidden. Move logic to features or pass values via props/shared adapter."
+                  },
+                  {
+                    "group": ["@/widgets/*", "src/widgets/*", "./src/widgets/*", "*src/widgets/*"],
+                    "message": "Importing from widgets into entities is forbidden."
+                  },
+                  {
+                    "group": ["@/pages/*", "src/pages/*", "./src/pages/*", "*src/pages/*"],
+                    "message": "Importing from pages into entities is forbidden."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/src/features/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@/widgets/*", "src/widgets/*", "./src/widgets/*", "*src/widgets/*"],
+                    "message": "Importing from widgets into features is forbidden. Use shared adapters or move logic."
+                  }
+                ]
+              }
+            }
+          }
+        }
       }
     }
   ],
