@@ -28,51 +28,45 @@ interface RecentFolderItemProps {
 function RecentFolderItem({ folder, isActive, onSelect, onRemove }: RecentFolderItemProps) {
   return (
     <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <div
-          role="button"
-          tabIndex={0}
-          onClick={onSelect}
-          onKeyDown={(e: React.KeyboardEvent) => {
-            if (e.key === "Enter" || e.key === " ") {
-              e.preventDefault()
-              onSelect()
-            }
-          }}
-          className={cn(
-            "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm",
-            "hover:bg-accent transition-colors text-left group",
-            isActive && "bg-accent",
-          )}
-          title={folder.path}
-        >
-          <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
-          <div className="flex-1 min-w-0">
-            <div className="truncate">{folder.name}</div>
-            <div className="text-xs text-muted-foreground truncate">
-              {formatRelativeDate(folder.lastVisited)}
-            </div>
-          </div>
-          <div
-            role="button"
-            tabIndex={0}
-            onClick={(e) => {
-              e.stopPropagation()
-              onRemove()
-            }}
-            onKeyDown={(e: React.KeyboardEvent) => {
-              if (e.key === "Enter" || e.key === " ") {
-                e.stopPropagation()
-                e.preventDefault()
-                onRemove()
-              }
-            }}
-            className="opacity-0 group-hover:opacity-100 p-1 hover:bg-background rounded transition-opacity"
+      <div
+        className={cn(
+          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none hover:bg-accent transition-colors text-left group",
+          isActive && "bg-accent",
+        )}
+        title={folder.path}
+      >
+        <ContextMenuTrigger asChild>
+          <button
+            type="button"
+            onClick={onSelect}
+            className="flex-1 flex items-center gap-2 text-left"
+            aria-label={`Open ${folder.name}`}
           >
-            <X className="h-3 w-3" />
-          </div>
-        </div>
-      </ContextMenuTrigger>
+            <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <div className="flex-1 min-w-0">
+              <div className="truncate">{folder.name}</div>
+              <div className="text-xs text-muted-foreground truncate">
+                {formatRelativeDate(folder.lastVisited)}
+              </div>
+            </div>
+          </button>
+        </ContextMenuTrigger>
+
+        <Button
+          variant="ghost"
+          size="icon"
+          className="opacity-0 group-hover:opacity-100 p-1 hover:bg-background rounded transition-opacity h-6 w-6"
+          onClick={(e) => {
+            e.stopPropagation()
+            onRemove()
+          }}
+          aria-label={`Remove ${folder.name}`}
+          title={`Remove ${folder.name}`}
+        >
+          <X className="h-3 w-3" />
+        </Button>
+      </div>
+
       <ContextMenuContent>
         <ContextMenuItem onClick={onSelect}>
           <Folder className="h-4 w-4 mr-2" />

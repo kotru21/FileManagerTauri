@@ -200,6 +200,11 @@ body {
   -webkit-app-region: no-drag;
 }
 
+/* Utility to mark element as non-draggable (clickable inside drag regions) */
+.no-drag {
+  -webkit-app-region: no-drag;
+}
+
 /* Cut file indication */
 .cut-file {
   opacity: 0.5;
@@ -234,6 +239,30 @@ body {
 /* Quick look overlay */
 .quick-look-active {
   box-shadow: 0 0 0 2px var(--accent-color);
+}
+
+/* Popover surface: centralized translucent background with blur for menus/tooltips */
+:root {
+  --popover-bg: rgba(17, 17, 19, 0.6);
+  --popover-border: rgba(255, 255, 255, 0.06);
+  --popover-opacity: 0.6;
+  --popover-blur: 6px;
+}
+
+html.light {
+  --popover-bg: rgba(255, 255, 255, 0.85);
+  --popover-border: rgba(0, 0, 0, 0.06);
+  --popover-opacity: 0.85;
+  --popover-blur: 6px;
+}
+
+.popover-surface {
+  /* Use theme-aware popover color; `--popover-bg` is set for dark/light by default or by appearance hook */
+  background-color: var(--popover-bg);
+  -webkit-backdrop-filter: blur(var(--popover-blur));
+  backdrop-filter: blur(var(--popover-blur));
+  /* keep border color consistent with theme */
+  border-color: var(--popover-border);
 }
 
 /* Breadcrumb hover state */

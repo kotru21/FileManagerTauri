@@ -196,13 +196,16 @@ const GridItem = memo(function GridItem({
     <div
       className={cn(
         "group relative flex flex-col items-center p-2 rounded-lg cursor-pointer",
-        "hover:bg-accent/50 transition-colors",
+        // Only show hover background when not selected to avoid visual override of selection
+        !isSelected && "hover:bg-accent/50",
+        "transition-colors",
         isSelected && "bg-accent",
         isDragOver && "bg-accent/70 ring-2 ring-primary",
         isCut && "opacity-50",
       )}
       style={{ width: gridConfig.itemSize }}
       onClick={onClick}
+      onContextMenu={onClick}
       onDoubleClick={onDoubleClick}
       onDragOver={handleDragOver}
       onDragLeave={() => setIsDragOver(false)}

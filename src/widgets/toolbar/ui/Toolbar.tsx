@@ -88,6 +88,8 @@ export function Toolbar({
               onClick={goBack}
               disabled={!canGoBack()}
               className="h-8 w-8"
+              aria-label="Back"
+              title="Back"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -103,6 +105,8 @@ export function Toolbar({
               onClick={goForward}
               disabled={!canGoForward()}
               className="h-8 w-8"
+              aria-label="Forward"
+              title="Forward"
             >
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -112,7 +116,14 @@ export function Toolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={goUp} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goUp}
+              className="h-8 w-8"
+              aria-label="Up"
+              title="Up"
+            >
               <ArrowUp className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -121,7 +132,14 @@ export function Toolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={onRefresh} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onRefresh}
+              className="h-8 w-8"
+              aria-label="Refresh"
+              title="Refresh"
+            >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -135,7 +153,14 @@ export function Toolbar({
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={onNewFolder} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onNewFolder}
+              className="h-8 w-8"
+              aria-label="New folder"
+              title="New folder"
+            >
               <FolderPlus className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -144,7 +169,14 @@ export function Toolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={onNewFile} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onNewFile}
+              className="h-8 w-8"
+              aria-label="New file"
+              title="New file"
+            >
               <FilePlus className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -165,6 +197,10 @@ export function Toolbar({
               size="icon"
               onClick={toggleHidden}
               className={cn("h-8 w-8", displaySettings.showHiddenFiles && "bg-accent")}
+              aria-label={
+                displaySettings.showHiddenFiles ? "Hide hidden files" : "Show hidden files"
+              }
+              title={displaySettings.showHiddenFiles ? "Hide hidden files" : "Show hidden files"}
             >
               {displaySettings.showHiddenFiles ? (
                 <Eye className="h-4 w-4" />
@@ -222,6 +258,9 @@ export function Toolbar({
             onClick={handleToggleBookmark}
             disabled={!currentPath}
             className={cn("h-8 w-8", bookmarked && "text-yellow-500")}
+            aria-label={bookmarked ? "Remove bookmark" : "Add bookmark"}
+            aria-pressed={bookmarked}
+            title={bookmarked ? "Remove bookmark" : "Add bookmark"}
           >
             <Star className={cn("h-4 w-4", bookmarked && "fill-current")} />
           </Button>
@@ -270,7 +309,7 @@ export function Toolbar({
         </Tooltip>
 
         {showSearch && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-[320px] rounded border bg-popover p-2 shadow-md">
+          <div className="absolute right-0 top-full z-50 mt-2 w-[320px] rounded border bg-popover p-2 shadow-md popover-surface">
             <SearchBar
               className="w-full"
               onSearch={() => {

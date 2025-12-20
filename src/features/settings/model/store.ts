@@ -23,6 +23,11 @@ const defaultAppearance: AppearanceSettings = {
   accentColor: "#3b82f6",
   enableAnimations: true,
   reducedMotion: false,
+  // Popover defaults
+  popoverTranslucent: true,
+  popoverOpacity: 0.6,
+  popoverBlur: true,
+  popoverBlurRadius: 6,
 }
 
 const defaultBehavior: BehaviorSettings = {
@@ -357,6 +362,11 @@ export const useSettingsStore = create<SettingsState>()(
             accentColor: z.string().optional(),
             enableAnimations: z.boolean().optional(),
             reducedMotion: z.boolean().optional(),
+            // Popover settings
+            popoverTranslucent: z.boolean().optional(),
+            popoverOpacity: z.number().min(0).max(1).optional(),
+            popoverBlur: z.boolean().optional(),
+            popoverBlurRadius: z.number().min(0).optional(),
           })
 
           const behaviorSchema = z.object({

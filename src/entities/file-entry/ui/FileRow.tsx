@@ -73,6 +73,7 @@ export const FileRow = memo(function FileRow({
   }
   const rowRef = useRef<HTMLDivElement>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
 
   // Use passed display settings or sensible defaults to avoid depending on higher layers
   const defaultDisplaySettings: FileDisplaySettings = {
@@ -156,14 +157,19 @@ export const FileRow = memo(function FileRow({
   return (
     <div
       ref={rowRef}
+      role="option"
+      aria-selected={isSelected}
+      aria-label={displayName}
       className={cn(
-        "group flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none",
-        "hover:bg-accent/50 transition-colors duration-(--transition-duration)",
+        "group flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none no-drag",
+        // Only show hover background when NOT selected so selection remains visually stable
+        !isSelected && "hover:bg-accent/50 transition-colors duration-(--transition-duration)",
         isSelected && "bg-accent",
         isFocused && "ring-1 ring-primary ring-inset",
         isDragOver && "bg-accent/70 ring-2 ring-primary",
         isCut && "opacity-50",
       )}
+      data-testid={`file-row-${encodeURIComponent(file.path)}`}
       onClick={onSelect}
       onContextMenu={onSelect}
       onDoubleClick={onOpen}
@@ -171,7 +177,12 @@ export const FileRow = memo(function FileRow({
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onPointerEnter={() => setIsHovered(true)}
+      onPointerLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
       draggable
+      tabIndex={0}
       data-path={file.path}
     >
       {/* Icon */}
@@ -197,7 +208,13 @@ export const FileRow = memo(function FileRow({
           onDelete={onDelete ?? (() => {})}
           onQuickLook={onQuickLook}
           onToggleBookmark={onToggleBookmark}
-          className="opacity-0 group-hover:opacity-100"
+          className={cn(
+            "no-drag",
+            // show actions when hovered, focused, or selected; keep CSS hover fallback
+            isHovered || isSelected || isFocused
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100",
+          )}
         />
       )}
 

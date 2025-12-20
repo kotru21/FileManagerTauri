@@ -194,7 +194,12 @@ export function VirtualFileList({
       />
 
       {/* Scrollable content */}
-      <div ref={parentRef} className="flex-1 overflow-auto relative">
+      <div
+        ref={parentRef}
+        className="flex-1 overflow-auto relative"
+        role="listbox"
+        aria-multiselectable={true}
+      >
         <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const rowIndex = virtualRow.index

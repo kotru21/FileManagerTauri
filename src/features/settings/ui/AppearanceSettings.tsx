@@ -197,6 +197,58 @@ export const AppearanceSettings = memo(function AppearanceSettings() {
 
         <Separator />
 
+        {/* Popover visuals */}
+        <section>
+          <h3 className="text-sm font-medium mb-3">Поповеры и меню</h3>
+          <div className="space-y-3">
+            <SettingItem
+              label="Полупрозрачный фон для меню"
+              description="Включить полупрозрачный фон для контекстных меню, тултипов и поиска"
+            >
+              <ToggleSwitch
+                checked={appearance.popoverTranslucent ?? true}
+                onChange={(v) => updateAppearance({ popoverTranslucent: v })}
+              />
+            </SettingItem>
+
+            <SettingItem
+              label="Непрозрачность фона"
+              description="Колеблется от 0 (прозрачный) до 1 (сплошной)"
+            >
+              <input
+                type="range"
+                min={0}
+                max={1}
+                step={0.05}
+                value={appearance.popoverOpacity ?? 0.6}
+                onChange={(e) => updateAppearance({ popoverOpacity: Number(e.target.value) })}
+                className="w-48"
+              />
+            </SettingItem>
+
+            <SettingItem label="Размытие фона" description="Эффект backdrop blur для поповеров">
+              <ToggleSwitch
+                checked={appearance.popoverBlur ?? true}
+                onChange={(v) => updateAppearance({ popoverBlur: v })}
+              />
+            </SettingItem>
+
+            <SettingItem label="Радиус размытия (px)" description="Управляет силой размытия фона">
+              <input
+                type="range"
+                min={0}
+                max={20}
+                step={1}
+                value={appearance.popoverBlurRadius ?? 6}
+                onChange={(e) => updateAppearance({ popoverBlurRadius: Number(e.target.value) })}
+                className="w-48"
+              />
+            </SettingItem>
+          </div>
+        </section>
+
+        <Separator />
+
         <div className="flex justify-end pt-2">
           <Button variant="outline" size="sm" onClick={() => resetSection("appearance")}>
             <RotateCcw size={14} className="mr-2" />

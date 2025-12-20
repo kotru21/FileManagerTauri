@@ -329,10 +329,13 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     >
       <div
         className={cn("flex flex-col h-full", className)}
-        onClick={(e) => {
-          if (e.target === e.currentTarget) {
-            clearSelection()
-          }
+        data-testid="file-explorer-container"
+        onPointerDown={(e) => {
+          const ev = e as React.PointerEvent
+          // Only clear selection on primary (left) button and when clicking the background itself
+          if (ev.button !== 0) return
+          if (ev.target !== ev.currentTarget) return
+          clearSelection()
         }}
       >
         {/* Quick Filter Bar */}

@@ -25,6 +25,16 @@ export interface AppearanceSettings {
   accentColor: string
   enableAnimations: boolean
   reducedMotion: boolean
+
+  // Popover surface visual options
+  // Whether to use a translucent popover background (true by default)
+  popoverTranslucent?: boolean
+  // Opacity for the popover background (0.0 - 1.0)
+  popoverOpacity?: number
+  // Whether to enable backdrop blur on popovers
+  popoverBlur?: boolean
+  // Blur radius in pixels
+  popoverBlurRadius?: number
 }
 
 export interface BehaviorSettings {

@@ -77,7 +77,7 @@ export function QuickFilterBar({ totalCount, filteredCount, className }: QuickFi
     <div
       className={cn(
         "flex items-center gap-2 px-3 py-2 border-b bg-muted/30",
-        "filter-bar transition-all duration-[var(--transition-duration)]",
+        "filter-bar transition-all duration-(--transition-duration)",
         className,
       )}
     >
