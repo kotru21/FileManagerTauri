@@ -19,7 +19,7 @@
     "check:fix": "biome check . --write",
     "lint:all": "npm run check && npm run lint:rust",
     "typecheck": "tsc --noEmit",
-    "check:imports": "madge --circular src"
+    "check:imports": "npx madge --circular src"
   },
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.2.16",
@@ -59,7 +59,7 @@
     "vitest": "^4.0.15",
     "zod": "^3.21.4",
     "axe-core": "^4.8.0",
-    "vitest-axe": "^1.1.0",
-    "madge": "^8.3.0"
+    "vitest-axe": "^0.1.0",
+    "madge": "^8.0.0"
   }
 }

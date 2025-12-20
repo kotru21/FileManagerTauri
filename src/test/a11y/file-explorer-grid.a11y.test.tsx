@@ -7,7 +7,7 @@ it("a11y check — FileExplorerGrid (axe)", async () => {
     const pkgName = ["vitest", "axe"].join("-")
     const mod = await import(pkgName)
     const { axe, toHaveNoViolations } = mod
-    expect.extend({ toHaveNoViolations })
+    ;(expect as any).extend({ toHaveNoViolations })
 
     const handlers = {} as import("@/widgets/file-explorer/ui/types").FileExplorerHandlers
     const { container } = render(
@@ -19,7 +19,7 @@ it("a11y check — FileExplorerGrid (axe)", async () => {
       />,
     )
     const results = await axe(container)
-    expect(results).toHaveNoViolations()
+    ;(expect(results) as any).toHaveNoViolations()
   } catch (_err) {
     console.warn("Skipping a11y test: vitest-axe not installed in environment.")
     expect(true).toBe(true)
