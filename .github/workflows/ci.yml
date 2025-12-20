@@ -22,6 +22,9 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Check import cycles (madge)
+        run: npm run check:imports
+
       - name: Run lint (biome)
         run: npm run lint
 
