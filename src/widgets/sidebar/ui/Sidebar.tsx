@@ -245,26 +245,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
 
         <Separator className="my-1" />
 
-        {/* Recent Folders */}
-        <div>
-          <SectionHeader
-            title="Недавние"
-            icon={<Clock className="h-4 w-4" />}
-            expanded={expandedSections.recent}
-            onToggle={() => toggleSection("recent")}
-          />
-          {expandedSections.recent && (
-            <RecentFoldersList
-              onSelect={handleNavigate}
-              currentPath={currentPath || undefined}
-              maxItems={8}
-              className="mt-1"
-            />
-          )}
-        </div>
-
-        <Separator className="my-1" />
-
         {/* Drives */}
         <div>
           <SectionHeader
@@ -284,6 +264,26 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
                 />
               ))}
             </div>
+          )}
+        </div>
+
+        <Separator className="my-1" />
+
+        {/* Recent Folders */}
+        <div>
+          <SectionHeader
+            title="Недавние"
+            icon={<Clock className="h-4 w-4" />}
+            expanded={expandedSections.recent}
+            onToggle={() => toggleSection("recent")}
+          />
+          {expandedSections.recent && (
+            <RecentFoldersList
+              onSelect={handleNavigate}
+              currentPath={currentPath || undefined}
+              maxItems={8}
+              className="mt-1"
+            />
           )}
         </div>
       </div>

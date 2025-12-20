@@ -90,6 +90,39 @@ export function applyAppearanceToRoot(appearance: AppearanceSettings) {
     } else {
       root.style.setProperty("--transition-duration", "150ms")
     }
+
+    // Popover visual settings (translucent + blur)
+    // Compute and apply CSS variables used by .popover-surface
+    const opacity = typeof appearance.popoverOpacity === "number" ? appearance.popoverOpacity : 0.6
+    const blurRadius =
+      typeof appearance.popoverBlurRadius === "number" ? `${appearance.popoverBlurRadius}px` : "6px"
+
+    // For dark/light base color, prefer existing variables; compute popover bg using opacity
+    const isLight = document.documentElement.classList.contains("light")
+    if (appearance.popoverTranslucent === false) {
+      // Remove translucency variables
+      root.style.removeProperty("--popover-opacity")
+      root.style.removeProperty("--popover-blur")
+      root.style.removeProperty("--popover-bg")
+    } else {
+      // Apply opacity & blur; and update base RGBA depending on theme
+      root.style.setProperty("--popover-opacity", String(opacity))
+      root.style.setProperty("--popover-blur", blurRadius)
+
+      if (isLight) {
+        // light theme: white base
+        root.style.setProperty("--popover-bg", `rgba(255,255,255,${opacity})`)
+        root.style.setProperty("--popover-border", "rgba(0,0,0,0.06)")
+      } else {
+        root.style.setProperty("--popover-bg", `rgba(17,17,19,${opacity})`)
+        root.style.setProperty("--popover-border", "rgba(255,255,255,0.06)")
+      }
+
+      // If blur is disabled, set blur to 0
+      if (appearance.popoverBlur === false) {
+        root.style.setProperty("--popover-blur", "0px")
+      }
+    }
   } catch (e) {
     // In environments without DOM, do nothing
     // eslint-disable-next-line no-console

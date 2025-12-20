@@ -34,7 +34,7 @@ export function FileExplorerSimpleList({
   onQuickLook,
 }: Props) {
   return (
-    <div className={className ?? "h-full overflow-auto"}>
+    <div className={className ?? "h-full overflow-auto"} role="listbox" aria-multiselectable={true}>
       {showColumnHeadersInSimpleList && (
         <div className="px-2">
           <ColumnHeader

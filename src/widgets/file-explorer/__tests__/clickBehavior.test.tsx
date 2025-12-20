@@ -181,4 +181,70 @@ describe("click behavior", () => {
 
     cleanup()
   })
+
+  it("right-click selects item but does not navigate when singleClickToSelect=false", async () => {
+    act(() =>
+      useSettingsStore
+        .getState()
+        .updateBehavior({ doubleClickToOpen: false, singleClickToSelect: false }),
+    )
+
+    const { getHandlers, getSelected, getCurrent, cleanup } = setupHandlers()
+    const handlers = getHandlers()
+
+    act(() =>
+      handlers.handleSelect("/dir1", {
+        type: "contextmenu",
+        button: 2,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      } as unknown as React.MouseEvent),
+    )
+
+    // allow microtask
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5))
+    })
+
+    await waitFor(() => {
+      expect(getSelected()).toEqual(["/dir1"])
+      expect(getCurrent()).not.toBe("/dir1")
+    })
+
+    cleanup()
+  })
+
+  it("right-click selects item but does not navigate when singleClickToSelect=true", async () => {
+    act(() =>
+      useSettingsStore
+        .getState()
+        .updateBehavior({ doubleClickToOpen: false, singleClickToSelect: true }),
+    )
+
+    const { getHandlers, getSelected, getCurrent, cleanup } = setupHandlers()
+    const handlers = getHandlers()
+
+    act(() =>
+      handlers.handleSelect("/dir1", {
+        type: "contextmenu",
+        button: 2,
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      } as unknown as React.MouseEvent),
+    )
+
+    // allow microtask
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 5))
+    })
+
+    await waitFor(() => {
+      expect(getSelected()).toEqual(["/dir1"])
+      expect(getCurrent()).not.toBe("/dir1")
+    })
+
+    cleanup()
+  })
 })

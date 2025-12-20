@@ -9,6 +9,7 @@ import { useBehaviorSettings } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { joinPath } from "@/shared/lib"
 import { toast } from "@/shared/ui"
+import { handleSelectionEvent } from "./selectionHandlers"
 
 interface UseFileExplorerHandlersOptions {
   files: FileEntry[]
@@ -49,21 +50,29 @@ export function useFileExplorerHandlers({
   // Selection handlers
   const handleSelect = useCallback(
     (path: string, e: React.MouseEvent) => {
-      // Ctrl+Click + setting => open folder in new tab
+      // Ctrl+Click + setting => open folder in new tab (preserve existing behavior)
       if ((e.ctrlKey || e.metaKey) && behaviorSettings.openFoldersInNewTab) {
         const file = files.find((f) => f.path === path)
         if (file?.is_dir) {
         }
       }
 
-      if (!behaviorSettings.doubleClickToOpen) {
+      // Delegate selection logic to shared helper (keeps consistent behavior across views)
+      const { shouldOpen } = handleSelectionEvent({
+        path,
+        e,
+        files,
+        behaviorSettings,
+        selectFile,
+        toggleSelection,
+        selectRange,
+        getSelectedPaths,
+      })
+
+      // If helper indicates we should open/navigate (happens when doubleClickToOpen === false and not contextmenu)
+      if (shouldOpen) {
         const file = files.find((f) => f.path === path)
         if (!file) return
-
-        // Optionally select on single click before opening
-        if (behaviorSettings.singleClickToSelect) {
-          selectFile(path)
-        }
 
         // Open directories via navigation (deferred) and files via opener
         if (file.is_dir) {
@@ -80,19 +89,6 @@ export function useFileExplorerHandlers({
             toast.error(`Не удалось открыть файл: ${error}`)
           }
         }
-
-        return
-      }
-
-      // Default selection behavior when doubleClickToOpen is enabled
-      if (e.shiftKey && files.length > 0) {
-        const allPaths = files.map((f) => f.path)
-        const lastSelected = getSelectedPaths()[0] || allPaths[0]
-        selectRange(lastSelected, path, allPaths)
-      } else if (e.ctrlKey || e.metaKey) {
-        toggleSelection(path)
-      } else {
-        selectFile(path)
       }
     },
     [
@@ -101,9 +97,7 @@ export function useFileExplorerHandlers({
       toggleSelection,
       selectRange,
       getSelectedPaths,
-      behaviorSettings.openFoldersInNewTab,
-      behaviorSettings.doubleClickToOpen,
-      behaviorSettings.singleClickToSelect,
+      behaviorSettings,
       navigate,
       clearSelection,
     ],

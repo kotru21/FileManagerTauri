@@ -43,6 +43,7 @@
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.9",
+    "@playwright/test": "^1.57.0",
     "@tauri-apps/cli": "^2.9.6",
     "@testing-library/jest-dom": "^6.9.1",
     "@testing-library/react": "^16.3.1",
@@ -51,15 +52,15 @@
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.15",
+    "axe-core": "^4.8.0",
     "globals": "^16.5.0",
     "jsdom": "^27.3.0",
+    "madge": "^8.0.0",
     "tailwindcss": "^4.1.18",
     "typescript": "~5.9.3",
     "vite": "^7.3.0",
     "vitest": "^4.0.15",
-    "zod": "^3.21.4",
-    "axe-core": "^4.8.0",
     "vitest-axe": "^0.1.0",
-    "madge": "^8.0.0"
+    "zod": "^3.21.4"
   }
 }
