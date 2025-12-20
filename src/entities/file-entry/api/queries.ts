@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
-import { fileKeys } from "./keys"
 import { tauriClient } from "@/shared/api/tauri/client"
+import { fileKeys } from "./keys"
 
 export function useDirectoryContents(path: string | null) {
   return useQuery({

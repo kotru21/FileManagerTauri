@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useRef } from "react"
 import { usePerformanceSettings } from "@/features/settings"
-import { type SearchOptions } from "@/shared/api/tauri"
+import type { SearchOptions } from "@/shared/api/tauri"
 import { tauriClient } from "@/shared/api/tauri/client"
 import { toast } from "@/shared/ui"
 import { useSearchStore } from "../model/store"

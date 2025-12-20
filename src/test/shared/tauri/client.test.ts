@@ -1,4 +1,4 @@
-import { expect, test, vi, beforeEach } from "vitest"
+import { beforeEach, expect, test, vi } from "vitest"
 import { commands } from "@/shared/api/tauri/bindings"
 import { tauriClient } from "@/shared/api/tauri/client"
 
@@ -7,7 +7,18 @@ beforeEach(() => {
 })
 
 test("readDirectory returns data on ok result", async () => {
-  const mockFiles = [{ path: "/tmp/file.txt", name: "file.txt", is_dir: false, is_hidden: false, extension: "txt", size: 100, modified: null, created: null }]
+  const mockFiles = [
+    {
+      path: "/tmp/file.txt",
+      name: "file.txt",
+      is_dir: false,
+      is_hidden: false,
+      extension: "txt",
+      size: 100,
+      modified: null,
+      created: null,
+    },
+  ]
   vi.spyOn(commands, "readDirectory").mockResolvedValue({ status: "ok", data: mockFiles })
 
   const result = await tauriClient.readDirectory("/")
@@ -15,7 +26,10 @@ test("readDirectory returns data on ok result", async () => {
 })
 
 test("readDirectory throws on error result", async () => {
-  vi.spyOn(commands, "readDirectory").mockResolvedValue({ status: "error", error: "permission denied" })
+  vi.spyOn(commands, "readDirectory").mockResolvedValue({
+    status: "error",
+    error: "permission denied",
+  })
 
   await expect(tauriClient.readDirectory("/protected")).rejects.toThrow("permission denied")
 })
