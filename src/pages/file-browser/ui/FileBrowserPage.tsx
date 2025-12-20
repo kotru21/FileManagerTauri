@@ -18,7 +18,7 @@ import { SearchResultItem, useSearchStore } from "@/features/search-content"
 import { SettingsDialog, useLayoutSettings, useSettingsStore } from "@/features/settings"
 import { TabBar, useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
-import { commands } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
 import { cn } from "@/shared/lib"
 import {
   ResizableHandle,
@@ -174,9 +174,10 @@ export function FileBrowserPage() {
   const handleSearchResultSelect = useCallback(
     async (path: string) => {
       // Navigate to parent directory
-      const result = await commands.getParentPath(path)
-      if (result.status === "ok" && result.data) {
-        navigate(result.data)
+      try {
+      const parentPath = await tauriClient.getParentPath(path)
+      if (parentPath) {
+        navigate(parentPath)
         resetSearch()
 
         // Select the file after navigation
@@ -184,6 +185,9 @@ export function FileBrowserPage() {
           selectFile(path)
         }, 100)
       }
+    } catch {
+      // ignore
+    }
     },
     [navigate, resetSearch, selectFile],
   )
@@ -244,20 +248,16 @@ export function FileBrowserPage() {
     if (!confirmed) return
 
     try {
-      const result = await commands.deleteEntries(paths, false)
-      if (result.status === "ok") {
-        toast.success(`Удалено: ${paths.length} элемент(ов)`)
-        addOperation({
-          type: "delete",
-          description: createOperationDescription("delete", { deletedPaths: paths }),
-          data: { deletedPaths: paths },
-          canUndo: false,
-        })
-        clearSelection()
-        handleRefresh()
-      } else {
-        toast.error(`Ошибка: ${result.error}`)
-      }
+      await tauriClient.deleteEntries(paths, false)
+      toast.success(`Удалено: ${paths.length} элемент(ов)`)
+      addOperation({
+        type: "delete",
+        description: createOperationDescription("delete", { deletedPaths: paths }),
+        data: { deletedPaths: paths },
+        canUndo: false,
+      })
+      clearSelection()
+      handleRefresh()
     } catch (error) {
       toast.error(`Ошибка удаления: ${error}`)
     }

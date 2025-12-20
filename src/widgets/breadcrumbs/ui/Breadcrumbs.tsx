@@ -1,7 +1,7 @@
 import { ChevronRight, Home } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigationStore } from "@/features/navigation"
-import { commands } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
 import { cn } from "@/shared/lib"
 import { Input } from "@/shared/ui"
 
@@ -80,8 +80,8 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
     const normalizedPath = editValue.trim().replace(/\//g, "\\")
 
     try {
-      const result = await commands.pathExists(normalizedPath)
-      if (result.status === "ok" && result.data) {
+      const exists = await tauriClient.pathExists(normalizedPath)
+      if (exists) {
         navigate(normalizedPath)
         setIsEditing(false)
         setError(null)
