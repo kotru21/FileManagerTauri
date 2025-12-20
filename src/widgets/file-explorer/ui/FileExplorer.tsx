@@ -20,9 +20,9 @@ import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
 import { QuickFilterBar, useQuickFilterStore } from "@/features/quick-filter"
 import {
+  useAppearanceSettings,
   useBehaviorSettings,
   useFileDisplaySettings,
-  useAppearanceSettings,
   useLayoutSettings,
   usePerformanceSettings,
 } from "@/features/settings"
@@ -299,9 +299,14 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       // pass settings and sorting down to view
       displaySettings={displaySettings}
       appearance={appearance}
-      performanceSettings={{ lazyLoadImages: performanceSettings.lazyLoadImages, thumbnailCacheSize: performanceSettings.thumbnailCacheSize }}
+      performanceSettings={{
+        lazyLoadImages: performanceSettings.lazyLoadImages,
+        thumbnailCacheSize: performanceSettings.thumbnailCacheSize,
+      }}
       sortConfig={sortConfig}
-      onSort={() => { /* sorting handled via useSortingStore in widgets */ }}
+      onSort={() => {
+        /* sorting handled via useSortingStore in widgets */
+      }}
     />
   )
 

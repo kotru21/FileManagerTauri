@@ -1,10 +1,11 @@
+import type { SortConfig } from "@/entities/file-entry"
 import { ColumnHeader, FileRow } from "@/entities/file-entry"
 import type { ColumnWidths } from "@/features/layout"
+import type { AppearanceSettings, FileDisplaySettings } from "@/features/settings"
 import type { ViewMode } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 import { FileGrid } from "./FileGrid"
 import { VirtualFileList } from "./VirtualFileList"
-import type { FileDisplaySettings, AppearanceSettings } from "@/features/settings"
 
 interface FileExplorerViewProps {
   className?: string
@@ -37,8 +38,8 @@ interface FileExplorerViewProps {
   displaySettings?: FileDisplaySettings
   appearance?: AppearanceSettings
   performanceSettings?: { lazyLoadImages: boolean; thumbnailCacheSize: number }
-  sortConfig?: { field: string; direction: string }
-  onSort?: (field: string) => void
+  sortConfig?: SortConfig
+  onSort?: (field: SortConfig["field"]) => void
 }
 
 export function FileExplorerView({
@@ -53,6 +54,11 @@ export function FileExplorerView({
   columnWidths,
   setColumnWidth,
   performanceThreshold,
+  displaySettings,
+  appearance,
+  performanceSettings: _performanceSettings,
+  sortConfig,
+  onSort,
 }: FileExplorerViewProps) {
   if (isLoading) {
     return <div className="flex-1 flex items-center justify-center">Загрузка...</div>
@@ -75,7 +81,13 @@ export function FileExplorerView({
 
   const simpleListThreshold = performanceThreshold
   if (files.length < simpleListThreshold) {
-    const display = displaySettings ?? { showFileExtensions: true, showFileSizes: true, showFileDates: true, dateFormat: "relative", thumbnailSize: "medium" }
+    const display = displaySettings ?? {
+      showFileExtensions: true,
+      showFileSizes: true,
+      showFileDates: true,
+      dateFormat: "relative",
+      thumbnailSize: "medium",
+    }
     const appearanceLocal = appearance ?? { reducedMotion: false }
 
     return (
@@ -89,7 +101,10 @@ export function FileExplorerView({
               }
               sortConfig={sortConfig ?? { field: "name", direction: "asc" }}
               onSort={onSort ?? (() => {})}
-              displaySettings={{ showFileSizes: display.showFileSizes, showFileDates: display.showFileDates }}
+              displaySettings={{
+                showFileSizes: display.showFileSizes,
+                showFileDates: display.showFileDates,
+              }}
             />
           </div>
         )}

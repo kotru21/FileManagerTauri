@@ -33,7 +33,17 @@ const files: FileEntry[] = [
   },
 ]
 
-function setupHandlers(overrides?: Partial<Record<string, any>>) {
+type HandlersOverrides = Partial<{
+  createDirectory: (path: string) => Promise<void>
+  createFile: (path: string) => Promise<void>
+  renameEntry: (arg: { oldPath: string; newName: string }) => Promise<void>
+  deleteEntries: (arg: { paths: string[]; permanent?: boolean }) => Promise<void>
+  copyEntries: (arg: { sources: string[]; destination: string }) => Promise<void>
+  moveEntries: (arg: { sources: string[]; destination: string }) => Promise<void>
+  onStartCopyWithProgress: (sources: string[], destination: string) => void
+}>
+
+function setupHandlers(overrides?: HandlersOverrides) {
   // Reset stores without reading internals
   act(() => {
     useInlineEditStore.setState({ mode: null, targetPath: null, parentPath: null })

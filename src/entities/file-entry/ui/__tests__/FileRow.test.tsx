@@ -14,7 +14,13 @@ const file: FileEntry = {
   created: null,
 }
 
-const defaultDisplay = { showFileExtensions: true, showFileSizes: true, showFileDates: true, dateFormat: "relative", thumbnailSize: "medium" }
+const defaultDisplay = {
+  showFileExtensions: true,
+  showFileSizes: true,
+  showFileDates: true,
+  dateFormat: "relative",
+  thumbnailSize: "medium",
+}
 
 const defaultAppearance = { reducedMotion: false }
 
@@ -22,7 +28,14 @@ test("right-click selects item and doesn't prevent default", () => {
   const onSelect = vi.fn()
   const onOpen = vi.fn()
   const { getByText } = render(
-    <FileRow file={file} isSelected={false} onSelect={onSelect} onOpen={onOpen} displaySettings={defaultDisplay} appearance={defaultAppearance} />,
+    <FileRow
+      file={file}
+      isSelected={false}
+      onSelect={onSelect}
+      onOpen={onOpen}
+      displaySettings={defaultDisplay}
+      appearance={defaultAppearance}
+    />,
   )
 
   const node = getByText("file.txt")

@@ -8,12 +8,13 @@ import {
   ContextMenuSeparator,
   ContextMenuTrigger,
 } from "@/shared/ui"
-import { WindowControls } from "@/widgets"
 import { type Tab, useTabsStore } from "../model/store"
 
 interface TabBarProps {
   onTabChange?: (path: string) => void
   className?: string
+  // Controls slot allows higher layers (pages/widgets) to inject controls like WindowControls
+  controls?: React.ReactNode
 }
 
 interface TabItemProps {
@@ -125,7 +126,7 @@ function TabItem({
   )
 }
 
-export function TabBar({ onTabChange, className }: TabBarProps) {
+export function TabBar({ onTabChange, className, controls }: TabBarProps) {
   const {
     tabs,
     activeTabId,
@@ -253,10 +254,8 @@ export function TabBar({ onTabChange, className }: TabBarProps) {
         </button>
       </div>
 
-      {/* Window controls - aligned to the right */}
-      <div className="flex items-center">
-        <WindowControls />
-      </div>
+      {/* Window controls - aligned to the right (injected by parent) */}
+      <div className="flex items-center">{controls}</div>
     </div>
   )
 }

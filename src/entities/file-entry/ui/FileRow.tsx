@@ -41,7 +41,7 @@ interface FileRowProps {
   // New props: pass settings from higher layers (widgets/pages)
   displaySettings?: FileDisplaySettings
   appearance?: AppearanceSettings
-} 
+}
 
 export const FileRow = memo(function FileRow({
   file,
@@ -240,9 +240,12 @@ function arePropsEqual(prev: FileRowProps, next: FileRowProps): boolean {
     prev.columnWidths?.size === next.columnWidths?.size &&
     prev.columnWidths?.date === next.columnWidths?.date &&
     // Compare relevant settings to avoid needless re-renders when they change
-    (prev.displaySettings?.thumbnailSize ?? "medium") === (next.displaySettings?.thumbnailSize ?? "medium") &&
-    (prev.displaySettings?.showFileSizes ?? true) === (next.displaySettings?.showFileSizes ?? true) &&
-    (prev.displaySettings?.showFileDates ?? true) === (next.displaySettings?.showFileDates ?? true) &&
+    (prev.displaySettings?.thumbnailSize ?? "medium") ===
+      (next.displaySettings?.thumbnailSize ?? "medium") &&
+    (prev.displaySettings?.showFileSizes ?? true) ===
+      (next.displaySettings?.showFileSizes ?? true) &&
+    (prev.displaySettings?.showFileDates ?? true) ===
+      (next.displaySettings?.showFileDates ?? true) &&
     (prev.appearance?.reducedMotion ?? false) === (next.appearance?.reducedMotion ?? false)
   )
 }

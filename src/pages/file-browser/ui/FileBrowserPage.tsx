@@ -28,7 +28,15 @@ import {
   TooltipProvider,
   toast,
 } from "@/shared/ui"
-import { Breadcrumbs, FileExplorer, PreviewPanel, Sidebar, StatusBar, Toolbar } from "@/widgets"
+import {
+  Breadcrumbs,
+  FileExplorer,
+  PreviewPanel,
+  Sidebar,
+  StatusBar,
+  Toolbar,
+  WindowControls,
+} from "@/widgets"
 import { useSyncLayoutWithSettings } from "../hooks/useSyncLayoutWithSettings"
 
 export function FileBrowserPage() {
@@ -294,7 +302,7 @@ export function FileBrowserPage() {
         )}
       >
         {/* Tab Bar */}
-        <TabBar onTabChange={handleTabChange} className="shrink-0" />
+        <TabBar onTabChange={handleTabChange} className="shrink-0" controls={<WindowControls />} />
 
         {/* Header */}
         <div className="shrink-0">

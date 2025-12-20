@@ -3,7 +3,11 @@ import { Eye } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { FileThumbnail } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
-import { useBehaviorSettings, useFileDisplaySettings, usePerformanceSettings } from "@/features/settings"
+import {
+  useBehaviorSettings,
+  useFileDisplaySettings,
+  usePerformanceSettings,
+} from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
 import { parseDragData } from "@/shared/lib/drag-drop"
@@ -210,7 +214,10 @@ const GridItem = memo(function GridItem({
           extension={file.extension}
           isDir={file.is_dir}
           size={gridConfig.thumbnailSize}
-          performanceSettings={{ lazyLoadImages: _performance.lazyLoadImages, thumbnailCacheSize: _performance.thumbnailCacheSize }}
+          performanceSettings={{
+            lazyLoadImages: _performance.lazyLoadImages,
+            thumbnailCacheSize: _performance.thumbnailCacheSize,
+          }}
         />
 
         {/* Quick Look button on hover */}
