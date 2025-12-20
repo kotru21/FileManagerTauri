@@ -1,6 +1,5 @@
 import { render } from "@testing-library/react"
 import { expect, test, vi } from "vitest"
-import { useSettingsStore } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { FileRow } from "../FileRow"
 
@@ -15,11 +14,15 @@ const file: FileEntry = {
   created: null,
 }
 
+const defaultDisplay = { showFileExtensions: true, showFileSizes: true, showFileDates: true, dateFormat: "relative", thumbnailSize: "medium" }
+
+const defaultAppearance = { reducedMotion: false }
+
 test("right-click selects item and doesn't prevent default", () => {
   const onSelect = vi.fn()
   const onOpen = vi.fn()
   const { getByText } = render(
-    <FileRow file={file} isSelected={false} onSelect={onSelect} onOpen={onOpen} />,
+    <FileRow file={file} isSelected={false} onSelect={onSelect} onOpen={onOpen} displaySettings={defaultDisplay} appearance={defaultAppearance} />,
   )
 
   const node = getByText("file.txt")
@@ -52,6 +55,8 @@ test("scrollIntoView uses smooth by default and auto when reducedMotion", () => 
         isFocused={true}
         onSelect={() => {}}
         onOpen={() => {}}
+        displaySettings={defaultDisplay}
+        appearance={defaultAppearance}
       />,
     )
 
@@ -60,10 +65,7 @@ test("scrollIntoView uses smooth by default and auto when reducedMotion", () => 
     const lastArg = lastCall ? (lastCall[0] as ScrollIntoViewOptions) : undefined
     expect(lastArg?.behavior).toBe("smooth")
 
-    // Enable reduced motion in settings
-    useSettingsStore.getState().updateAppearance({ reducedMotion: true })
-
-    // Rerender to trigger effect
+    // Rerender with reduced motion enabled
     rerender(
       <FileRow
         file={file}
@@ -71,6 +73,8 @@ test("scrollIntoView uses smooth by default and auto when reducedMotion", () => 
         isFocused={true}
         onSelect={() => {}}
         onOpen={() => {}}
+        displaySettings={defaultDisplay}
+        appearance={{ reducedMotion: true }}
       />,
     )
 

@@ -1,8 +1,14 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
 import { useCallback, useRef } from "react"
-import { useFileDisplaySettings } from "@/features/settings"
-import { type SortConfig, type SortField, useSortingStore } from "@/features/sorting"
 import { cn } from "@/shared/lib"
+
+// Local types to avoid importing from features
+export type SortField = "name" | "size" | "modified" | "type"
+export type SortDirection = "asc" | "desc"
+export interface SortConfig {
+  field: SortField
+  direction: SortDirection
+}
 
 interface ColumnHeaderProps {
   columnWidths: {
@@ -11,6 +17,13 @@ interface ColumnHeaderProps {
     padding: number
   }
   onColumnResize: (column: "size" | "date" | "padding", width: number) => void
+  // Sorting is provided by higher layer (widgets/pages)
+  sortConfig: SortConfig
+  onSort: (field: SortField) => void
+  displaySettings?: {
+    showFileSizes: boolean
+    showFileDates: boolean
+  }
   className?: string
 }
 
@@ -103,9 +116,7 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
   )
 }
 
-export function ColumnHeader({ columnWidths, onColumnResize, className }: ColumnHeaderProps) {
-  const { sortConfig, setSortField } = useSortingStore()
-
+export function ColumnHeader({ columnWidths, onColumnResize, className, sortConfig, onSort, displaySettings }: ColumnHeaderProps) {
   const handleResize = useCallback(
     (column: "size" | "date" | "padding") => (delta: number) => {
       const currentWidth = columnWidths[column]
@@ -115,6 +126,12 @@ export function ColumnHeader({ columnWidths, onColumnResize, className }: Column
     },
     [columnWidths, onColumnResize],
   )
+
+  const showFileSizes = displaySettings?.showFileSizes ?? true
+  const showFileDates = displaySettings?.showFileDates ?? true
+
+  const effectiveSortConfig = sortConfig ?? { field: "name", direction: "asc" }
+  const effectiveOnSort = onSort ?? (() => {})
 
   return (
     <div
@@ -126,30 +143,30 @@ export function ColumnHeader({ columnWidths, onColumnResize, className }: Column
       <span className="w-4.5 mr-3" /> {/* Icon placeholder */}
       {/* Name column */}
       <div className="relative flex-1 min-w-0 pr-2">
-        <SortableHeader field="name" label="Имя" sortConfig={sortConfig} onSort={setSortField} />
+        <SortableHeader field="name" label="Имя" sortConfig={effectiveSortConfig} onSort={effectiveOnSort} />
         <ResizeHandle onResize={handleResize("size")} />
       </div>
       {/* Size column */}
-      {useFileDisplaySettings().showFileSizes && (
+      {showFileSizes && (
         <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.size }}>
           <SortableHeader
             field="size"
             label="Размер"
-            sortConfig={sortConfig}
-            onSort={setSortField}
+            sortConfig={effectiveSortConfig}
+            onSort={effectiveOnSort}
             className="justify-end"
           />
           <ResizeHandle onResize={handleResize("date")} />
         </div>
       )}
       {/* Date column */}
-      {useFileDisplaySettings().showFileDates && (
+      {showFileDates && (
         <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.date }}>
           <SortableHeader
             field="modified"
             label="Изменён"
-            sortConfig={sortConfig}
-            onSort={setSortField}
+            sortConfig={effectiveSortConfig}
+            onSort={effectiveOnSort}
             className="justify-end"
           />
           <ResizeHandle onResize={handleResize("padding")} />

@@ -22,6 +22,7 @@ import { QuickFilterBar, useQuickFilterStore } from "@/features/quick-filter"
 import {
   useBehaviorSettings,
   useFileDisplaySettings,
+  useAppearanceSettings,
   useLayoutSettings,
   usePerformanceSettings,
 } from "@/features/settings"
@@ -47,6 +48,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
 
   // Get all settings
   const displaySettings = useFileDisplaySettings()
+  const appearance = useAppearanceSettings()
   const behaviorSettings = useBehaviorSettings()
   const layoutSettings = useLayoutSettings()
 
@@ -294,6 +296,12 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       columnWidths={columnWidths}
       setColumnWidth={setColumnWidth}
       performanceThreshold={performanceSettings.virtualListThreshold}
+      // pass settings and sorting down to view
+      displaySettings={displaySettings}
+      appearance={appearance}
+      performanceSettings={{ lazyLoadImages: performanceSettings.lazyLoadImages, thumbnailCacheSize: performanceSettings.thumbnailCacheSize }}
+      sortConfig={sortConfig}
+      onSort={() => { /* sorting handled via useSortingStore in widgets */ }}
     />
   )
 

@@ -1,9 +1,21 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react"
-import { useAppearanceSettings, useFileDisplaySettings } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, formatBytes, formatDate, formatRelativeDate } from "@/shared/lib"
 import { FileIcon } from "./FileIcon"
 import { FileRowActions } from "./FileRowActions"
+
+// Minimal local types to avoid importing from higher layers
+type FileDisplaySettings = {
+  showFileExtensions: boolean
+  showFileSizes: boolean
+  showFileDates: boolean
+  dateFormat: "relative" | "absolute"
+  thumbnailSize: "small" | "medium" | "large"
+}
+
+type AppearanceSettings = {
+  reducedMotion?: boolean
+}
 
 interface FileRowProps {
   file: FileEntry
@@ -26,7 +38,10 @@ interface FileRowProps {
     date: number
     padding: number
   }
-}
+  // New props: pass settings from higher layers (widgets/pages)
+  displaySettings?: FileDisplaySettings
+  appearance?: AppearanceSettings
+} 
 
 export const FileRow = memo(function FileRow({
   file,
@@ -45,6 +60,8 @@ export const FileRow = memo(function FileRow({
   onQuickLook,
   onToggleBookmark,
   columnWidths = { size: 100, date: 180, padding: 8 },
+  displaySettings: displaySettingsProp,
+  appearance,
 }: FileRowProps) {
   // Instrument render counts to help diagnose excessive re-renders in large directories
   try {
@@ -57,22 +74,30 @@ export const FileRow = memo(function FileRow({
   const rowRef = useRef<HTMLDivElement>(null)
   const [isDragOver, setIsDragOver] = useState(false)
 
-  // Get display settings
-  const displaySettings = useFileDisplaySettings()
+  // Use passed display settings or sensible defaults to avoid depending on higher layers
+  const defaultDisplaySettings: FileDisplaySettings = {
+    showFileExtensions: true,
+    showFileSizes: true,
+    showFileDates: true,
+    dateFormat: "relative",
+    thumbnailSize: "medium",
+  }
+  const displaySettings = displaySettingsProp ?? defaultDisplaySettings
 
   // Map thumbnailSize setting to icon size for list mode
   const iconSizeMap: Record<string, number> = { small: 14, medium: 18, large: 22 }
   const iconSize = iconSizeMap[displaySettings.thumbnailSize] ?? 18
 
-  const appearance = useAppearanceSettings()
+  const defaultAppearance: AppearanceSettings = { reducedMotion: false }
+  const appearanceLocal = appearance ?? defaultAppearance
 
   // Scroll into view when focused; respect reduced motion setting
   useEffect(() => {
     if (isFocused && rowRef.current) {
-      const behavior: ScrollBehavior = appearance.reducedMotion ? "auto" : "smooth"
+      const behavior: ScrollBehavior = appearanceLocal.reducedMotion ? "auto" : "smooth"
       rowRef.current.scrollIntoView({ block: "nearest", behavior })
     }
-  }, [isFocused, appearance.reducedMotion])
+  }, [isFocused, appearanceLocal.reducedMotion])
 
   // Format the display name based on settings
   const displayName = displaySettings.showFileExtensions
@@ -213,6 +238,11 @@ function arePropsEqual(prev: FileRowProps, next: FileRowProps): boolean {
     prev.isCut === next.isCut &&
     prev.isBookmarked === next.isBookmarked &&
     prev.columnWidths?.size === next.columnWidths?.size &&
-    prev.columnWidths?.date === next.columnWidths?.date
+    prev.columnWidths?.date === next.columnWidths?.date &&
+    // Compare relevant settings to avoid needless re-renders when they change
+    (prev.displaySettings?.thumbnailSize ?? "medium") === (next.displaySettings?.thumbnailSize ?? "medium") &&
+    (prev.displaySettings?.showFileSizes ?? true) === (next.displaySettings?.showFileSizes ?? true) &&
+    (prev.displaySettings?.showFileDates ?? true) === (next.displaySettings?.showFileDates ?? true) &&
+    (prev.appearance?.reducedMotion ?? false) === (next.appearance?.reducedMotion ?? false)
   )
 }

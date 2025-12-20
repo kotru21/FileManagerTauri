@@ -4,6 +4,7 @@ import type { ViewMode } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 import { FileGrid } from "./FileGrid"
 import { VirtualFileList } from "./VirtualFileList"
+import type { FileDisplaySettings, AppearanceSettings } from "@/features/settings"
 
 interface FileExplorerViewProps {
   className?: string
@@ -32,6 +33,12 @@ interface FileExplorerViewProps {
   columnWidths: ColumnWidths
   setColumnWidth: (column: keyof ColumnWidths, width: number) => void
   performanceThreshold: number
+  // New props: settings and sorting provided by container
+  displaySettings?: FileDisplaySettings
+  appearance?: AppearanceSettings
+  performanceSettings?: { lazyLoadImages: boolean; thumbnailCacheSize: number }
+  sortConfig?: { field: string; direction: string }
+  onSort?: (field: string) => void
 }
 
 export function FileExplorerView({
@@ -68,6 +75,9 @@ export function FileExplorerView({
 
   const simpleListThreshold = performanceThreshold
   if (files.length < simpleListThreshold) {
+    const display = displaySettings ?? { showFileExtensions: true, showFileSizes: true, showFileDates: true, dateFormat: "relative", thumbnailSize: "medium" }
+    const appearanceLocal = appearance ?? { reducedMotion: false }
+
     return (
       <div className={className ?? "h-full overflow-auto"}>
         {showColumnHeadersInSimpleList && (
@@ -77,6 +87,9 @@ export function FileExplorerView({
               onColumnResize={(column: keyof ColumnWidths, width: number) =>
                 setColumnWidth(column, width)
               }
+              sortConfig={sortConfig ?? { field: "name", direction: "asc" }}
+              onSort={onSort ?? (() => {})}
+              displaySettings={{ showFileSizes: display.showFileSizes, showFileDates: display.showFileDates }}
             />
           </div>
         )}
@@ -94,6 +107,8 @@ export function FileExplorerView({
               onDelete={handlers.handleDelete}
               onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
               columnWidths={columnWidths}
+              displaySettings={display}
+              appearance={appearanceLocal}
             />
           </div>
         ))}

@@ -7,6 +7,8 @@ import { useInlineEditStore } from "@/features/inline-edit"
 import { useKeyboardNavigation } from "@/features/keyboard-navigation"
 import { useLayoutStore } from "@/features/layout"
 import { RubberBandOverlay } from "@/features/rubber-band"
+import { useFileDisplaySettings, useAppearanceSettings } from "@/features/settings"
+import { useSortingStore } from "@/features/sorting"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
 
@@ -54,6 +56,11 @@ export function VirtualFileList({
   const { mode, targetPath } = useInlineEditStore()
   const columnWidths = useLayoutStore((s) => s.layout.columnWidths)
   const setColumnWidth = useLayoutStore((s) => s.setColumnWidth)
+
+  // Get display & appearance settings and sorting (widgets are allowed to consume features)
+  const displaySettings = useFileDisplaySettings()
+  const appearance = useAppearanceSettings()
+  const { sortConfig, setSortField } = useSortingStore()
 
   // Get clipboard state for cut indication
   const cutPaths = useClipboardStore((s) => s.paths)
@@ -178,6 +185,9 @@ export function VirtualFileList({
         onColumnResize={(column, width) => {
           setColumnWidth(column, width)
         }}
+        sortConfig={sortConfig}
+        onSort={setSortField}
+        displaySettings={displaySettings}
         className="shrink-0"
       />
 
@@ -267,6 +277,8 @@ export function VirtualFileList({
                   onQuickLook={onQuickLook ? handleQuickLook(file) : undefined}
                   onToggleBookmark={handleToggleBookmark(file.path)}
                   columnWidths={columnWidths}
+                  displaySettings={displaySettings}
+                  appearance={appearance}
                 />
               </div>
             )
