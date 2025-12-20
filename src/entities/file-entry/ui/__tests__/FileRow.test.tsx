@@ -66,13 +66,11 @@ test("right-click selects item and doesn't prevent default", () => {
   const event = new MouseEvent("contextmenu", { bubbles: true, cancelable: true, button: 2 })
   const prevented = node.dispatchEvent(event)
 
-  // dispatchEvent returns false if preventDefault was called
   expect(prevented).toBe(true)
   expect(onSelect).toHaveBeenCalled()
 })
 
 test("scrollIntoView uses smooth by default and auto when reducedMotion", () => {
-  // Provide a shim for scrollIntoView in JSDOM if missing
   type ScrollIntoViewFn = (options?: ScrollIntoViewOptions | boolean) => void
   const proto = Element.prototype as unknown as { scrollIntoView?: ScrollIntoViewFn }
   const original = proto.scrollIntoView
@@ -83,7 +81,6 @@ test("scrollIntoView uses smooth by default and auto when reducedMotion", () => 
   })
 
   try {
-    // default (reducedMotion=false)
     const { rerender } = render(
       <FileRow
         file={file}
@@ -101,7 +98,6 @@ test("scrollIntoView uses smooth by default and auto when reducedMotion", () => 
     const lastArg = lastCall ? (lastCall[0] as ScrollIntoViewOptions) : undefined
     expect(lastArg?.behavior).toBe("smooth")
 
-    // Rerender with reduced motion enabled
     rerender(
       <FileRow
         file={file}
@@ -118,7 +114,6 @@ test("scrollIntoView uses smooth by default and auto when reducedMotion", () => 
     const lastArg2 = lastCall2 ? (lastCall2[0] as ScrollIntoViewOptions) : undefined
     expect(lastArg2?.behavior).toBe("auto")
   } finally {
-    // restore original if existed
     if (original === undefined) delete proto.scrollIntoView
     else
       Object.defineProperty(Element.prototype, "scrollIntoView", {

@@ -22,7 +22,6 @@ interface FileGridProps {
   className?: string
 }
 
-// Grid configuration based on thumbnail size from settings
 const GRID_CONFIGS = {
   small: { itemSize: 80, iconSize: 40, thumbnailSize: 60 },
   medium: { itemSize: 120, iconSize: 56, thumbnailSize: 96 },
@@ -41,13 +40,11 @@ export function FileGrid({
   const containerRef = useRef<HTMLDivElement>(null)
   const [containerWidth, setContainerWidth] = useState(0)
 
-  // Get settings
   const displaySettings = useFileDisplaySettings()
   const behaviorSettings = useBehaviorSettings()
   const performance = usePerformanceSettings()
   const { paths: cutPaths, isCut } = useClipboardStore()
 
-  // Use thumbnail size from settings
   const gridConfig = GRID_CONFIGS[displaySettings.thumbnailSize]
 
   // Calculate actual columns based on container width
@@ -56,7 +53,6 @@ export function FileGrid({
     return Math.max(1, Math.floor(containerWidth / gridConfig.itemSize))
   }, [containerWidth, gridConfig.itemSize])
 
-  // Virtual row renderer
   const rowVirtualizer = useVirtualizer({
     count: Math.ceil(files.length / columns),
     getScrollElement: () => containerRef.current,
@@ -64,7 +60,6 @@ export function FileGrid({
     overscan: 3,
   })
 
-  // Handle click based on behavior settings
   const handleClick = useCallback(
     (file: FileEntry, e: React.MouseEvent) => {
       onSelect(file.path, e)
@@ -81,13 +76,11 @@ export function FileGrid({
     [behaviorSettings.doubleClickToOpen, onOpen],
   )
 
-  // Check if file is cut
   const isFileCut = useCallback(
     (path: string) => isCut() && cutPaths.includes(path),
     [cutPaths, isCut],
   )
 
-  // Observe container width
   useEffect(() => {
     if (!containerRef.current) return
 

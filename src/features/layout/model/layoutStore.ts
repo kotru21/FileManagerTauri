@@ -15,6 +15,8 @@ export interface PanelLayout {
   sidebarCollapsed?: boolean
   showPreview: boolean
   columnWidths: ColumnWidths
+  // Persisted expanded/collapsed state for sidebar sections
+  expandedSections?: Record<string, boolean>
   // Lock flags: when true, size is controlled via settings sliders and resizing is disabled
   sidebarSizeLocked?: boolean
   previewSizeLocked?: boolean
@@ -32,6 +34,13 @@ const DEFAULT_LAYOUT: PanelLayout = {
     date: 180,
     padding: 8,
   },
+  // Default: all sections expanded
+  expandedSections: {
+    bookmarks: true,
+    recent: true,
+    drives: true,
+    quickAccess: true,
+  },
   sidebarSizeLocked: false,
   previewSizeLocked: false,
 }
@@ -46,6 +55,8 @@ interface LayoutState {
   setSidebarCollapsed: (collapsed: boolean) => void
   toggleSidebar: () => void
   togglePreview: () => void
+  setSectionExpanded: (section: string, expanded: boolean) => void
+  toggleSectionExpanded: (section: string) => void
   resetLayout: () => void
   applyLayout: (layout: PanelLayout) => void
 }
@@ -98,9 +109,35 @@ export const useLayoutStore = create<LayoutState>()(
           layout: { ...state.layout, showPreview: !state.layout.showPreview },
         })),
 
+      setSectionExpanded: (section: string, expanded: boolean) =>
+        set((state) => ({
+          layout: {
+            ...state.layout,
+            expandedSections: { ...(state.layout.expandedSections ?? {}), [section]: expanded },
+          },
+        })),
+
+      toggleSectionExpanded: (section: string) =>
+        set((state) => ({
+          layout: {
+            ...state.layout,
+            expandedSections: {
+              ...(state.layout.expandedSections ?? {}),
+              [section]: !(state.layout.expandedSections?.[section] ?? true),
+            },
+          },
+        })),
+
       resetLayout: () => set({ layout: DEFAULT_LAYOUT }),
 
-      applyLayout: (layout) => set({ layout }),
+      applyLayout: (layout) =>
+        set((state) => ({
+          layout: {
+            ...layout,
+            // Preserve persisted expandedSections if already set in runtime state
+            expandedSections: state.layout.expandedSections ?? layout.expandedSections,
+          },
+        })),
     })),
     {
       name: "layout-storage",

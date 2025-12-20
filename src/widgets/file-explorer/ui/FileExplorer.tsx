@@ -47,21 +47,17 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   const { settings: viewSettings } = useViewModeStore()
   const { sortConfig } = useSortingStore()
 
-  // Get all settings
   const displaySettings = useFileDisplaySettings()
   const appearance = useAppearanceSettings()
   const behaviorSettings = useBehaviorSettings()
   const layoutSettings = useLayoutSettings()
 
-  // Quick filter
   const { filter: quickFilter, isActive: isQuickFilterActive } = useQuickFilterStore()
 
-  // Progress dialog state
   const [copyDialogOpen, setCopyDialogOpen] = useState(false)
   const [_copySource, _setCopySource] = useState<string[]>([])
   const [_copyDestination, _setCopyDestination] = useState<string>("")
 
-  // Selection
   const selectedPaths = useSelectionStore((s) => s.selectedPaths)
   const clearSelection = useSelectionStore((s) => s.clearSelection)
   const getSelectedPaths = useSelectionStore((s) => s.getSelectedPaths)
@@ -70,14 +66,12 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   const columnWidths = useLayoutStore((s) => s.layout.columnWidths)
   const setColumnWidth = useLayoutStore((s) => s.setColumnWidth)
 
-  // Clipboard selectors
   const clipboardHasContent = useClipboardStore((s) => s.hasContent)
 
   // Data fetching - prefer streaming directory for faster incremental rendering
   const dirQuery = useDirectoryContents(currentPath)
   const stream = useStreamingDirectory(currentPath)
 
-  // Prefer stream entries when available (render partial results), otherwise use query result
   const rawFiles = stream.entries.length > 0 ? stream.entries : dirQuery.data
   const isLoading = dirQuery.isLoading || stream.isLoading
   const refetch = dirQuery.refetch
@@ -85,7 +79,6 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   // File watcher
   useFileWatcher(currentPath)
 
-  // Auto-refresh on window focus
   useEffect(() => {
     if (!behaviorSettings.autoRefreshOnFocus) return
 
@@ -105,7 +98,6 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   const { mutateAsync: copyEntries } = useCopyEntries()
   const { mutateAsync: moveEntries } = useMoveEntries()
 
-  // Process files with sorting and filtering (instrumented)
   const processedFiles = useMemo(() => {
     return withPerfSync("processFiles", { path: currentPath, count: rawFiles?.length ?? 0 }, () => {
       const startLocal = performance.now()
@@ -133,7 +125,6 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     })
   }, [rawFiles, displaySettings.showHiddenFiles, sortConfig, currentPath])
 
-  // Apply quick filter
   const files = useMemo(() => {
     if (!isQuickFilterActive || !quickFilter) return processedFiles
 
@@ -143,7 +134,6 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     })
   }, [processedFiles, isQuickFilterActive, quickFilter, displaySettings.showHiddenFiles])
 
-  // Notify parent about files change and log render timing for perf analysis
   useEffect(() => {
     onFilesChange?.(files)
 
@@ -188,7 +178,6 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     }
   }, [files, onFilesChange])
 
-  // Handlers
   const handlers = useFileExplorerHandlers({
     files,
     createDirectory: async (path) => {
