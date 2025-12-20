@@ -18,7 +18,6 @@ test("uses CSS var for transition duration so animations-off works", () => {
 
   const img = container.querySelector("img")
   if (!img) {
-    // If lazy load prevented image render, test passes by construction
     expect(true).toBe(true)
     return
   }

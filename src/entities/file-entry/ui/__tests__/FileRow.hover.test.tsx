@@ -29,7 +29,6 @@ describe("FileRow hover behavior", () => {
     }
 
     const { container } = render(<FileRow {...props} />)
-    // Initially actions should be hidden (opacity-0)
     const actions = container.querySelector(".mr-2")
     expect(actions).toBeTruthy()
     expect(actions?.classList.contains("opacity-0")).toBe(true)
@@ -41,22 +40,18 @@ describe("FileRow hover behavior", () => {
     expect(row.getAttribute("data-testid")).toBe(`file-row-${encodeURIComponent("/file.txt")}`)
 
     fireEvent.pointerEnter(row)
-    // After pointerEnter we should see opacity-100
     expect(actions?.classList.contains("opacity-100")).toBe(true)
 
-    // Buttons inside actions should also be no-drag so clicks work
     const btn = actions?.querySelector("button")
     expect(btn).toBeTruthy()
     expect(btn?.classList.contains("no-drag")).toBe(true)
 
-    // Click the More actions button and ensure dropdown opens
     const moreBtn = actions?.querySelector("button[aria-label='More actions']") as Element
     expect(moreBtn).toBeTruthy()
     // Use pointerDown/pointerUp to better emulate how Radix triggers menus
     fireEvent.pointerDown(moreBtn)
     fireEvent.pointerUp(moreBtn)
 
-    // Dropdown content should be visible (Open menu item)
     await screen.findByText("Open")
     expect(screen.getByText("Open")).toBeTruthy()
 

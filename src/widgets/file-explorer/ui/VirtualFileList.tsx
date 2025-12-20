@@ -58,12 +58,10 @@ export function VirtualFileList({
   const columnWidths = useLayoutStore((s) => s.layout.columnWidths)
   const setColumnWidth = useLayoutStore((s) => s.setColumnWidth)
 
-  // Get display & appearance settings and sorting (widgets are allowed to consume features)
   const displaySettings = useFileDisplaySettings()
   const appearance = useAppearanceSettings()
   const { sortConfig, setSortField } = useSortingStore()
 
-  // Get clipboard state for cut indication
   const cutPaths = useClipboardStore((s) => s.paths)
   const isCut = useClipboardStore((s) => s.isCut)
 
@@ -102,7 +100,6 @@ export function VirtualFileList({
     overscan: 10,
   })
 
-  // Instrument virtualization timings
   useEffect(() => {
     try {
       withPerfSync("virtualizer", { totalRows, overscan: 10 }, () => {
@@ -117,7 +114,6 @@ export function VirtualFileList({
     }
   }, [totalRows])
 
-  // Keyboard navigation - pass safe selectedPaths
   const { focusedIndex } = useKeyboardNavigation({
     files,
     selectedPaths: safeSelectedPaths,
@@ -128,7 +124,6 @@ export function VirtualFileList({
     enabled: !mode, // Disable when editing
   })
 
-  // Scroll to inline edit row
   useEffect(() => {
     if (inlineEditIndex >= 0) {
       rowVirtualizer.scrollToIndex(inlineEditIndex, { align: "center" })
@@ -181,7 +176,6 @@ export function VirtualFileList({
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Column Header */}
       <ColumnHeader
         columnWidths={columnWidths}
         onColumnResize={(column, width) => {
@@ -193,7 +187,6 @@ export function VirtualFileList({
         className="shrink-0"
       />
 
-      {/* Scrollable content */}
       <div
         ref={parentRef}
         className="flex-1 overflow-auto relative"

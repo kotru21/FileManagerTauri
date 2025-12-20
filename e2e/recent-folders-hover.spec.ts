@@ -1,25 +1,36 @@
 import type { Page } from "@playwright/test"
 import { expect, test } from "@playwright/test"
 
-// NOTE: Assumes dev server running at http://localhost:5173 and there are recent folders
+// NOTE: Use DEV_SERVER_URL or default; ensure dev server and recent folders exist
 
 test.describe("RecentFolders hover & cursor", () => {
   test("hover shows remove button and cursor is pointer", async ({ page }: { page: Page }) => {
-    await page.goto("http://localhost:5173/")
+    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
 
-    // Wait for recent section title
+    // Hydrate recent-folders store for deterministic test data
+    await page.addInitScript(() => {
+      try {
+        const key = "recent-folders"
+        const payload = {
+          state: { folders: [{ path: "/one", name: "One", lastVisited: Date.now() }] },
+        }
+        localStorage.setItem(key, JSON.stringify(payload))
+      } catch {
+        /* ignore */
+      }
+    })
+
+    await page.goto(base)
+
     await page.waitForSelector("text=Недавние", { state: "visible" })
 
-    // Use Locator for assertions and interactions
     const folder = page.locator('[aria-label^="Open "]').first()
     await expect(folder).toBeVisible()
 
-    // Hover and check cursor
     await folder.hover()
     const cursor = await folder.evaluate((el: HTMLElement) => getComputedStyle(el).cursor)
     expect(cursor).toBe("pointer")
 
-    // Remove button should appear on hover
     const aria = await folder.getAttribute("aria-label")
     const name = aria?.replace(/^Open\s*/, "") ?? ""
     const removeBtn = page.locator(`[aria-label="Remove ${name}"]`).first()

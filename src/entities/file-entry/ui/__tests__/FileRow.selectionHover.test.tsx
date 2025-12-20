@@ -25,16 +25,11 @@ describe("FileRow selection + hover", () => {
     const row = container.firstElementChild as Element
     expect(row).toBeTruthy()
 
-    // Initially selected
     expect(row.classList.contains("bg-accent")).toBe(true)
 
-    // Hover
     fireEvent.pointerEnter(row)
-
-    // Still selected visually
     expect(row.classList.contains("bg-accent")).toBe(true)
 
-    // Leave
     fireEvent.pointerLeave(row)
     expect(row.classList.contains("bg-accent")).toBe(true)
   })

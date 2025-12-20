@@ -4,6 +4,7 @@ import { useCallback, useEffect, useState } from "react"
 import { DriveItem } from "@/entities/drive"
 import { useDrives } from "@/entities/file-entry"
 import { BookmarksList, useBookmarksStore } from "@/features/bookmarks"
+import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
 import { RecentFoldersList, useRecentFoldersStore } from "@/features/recent-folders"
 import { cn } from "@/shared/lib"
@@ -83,19 +84,12 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
   const { bookmarks, addBookmark } = useBookmarksStore()
   const { addFolder } = useRecentFoldersStore()
   const [homePath, setHomePath] = useState<string | null>(null)
-  const [expandedSections, setExpandedSections] = useState<Record<SidebarSection, boolean>>({
-    bookmarks: true,
-    recent: true,
-    drives: true,
-    quickAccess: true,
-  })
 
-  const toggleSection = (section: SidebarSection) => {
-    setExpandedSections((prev) => ({
-      ...prev,
-      [section]: !prev[section],
-    }))
-  }
+  // Persisted expanded/collapsed state lives in layout store
+  const expandedSections = useLayoutStore((s) => s.layout.expandedSections)
+  const toggleSectionExpanded = useLayoutStore((s) => s.toggleSectionExpanded)
+
+  const toggleSection = (section: SidebarSection) => toggleSectionExpanded(section)
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
@@ -202,10 +196,10 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
           <SectionHeader
             title="Быстрый доступ"
             icon={<Folder className="h-4 w-4" />}
-            expanded={expandedSections.quickAccess}
+            expanded={expandedSections?.quickAccess ?? true}
             onToggle={() => toggleSection("quickAccess")}
           />
-          {expandedSections.quickAccess && (
+          {(expandedSections?.quickAccess ?? true) && (
             <div className="mt-1 space-y-0.5">
               {homePath && (
                 <button
@@ -233,10 +227,10 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
           <SectionHeader
             title="Закладки"
             icon={<Star className="h-4 w-4" />}
-            expanded={expandedSections.bookmarks}
+            expanded={expandedSections?.bookmarks ?? true}
             onToggle={() => toggleSection("bookmarks")}
           />
-          {expandedSections.bookmarks && (
+          {(expandedSections?.bookmarks ?? true) && (
             <div className="mt-1">
               <BookmarksList onSelect={handleNavigate} currentPath={currentPath || undefined} />
             </div>
@@ -250,10 +244,10 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
           <SectionHeader
             title="Диски"
             icon={<HardDrive className="h-4 w-4" />}
-            expanded={expandedSections.drives}
+            expanded={expandedSections?.drives ?? true}
             onToggle={() => toggleSection("drives")}
           />
-          {expandedSections.drives && (
+          {(expandedSections?.drives ?? true) && (
             <div className="mt-1 space-y-0.5">
               {drives.map((drive) => (
                 <DriveItem
@@ -274,10 +268,10 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
           <SectionHeader
             title="Недавние"
             icon={<Clock className="h-4 w-4" />}
-            expanded={expandedSections.recent}
+            expanded={expandedSections?.recent ?? true}
             onToggle={() => toggleSection("recent")}
           />
-          {expandedSections.recent && (
+          {(expandedSections?.recent ?? true) && (
             <RecentFoldersList
               onSelect={handleNavigate}
               currentPath={currentPath || undefined}

@@ -296,7 +296,6 @@ export function Toolbar({
               size="icon"
               aria-label="Поиск"
               onClick={() => {
-                // Toggle local search popover
                 setShowSearch((s) => !s)
                 onSearch?.()
               }}
@@ -313,7 +312,6 @@ export function Toolbar({
             <SearchBar
               className="w-full"
               onSearch={() => {
-                // Close popover on search submit
                 setShowSearch(false)
                 onSearch?.()
               }}

@@ -185,7 +185,6 @@ export const FileRow = memo(function FileRow({
       tabIndex={0}
       data-path={file.path}
     >
-      {/* Icon */}
       <FileIcon
         extension={file.extension}
         isDir={file.is_dir}
@@ -193,10 +192,8 @@ export const FileRow = memo(function FileRow({
         size={iconSize}
       />
 
-      {/* Name */}
       <span className="flex-1 truncate text-sm file-name">{displayName}</span>
 
-      {/* Hover Actions */}
       {(onCopy || onCut || onRename || onDelete || onQuickLook) && (
         <FileRowActions
           isDir={file.is_dir}
@@ -218,7 +215,6 @@ export const FileRow = memo(function FileRow({
         />
       )}
 
-      {/* Size */}
       {displaySettings.showFileSizes && (
         <span
           className="text-xs text-muted-foreground tabular-nums shrink-0 text-right"
@@ -228,7 +224,6 @@ export const FileRow = memo(function FileRow({
         </span>
       )}
 
-      {/* Date */}
       {displaySettings.showFileDates && (
         <span
           className="text-xs text-muted-foreground shrink-0 text-right"
@@ -238,7 +233,6 @@ export const FileRow = memo(function FileRow({
         </span>
       )}
 
-      {/* Padding for scrollbar */}
       <span className="shrink-0" style={{ width: columnWidths.padding }} />
     </div>
   )

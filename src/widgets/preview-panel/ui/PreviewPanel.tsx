@@ -134,7 +134,6 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
 
   return (
     <div className={cn("flex flex-col h-full", className)}>
-      {/* Header */}
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex-1 min-w-0">
           <h3 className="font-medium truncate">{activeFile?.name ?? activeFile?.path}</h3>
@@ -150,7 +149,6 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
         )}
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-hidden">
         {isLoading ? (
           <div className="flex h-full items-center justify-center">
@@ -168,7 +166,6 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
         ) : null}
       </div>
 
-      {/* Metadata */}
       {activeFile && <FileMetadata file={activeFile} />}
     </div>
   )
