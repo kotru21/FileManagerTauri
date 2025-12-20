@@ -45,7 +45,7 @@ interface FileExplorerProps {
 export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExplorerProps) {
   const { currentPath } = useNavigationStore()
   const { settings: viewSettings } = useViewModeStore()
-  const { sortConfig } = useSortingStore()
+  const { sortConfig, setSortField } = useSortingStore()
 
   const displaySettings = useFileDisplaySettings()
   const appearance = useAppearanceSettings()
@@ -299,9 +299,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
         thumbnailCacheSize: performanceSettings.thumbnailCacheSize,
       }}
       sortConfig={sortConfig}
-      onSort={() => {
-        /* sorting handled via useSortingStore in widgets */
-      }}
+      onSort={setSortField}
     />
   )
 
