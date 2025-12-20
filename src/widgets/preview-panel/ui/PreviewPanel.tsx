@@ -1,6 +1,7 @@
 import { FileQuestion, FileText, Image, Loader2, X } from "lucide-react"
 import { useEffect, useState } from "react"
-import { commands, type FileEntry, type FilePreview } from "@/shared/api/tauri"
+import type { FileEntry, FilePreview } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
 import { cn, formatBytes, formatDate, getExtension } from "@/shared/lib"
 import { Button, ScrollArea } from "@/shared/ui"
 
@@ -37,27 +38,25 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
       }
 
       try {
-        const parent = await commands.getParentPath(file.path)
-        if (parent.status === "ok" && parent.data) {
-          const dir = await commands.readDirectory(parent.data)
-          if (dir.status === "ok") {
-            const found = dir.data.find((f: FileEntry) => f.path === file.path)
-            if (!cancelled) {
-              if (found) setFileEntry(found)
-              else
-                setFileEntry({
-                  ...file,
-                  name: file.path.split("\\").pop() || file.path,
-                  size: 0,
-                  is_dir: false,
-                  is_hidden: false,
-                  extension: null,
-                  modified: null,
-                  created: null,
-                })
-            }
-            return
+        const parentPath = await tauriClient.getParentPath(file.path)
+        if (parentPath) {
+          const dir = await tauriClient.readDirectory(parentPath)
+          const found = dir.find((f: FileEntry) => f.path === file.path)
+          if (!cancelled) {
+            if (found) setFileEntry(found)
+            else
+              setFileEntry({
+                ...file,
+                name: file.path.split("\\").pop() || file.path,
+                size: 0,
+                is_dir: false,
+                is_hidden: false,
+                extension: null,
+                modified: null,
+                created: null,
+              })
           }
+          return
         }
       } catch {
         // ignore
@@ -99,13 +98,9 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
       setError(null)
 
       try {
-        const result = await commands.getFilePreview(fileEntry.path)
+        const preview = await tauriClient.getFilePreview(fileEntry.path)
         if (!cancelled) {
-          if (result.status === "ok") {
-            setPreview(result.data)
-          } else {
-            setError(result.error)
-          }
+          setPreview(preview)
         }
       } catch (err) {
         if (!cancelled) setError(String(err))
@@ -221,10 +216,8 @@ function FolderPreview({ file }: { file: FileEntry }) {
   useEffect(() => {
     const loadCount = async () => {
       try {
-        const result = await commands.readDirectory(file.path)
-        if (result.status === "ok") {
-          setItemCount(result.data.length)
-        }
+        const dir = await tauriClient.readDirectory(file.path)
+        setItemCount(dir.length)
       } catch {
         // Ignore errors
       }
