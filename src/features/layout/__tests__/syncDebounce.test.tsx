@@ -1,7 +1,7 @@
 /// <reference types="vitest" />
 
 import { render } from "@testing-library/react"
-import { act } from "react-dom/test-utils"
+import { act } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useSyncLayoutWithSettings } from "../../../pages/file-browser/hooks/useSyncLayoutWithSettings"
 import { useSettingsStore } from "../../settings/model/store"

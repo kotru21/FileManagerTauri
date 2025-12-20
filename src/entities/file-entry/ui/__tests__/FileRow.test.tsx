@@ -1,5 +1,6 @@
 import { render } from "@testing-library/react"
 import { expect, test, vi } from "vitest"
+import type { FileDisplaySettings } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { FileRow } from "../FileRow"
 
@@ -14,10 +15,11 @@ const file: FileEntry = {
   created: null,
 }
 
-const defaultDisplay = {
+const defaultDisplay: FileDisplaySettings = {
   showFileExtensions: true,
   showFileSizes: true,
   showFileDates: true,
+  showHiddenFiles: false,
   dateFormat: "relative",
   thumbnailSize: "medium",
 }

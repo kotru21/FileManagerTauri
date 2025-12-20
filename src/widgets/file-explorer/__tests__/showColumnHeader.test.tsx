@@ -2,7 +2,7 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, waitFor } from "@testing-library/react"
-import { act } from "react-dom/test-utils"
+import { act } from "react"
 import { beforeEach, describe, expect, it } from "vitest"
 import { ColumnHeader } from "@/entities/file-entry"
 import { useLayoutStore } from "@/features/layout"
@@ -31,7 +31,12 @@ describe("Column header toggle", () => {
       const layout = useLayoutStore((s) => s.layout)
       const show = useSettingsStore.getState().settings.layout.showColumnHeadersInSimpleList
       return show ? (
-        <ColumnHeader columnWidths={layout.columnWidths} onColumnResize={() => {}} />
+        <ColumnHeader
+          columnWidths={layout.columnWidths}
+          onColumnResize={() => {}}
+          sortConfig={{ field: "name", direction: "asc" }}
+          onSort={() => {}}
+        />
       ) : (
         <div>NoHeader</div>
       )

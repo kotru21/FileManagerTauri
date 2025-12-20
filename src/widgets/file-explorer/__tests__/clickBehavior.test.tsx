@@ -139,7 +139,9 @@ describe("click behavior", () => {
     )
 
     // allow requestAnimationFrame
-    await new Promise((r) => setTimeout(r, 20))
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20))
+    })
 
     await waitFor(() => {
       expect(getSelected()).toEqual(["/dir1"])
@@ -168,7 +170,9 @@ describe("click behavior", () => {
     )
 
     // allow requestAnimationFrame
-    await new Promise((r) => setTimeout(r, 20))
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20))
+    })
 
     await waitFor(() => {
       expect(getSelected()).toEqual([])

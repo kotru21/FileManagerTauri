@@ -44,7 +44,7 @@ export function FileGrid({
   // Get settings
   const displaySettings = useFileDisplaySettings()
   const behaviorSettings = useBehaviorSettings()
-  const _performance = usePerformanceSettings()
+  const performance = usePerformanceSettings()
   const { paths: cutPaths, isCut } = useClipboardStore()
 
   // Use thumbnail size from settings
@@ -123,6 +123,7 @@ export function FileGrid({
                   onDoubleClick={() => handleDoubleClick(file)}
                   onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
                   onDrop={onDrop}
+                  performanceSettings={performance}
                 />
               ))}
             </div>
@@ -132,6 +133,8 @@ export function FileGrid({
     </div>
   )
 }
+
+import type { PerformanceSettings } from "@/features/settings"
 
 interface GridItemProps {
   file: FileEntry
@@ -143,6 +146,7 @@ interface GridItemProps {
   onDoubleClick: () => void
   onQuickLook?: () => void
   onDrop?: (sources: string[], destination: string) => void
+  performanceSettings: PerformanceSettings
 }
 
 const GridItem = memo(function GridItem({
@@ -155,6 +159,7 @@ const GridItem = memo(function GridItem({
   onDoubleClick,
   onQuickLook,
   onDrop,
+  performanceSettings,
 }: GridItemProps) {
   const [isDragOver, setIsDragOver] = useState(false)
 
@@ -215,11 +220,10 @@ const GridItem = memo(function GridItem({
           isDir={file.is_dir}
           size={gridConfig.thumbnailSize}
           performanceSettings={{
-            lazyLoadImages: _performance.lazyLoadImages,
-            thumbnailCacheSize: _performance.thumbnailCacheSize,
+            lazyLoadImages: performanceSettings.lazyLoadImages,
+            thumbnailCacheSize: performanceSettings.thumbnailCacheSize,
           }}
         />
-
         {/* Quick Look button on hover */}
         {onQuickLook && (
           <button
@@ -235,7 +239,7 @@ const GridItem = memo(function GridItem({
           >
             <Eye size={14} />
           </button>
-        )}
+        )}{" "}
       </div>
 
       {/* Name */}
