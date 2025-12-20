@@ -198,6 +198,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     moveEntries: async ({ sources, destination }) => {
       await moveEntries({ sources, destination })
     },
+    onQuickLook: onQuickLook,
     onStartCopyWithProgress: (sources, destination) => {
       _setCopySource(sources)
       _setCopyDestination(destination)
@@ -252,6 +253,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     onPaste: handlers.handlePaste,
     onDelete: handleDelete,
     onStartNewFolder: handlers.handleStartNewFolder,
+    onStartRename: handlers.handleStartRename,
     onRefresh: () => refetch(),
     onQuickLook: handleQuickLook,
   })

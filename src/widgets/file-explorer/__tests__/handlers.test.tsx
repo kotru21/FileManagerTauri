@@ -41,6 +41,7 @@ type HandlersOverrides = Partial<{
   copyEntries: (arg: { sources: string[]; destination: string }) => Promise<void>
   moveEntries: (arg: { sources: string[]; destination: string }) => Promise<void>
   onStartCopyWithProgress: (sources: string[], destination: string) => void
+  onQuickLook: (file: FileEntry) => void
 }>
 
 function setupHandlers(overrides?: HandlersOverrides) {
@@ -63,6 +64,7 @@ function setupHandlers(overrides?: HandlersOverrides) {
       copyEntries: overrides?.copyEntries ?? (async () => {}),
       moveEntries: overrides?.moveEntries ?? (async () => {}),
       onStartCopyWithProgress: overrides?.onStartCopyWithProgress ?? (() => {}),
+      onQuickLook: overrides?.onQuickLook,
     })
     handlers = h
 
@@ -124,6 +126,33 @@ describe("file explorer handlers", () => {
     cleanup()
   })
 
+  it("handleRename calls renameEntry and resets inline state", async () => {
+    const renameMock = vi.fn(async () => {})
+    const { getHandlers, getInline, cleanup } = setupHandlers({ renameEntry: renameMock })
+    const handlers = getHandlers()
+
+    // Start rename for a path
+    act(() => {
+      handlers.handleStartRenameAt("/file1.txt")
+    })
+
+    // Confirm rename with new name
+    await act(async () => {
+      await handlers.handleRename("/file1.txt", "newname.txt")
+    })
+
+    expect(renameMock).toHaveBeenCalledWith({ oldPath: "/file1.txt", newName: "newname.txt" })
+
+    // Inline edit state should be reset
+    await waitFor(() => {
+      const inline = getInline()
+      expect(inline.mode).toBeNull()
+      expect(inline.targetPath).toBeNull()
+    })
+
+    cleanup()
+  })
+
   it("handleStartNewFolder and handleStartNewFile set inline edit parentPath", async () => {
     const { getHandlers, getInline, cleanup } = setupHandlers()
     const handlers = getHandlers()
@@ -177,7 +206,9 @@ describe("file explorer handlers", () => {
     const confirmStore = useConfirmStore
     const originalOpen = confirmStore.getState().open
     const openStub = vi.fn(async () => false)
-    confirmStore.setState({ open: openStub })
+    act(() => {
+      confirmStore.setState({ open: openStub })
+    })
 
     const { getHandlers, cleanup } = setupHandlers({ copyEntries, moveEntries })
     const handlers = getHandlers()
@@ -194,7 +225,35 @@ describe("file explorer handlers", () => {
     expect(moveEntries).not.toHaveBeenCalled()
 
     // restore default open
-    confirmStore.setState({ open: originalOpen })
+    act(() => {
+      confirmStore.setState({ open: originalOpen })
+    })
+
+    cleanup()
+  })
+
+  it("handleSelect with onQuickLook calls onQuickLook", async () => {
+    const onQuickLook = vi.fn()
+
+    // Ensure single click opens (disable doubleClickToOpen) for this test
+    act(() => {
+      useSettingsStore.getState().updateBehavior({ doubleClickToOpen: false })
+    })
+
+    const { getHandlers, cleanup } = setupHandlers({ onQuickLook })
+    const handlers = getHandlers()
+
+    act(() =>
+      handlers.handleSelect("/dir1", {
+        ctrlKey: false,
+        metaKey: false,
+        shiftKey: false,
+      } as unknown as React.MouseEvent),
+    )
+
+    await waitFor(() => {
+      expect(onQuickLook).toHaveBeenCalled()
+    })
 
     cleanup()
   })

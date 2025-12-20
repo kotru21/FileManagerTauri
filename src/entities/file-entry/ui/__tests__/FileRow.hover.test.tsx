@@ -1,5 +1,6 @@
-import { fireEvent, render, screen } from "@testing-library/react"
+import * as rtl from "@testing-library/react"
 import { describe, expect, it, vi } from "vitest"
+import { TooltipProvider } from "@/shared/ui"
 import { FileRow } from "../FileRow"
 
 const baseFile = {
@@ -17,6 +18,7 @@ describe("FileRow hover behavior", () => {
   it("shows actions on pointerEnter and hides on pointerLeave", async () => {
     const onSelect = vi.fn()
     const onOpen = vi.fn()
+    const onQuickLook = vi.fn()
     const props = {
       file: baseFile,
       isSelected: false,
@@ -26,9 +28,14 @@ describe("FileRow hover behavior", () => {
       onCut: () => {},
       onRename: () => {},
       onDelete: () => {},
+      onQuickLook,
     }
 
-    const { container } = render(<FileRow {...props} />)
+    const { container } = rtl.render(
+      <TooltipProvider>
+        <FileRow {...props} />
+      </TooltipProvider>,
+    )
     const actions = container.querySelector(".mr-2")
     expect(actions).toBeTruthy()
     expect(actions?.classList.contains("opacity-0")).toBe(true)
@@ -39,23 +46,24 @@ describe("FileRow hover behavior", () => {
     expect(row.classList.contains("no-drag")).toBe(true)
     expect(row.getAttribute("data-testid")).toBe(`file-row-${encodeURIComponent("/file.txt")}`)
 
-    fireEvent.pointerEnter(row)
+    rtl.fireEvent.pointerEnter(row)
     expect(actions?.classList.contains("opacity-100")).toBe(true)
 
     const btn = actions?.querySelector("button")
     expect(btn).toBeTruthy()
     expect(btn?.classList.contains("no-drag")).toBe(true)
 
-    const moreBtn = actions?.querySelector("button[aria-label='More actions']") as Element
-    expect(moreBtn).toBeTruthy()
-    // Use pointerDown/pointerUp to better emulate how Radix triggers menus
-    fireEvent.pointerDown(moreBtn)
-    fireEvent.pointerUp(moreBtn)
+    // There should be no More actions menu/button
+    const moreBtn = actions?.querySelector("button[aria-label='More actions']")
+    expect(moreBtn).toBeNull()
 
-    await screen.findByText("Open")
-    expect(screen.getByText("Open")).toBeTruthy()
+    // Quick Look button should exist and call handler
+    const quickLookBtn = actions?.querySelector("button[aria-label='Quick Look']") as Element
+    expect(quickLookBtn).toBeTruthy()
+    rtl.fireEvent.click(quickLookBtn)
+    expect(onQuickLook).toHaveBeenCalled()
 
-    fireEvent.pointerLeave(row)
+    rtl.fireEvent.pointerLeave(row)
     expect(actions?.classList.contains("opacity-0")).toBe(true)
   })
 })

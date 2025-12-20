@@ -194,6 +194,36 @@ export function VirtualFileList({
         aria-multiselectable={true}
       >
         <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
+          {/* If the virtualizer fails to include the inline edit row in its visible items
+            (for example in tests when scrollToIndex can't complete), render a fallback
+            absolute InlineEditRow at the computed position so rename mode always works. */}
+          {mode === "rename" &&
+            inlineEditIndex >= 0 &&
+            !rowVirtualizer.getVirtualItems().some((v) => v.index === inlineEditIndex) &&
+            (() => {
+              const file = files[inlineEditIndex]
+              if (!file) return null
+              const top = inlineEditIndex * 32
+              return (
+                <div
+                  key={`inline-rename-${file.path}`}
+                  className="absolute left-0 right-0"
+                  style={{ top, height: 32 }}
+                >
+                  <InlineEditRow
+                    mode="rename"
+                    initialName={file.name}
+                    onConfirm={(newName) => {
+                      onRename?.(file.path, newName)
+                      inlineCancel()
+                    }}
+                    onCancel={() => inlineCancel()}
+                    columnWidths={columnWidths}
+                  />
+                </div>
+              )
+            })()}
+
           {rowVirtualizer.getVirtualItems().map((virtualRow) => {
             const rowIndex = virtualRow.index
 
