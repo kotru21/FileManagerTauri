@@ -1,13 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
-import { commands, type Result } from "@/shared/api/tauri"
+import { commands } from "@/shared/api/tauri"
 import { fileKeys } from "./keys"
 
-function unwrapResult<T, E>(result: Result<T, E>): T {
-  if (result.status === "ok") {
-    return result.data
-  }
-  throw new Error(String(result.error))
-}
+import { unwrapResult } from "@/shared/api/tauri/client"
 
 export function useDirectoryContents(path: string | null) {
   return useQuery({
