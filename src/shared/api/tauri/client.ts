@@ -1,5 +1,5 @@
+import type { DriveInfo, FileEntry, FilePreview, Result, SearchResult, SearchOptions } from "./bindings"
 import { commands } from "./bindings"
-import type { Result, FileEntry, DriveInfo, FilePreview, SearchResult } from "./bindings"
 
 export function unwrapResult<T, E>(result: Result<T, E>): T {
   if (result.status === "ok") return result.data
@@ -59,19 +59,28 @@ export const tauriClient = {
     return unwrapResult(await commands.pathExists(path))
   },
 
-  async searchFiles(options: Parameters<typeof commands.searchFiles>[0]): Promise<SearchResult[]> {
-    return unwrapResult(await commands.searchFiles(options as any))
+  async searchFiles(options: SearchOptions): Promise<SearchResult[]> {
+    return unwrapResult(await commands.searchFiles(options))
   },
 
-  async searchFilesStream(options: Parameters<typeof commands.searchFilesStream>[0]): Promise<SearchResult[]> {
-    return unwrapResult(await commands.searchFilesStream(options as any))
+  async searchFilesStream(options: SearchOptions): Promise<SearchResult[]> {
+    return unwrapResult(await commands.searchFilesStream(options))
   },
 
-  async searchByName(searchPath: string, query: string, maxResults: number | null): Promise<SearchResult[]> {
+  async searchByName(
+    searchPath: string,
+    query: string,
+    maxResults: number | null,
+  ): Promise<SearchResult[]> {
     return unwrapResult(await commands.searchByName(searchPath, query, maxResults))
   },
 
-  async searchContent(searchPath: string, query: string, extensions: string[] | null, maxResults: number | null): Promise<SearchResult[]> {
+  async searchContent(
+    searchPath: string,
+    query: string,
+    extensions: string[] | null,
+    maxResults: number | null,
+  ): Promise<SearchResult[]> {
     return unwrapResult(await commands.searchContent(searchPath, query, extensions, maxResults))
   },
 
