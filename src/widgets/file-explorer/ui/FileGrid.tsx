@@ -215,10 +215,13 @@ const GridItem = memo(function GridItem({
           extension={file.extension}
           isDir={file.is_dir}
           size={gridConfig.thumbnailSize}
+          useContain={true}
           performanceSettings={{
-            lazyLoadImages: performanceSettings.lazyLoadImages,
+            // For grid view show thumbnails eagerly and in contain mode
+            lazyLoadImages: false,
             thumbnailCacheSize: performanceSettings.thumbnailCacheSize,
           }}
+          thumbnailGenerator={{ maxSide: Math.max(48, Math.floor(gridConfig.thumbnailSize)) }}
         />
         {/* Quick Look button on hover */}
         {onQuickLook && (

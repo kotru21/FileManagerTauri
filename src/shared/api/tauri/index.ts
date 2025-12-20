@@ -6,5 +6,6 @@ export type {
   Result,
   SearchOptions,
   SearchResult,
+  Thumbnail,
 } from "./bindings"
 export { commands } from "./bindings"

@@ -6,8 +6,10 @@ import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
 import { useBehaviorSettings } from "@/features/settings"
+import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { joinPath } from "@/shared/lib"
+
 import { toast } from "@/shared/ui"
 import { handleSelectionEvent } from "./selectionHandlers"
 
@@ -20,6 +22,7 @@ interface UseFileExplorerHandlersOptions {
   copyEntries: (params: { sources: string[]; destination: string }) => Promise<void>
   moveEntries: (params: { sources: string[]; destination: string }) => Promise<void>
   onStartCopyWithProgress: (sources: string[], destination: string) => void
+  onQuickLook?: (file: FileEntry) => void
 }
 
 export function useFileExplorerHandlers({
@@ -31,6 +34,7 @@ export function useFileExplorerHandlers({
   copyEntries,
   moveEntries,
   onStartCopyWithProgress,
+  onQuickLook,
 }: UseFileExplorerHandlersOptions) {
   const { currentPath, navigate } = useNavigationStore()
   const { selectFile, toggleSelection, selectRange, clearSelection, getSelectedPaths } =
@@ -54,6 +58,17 @@ export function useFileExplorerHandlers({
       if ((e.ctrlKey || e.metaKey) && behaviorSettings.openFoldersInNewTab) {
         const file = files.find((f) => f.path === path)
         if (file?.is_dir) {
+          // Add a new tab and navigate to it
+          try {
+            useTabsStore.getState().addTab(path)
+            requestAnimationFrame(() => {
+              navigate(path)
+              if (!behaviorSettings.singleClickToSelect) clearSelection()
+            })
+          } catch {
+            /* ignore */
+          }
+          return
         }
       }
 
@@ -73,6 +88,14 @@ export function useFileExplorerHandlers({
       if (shouldOpen) {
         const file = files.find((f) => f.path === path)
         if (!file) return
+
+        // If an onQuickLook handler is provided, use it to preview files and folders immediately
+        if (onQuickLook) {
+          onQuickLook(file)
+          // Clear selection so actions (More actions) are not shown while previewing
+          clearSelection()
+          return
+        }
 
         // Open directories via navigation (deferred) and files via opener
         if (file.is_dir) {
@@ -100,6 +123,7 @@ export function useFileExplorerHandlers({
       behaviorSettings,
       navigate,
       clearSelection,
+      onQuickLook,
     ],
   )
 
@@ -288,6 +312,7 @@ export function useFileExplorerHandlers({
     const selected = getSelectedPaths()
     if (selected.length === 0) return
     const path = selected[0]
+
     try {
       await openPath(path)
     } catch (error) {

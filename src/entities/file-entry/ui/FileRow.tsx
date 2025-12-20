@@ -53,10 +53,6 @@ export const FileRow = memo(function FileRow({
   onOpen,
   onDrop,
   getSelectedPaths,
-  onCopy,
-  onCut,
-  onRename,
-  onDelete,
   onQuickLook,
   onToggleBookmark,
   columnWidths = { size: 100, date: 180, padding: 8 },
@@ -194,15 +190,10 @@ export const FileRow = memo(function FileRow({
 
       <span className="flex-1 truncate text-sm file-name">{displayName}</span>
 
-      {(onCopy || onCut || onRename || onDelete || onQuickLook) && (
+      {onQuickLook && (
         <FileRowActions
           isDir={file.is_dir}
           isBookmarked={isBookmarked}
-          onOpen={onOpen}
-          onCopy={onCopy ?? (() => {})}
-          onCut={onCut ?? (() => {})}
-          onRename={onRename ?? (() => {})}
-          onDelete={onDelete ?? (() => {})}
           onQuickLook={onQuickLook}
           onToggleBookmark={onToggleBookmark}
           className={cn(

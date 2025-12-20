@@ -7,13 +7,14 @@ import { useQuickFilterStore } from "@/features/quick-filter"
 import { useKeyboardSettings, useSettingsStore } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 
-interface UseFileExplorerKeyboardOptions {
+export interface UseFileExplorerKeyboardOptions {
   files?: FileEntry[]
   onCopy: () => void
   onCut: () => void
   onPaste: () => void
   onDelete: () => void
   onStartNewFolder: () => void
+  onStartRename?: () => void
   onRefresh: () => void
   onQuickLook?: () => void
 }
@@ -24,6 +25,7 @@ export function useFileExplorerKeyboard({
   onPaste,
   onDelete,
   onStartNewFolder,
+  onStartRename,
   onRefresh,
   onQuickLook,
 }: UseFileExplorerKeyboardOptions) {
@@ -43,12 +45,22 @@ export function useFileExplorerKeyboard({
 
   useEffect(() => {
     // Build a normalized signature map for enabled shortcuts
+    const normalizeToken = (t: string) => {
+      const token = t.trim().toLowerCase()
+      if (token === "") return token
+      // Map arrow names to canonical form used in settings (left/right/up/down)
+      if (token.startsWith("arrow")) return token.replace(/^arrow/, "")
+      if (token === " ") return "space"
+      if (token === "space") return "space"
+      return token
+    }
+
     const normalizeSignature = (s: string) =>
       s
         .toLowerCase()
         .replace(/\s+/g, "")
         .split("+")
-        .map((t) => t.trim())
+        .map((t) => normalizeToken(t))
         .join("+")
 
     const signatureFromEvent = (e: KeyboardEvent) => {
@@ -58,9 +70,10 @@ export function useFileExplorerKeyboard({
       if (e.altKey) parts.push("alt")
       if (e.metaKey) parts.push("meta")
 
-      // Prefer code for Space and function keys
+      // Prefer code for Space and function keys, normalize names
       const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
-      parts.push(key)
+      const normalizedKey = normalizeToken(key)
+      parts.push(normalizedKey)
       return parts.join("+")
     }
 
@@ -130,7 +143,18 @@ export function useFileExplorerKeyboard({
 
       // Check settings shortcuts first
       const sig = signatureFromEvent(e)
-      const action = shortcutMap.get(sig)
+      // Try direct match
+      let action = shortcutMap.get(sig)
+      // If not found, try ctrl/meta alias (so Cmd on mac works for Ctrl shortcuts)
+      if (!action) {
+        if (sig.includes("meta")) {
+          action = shortcutMap.get(sig.replace(/\bmeta\b/, "ctrl"))
+        }
+        if (!action && sig.includes("ctrl")) {
+          action = shortcutMap.get(sig.replace(/\bctrl\b/, "meta"))
+        }
+      }
+
       if (action) {
         e.preventDefault()
         switch (action) {
@@ -148,6 +172,10 @@ export function useFileExplorerKeyboard({
             break
           case "newFolder":
             onStartNewFolder()
+            break
+          case "rename":
+            // Start inline rename flow
+            ;(onStartRename ?? (() => {}))()
             break
           case "refresh":
             onRefresh()
@@ -232,5 +260,6 @@ export function useFileExplorerKeyboard({
     getSelectedPaths,
     selectFile,
     toggleCommandPalette,
+    onStartRename,
   ])
 }

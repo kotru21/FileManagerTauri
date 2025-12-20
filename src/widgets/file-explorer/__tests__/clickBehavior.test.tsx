@@ -5,6 +5,7 @@ import { describe, expect, it } from "vitest"
 import { useSelectionStore } from "@/features/file-selection"
 import { useNavigationStore } from "@/features/navigation"
 import { useSettingsStore } from "@/features/settings"
+import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { useFileExplorerHandlers } from "../lib/useFileExplorerHandlers"
 
@@ -177,6 +178,47 @@ describe("click behavior", () => {
     await waitFor(() => {
       expect(getSelected()).toEqual([])
       expect(getCurrent()).toBe("/dir1")
+    })
+
+    cleanup()
+  })
+
+  it("Ctrl+Click opens folder in new tab when setting enabled", async () => {
+    act(() =>
+      useSettingsStore
+        .getState()
+        .updateBehavior({
+          doubleClickToOpen: false,
+          singleClickToSelect: false,
+          openFoldersInNewTab: true,
+        }),
+    )
+
+    // reset tabs
+    act(() => {
+      useTabsStore.setState({ tabs: [], activeTabId: null })
+    })
+
+    const { getHandlers, getCurrent, cleanup } = setupHandlers()
+    const handlers = getHandlers()
+
+    act(() =>
+      handlers.handleSelect("/dir1", {
+        ctrlKey: true,
+        metaKey: false,
+        shiftKey: false,
+      } as unknown as React.MouseEvent),
+    )
+
+    // allow requestAnimationFrame
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 20))
+    })
+
+    await waitFor(() => {
+      expect(getCurrent()).toBe("/dir1")
+      const tabs = useTabsStore.getState().tabs
+      expect(tabs.some((t) => t.path === "/dir1")).toBeTruthy()
     })
 
     cleanup()

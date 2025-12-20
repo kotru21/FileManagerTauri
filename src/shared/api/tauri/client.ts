@@ -5,6 +5,7 @@ import type {
   Result,
   SearchOptions,
   SearchResult,
+  Thumbnail,
 } from "./bindings"
 import { commands } from "./bindings"
 
@@ -93,6 +94,10 @@ export const tauriClient = {
 
   async getFilePreview(path: string): Promise<FilePreview> {
     return unwrapResult(await commands.getFilePreview(path))
+  },
+
+  async getThumbnail(path: string, max_side: number): Promise<Thumbnail> {
+    return unwrapResult(await commands.getThumbnail(path, max_side))
   },
 
   async watchDirectory(path: string): Promise<null> {
