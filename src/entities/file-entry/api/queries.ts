@@ -1,6 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { tauriClient } from "@/shared/api/tauri/client"
-import { withPerf } from "@/shared/lib/perf"
+import { markPerf, withPerf } from "@/shared/lib/perf"
 import { fileKeys } from "./keys"
 
 export function useDirectoryContents(path: string | null) {
@@ -17,7 +17,7 @@ export function useDirectoryContents(path: string | null) {
           const last = globalThis.__fm_lastNav
           if (last && last.path === path) {
             const navToRead = performance.now() - last.t
-            console.debug(`[perf] nav->readDirectory`, { id: last.id, path, navToRead })
+            markPerf("nav->readDirectory", { id: last.id, path, navToRead })
             globalThis.__fm_perfLog = {
               ...(globalThis.__fm_perfLog ?? {}),
               lastRead: {
