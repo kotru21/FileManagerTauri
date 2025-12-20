@@ -116,7 +116,14 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
   )
 }
 
-export function ColumnHeader({ columnWidths, onColumnResize, className, sortConfig, onSort, displaySettings }: ColumnHeaderProps) {
+export function ColumnHeader({
+  columnWidths,
+  onColumnResize,
+  className,
+  sortConfig,
+  onSort,
+  displaySettings,
+}: ColumnHeaderProps) {
   const handleResize = useCallback(
     (column: "size" | "date" | "padding") => (delta: number) => {
       const currentWidth = columnWidths[column]
@@ -143,7 +150,12 @@ export function ColumnHeader({ columnWidths, onColumnResize, className, sortConf
       <span className="w-4.5 mr-3" /> {/* Icon placeholder */}
       {/* Name column */}
       <div className="relative flex-1 min-w-0 pr-2">
-        <SortableHeader field="name" label="Имя" sortConfig={effectiveSortConfig} onSort={effectiveOnSort} />
+        <SortableHeader
+          field="name"
+          label="Имя"
+          sortConfig={effectiveSortConfig}
+          onSort={effectiveOnSort}
+        />
         <ResizeHandle onResize={handleResize("size")} />
       </div>
       {/* Size column */}

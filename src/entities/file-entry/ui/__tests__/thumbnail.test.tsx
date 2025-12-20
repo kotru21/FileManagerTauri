@@ -6,7 +6,13 @@ import { FileThumbnail } from "../FileThumbnail"
 test("uses CSS var for transition duration so animations-off works", () => {
   const { container } = render(
     <div>
-      <FileThumbnail path="/a" extension="png" isDir={false} size={64} performanceSettings={{ lazyLoadImages: false, thumbnailCacheSize: 10 }} />
+      <FileThumbnail
+        path="/a"
+        extension="png"
+        isDir={false}
+        size={64}
+        performanceSettings={{ lazyLoadImages: false, thumbnailCacheSize: 10 }}
+      />
     </div>,
   )
 
