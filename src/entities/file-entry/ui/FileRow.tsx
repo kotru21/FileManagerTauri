@@ -1,6 +1,7 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, formatBytes, formatDate, formatRelativeDate } from "@/shared/lib"
+import { getPerfLog, setPerfLog } from "@/shared/lib/devLogger"
 import { FileIcon } from "./FileIcon"
 import { FileRowActions } from "./FileRowActions"
 
@@ -61,9 +62,9 @@ export const FileRow = memo(function FileRow({
 }: FileRowProps) {
   // Instrument render counts to help diagnose excessive re-renders in large directories
   try {
-    const rc = globalThis.__fm_renderCounts ?? { fileRows: 0 }
+    const rc = (getPerfLog()?.renderCounts as Record<string, number>) ?? { fileRows: 0 }
     rc.fileRows = (rc.fileRows ?? 0) + 1
-    globalThis.__fm_renderCounts = rc
+    setPerfLog({ renderCounts: rc })
   } catch {
     /* ignore */
   }
