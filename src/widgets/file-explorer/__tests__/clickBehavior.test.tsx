@@ -185,13 +185,11 @@ describe("click behavior", () => {
 
   it("Ctrl+Click opens folder in new tab when setting enabled", async () => {
     act(() =>
-      useSettingsStore
-        .getState()
-        .updateBehavior({
-          doubleClickToOpen: false,
-          singleClickToSelect: false,
-          openFoldersInNewTab: true,
-        }),
+      useSettingsStore.getState().updateBehavior({
+        doubleClickToOpen: false,
+        singleClickToSelect: false,
+        openFoldersInNewTab: true,
+      }),
     )
 
     // reset tabs

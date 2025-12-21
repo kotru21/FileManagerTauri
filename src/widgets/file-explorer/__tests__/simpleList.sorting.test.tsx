@@ -3,8 +3,9 @@ import { describe, expect, it } from "vitest"
 import { ColumnHeader } from "@/entities/file-entry"
 import { sortEntries } from "@/entities/file-entry/model/types"
 import { useSortingStore } from "@/features/sorting/model/store"
+import type { FileEntry } from "@/shared/api/tauri"
 
-function TestComp({ files }: { files: any[] }) {
+function TestComp({ files }: { files: FileEntry[] }) {
   const { sortConfig, setSortField } = useSortingStore()
 
   const sorted = sortEntries(files, sortConfig)
@@ -41,6 +42,7 @@ describe("ColumnHeader sorting (simple list)", () => {
         is_hidden: false,
         size: 0,
         modified: 1000,
+        created: null,
         extension: "txt",
       },
       {
@@ -50,6 +52,7 @@ describe("ColumnHeader sorting (simple list)", () => {
         is_hidden: false,
         size: 0,
         modified: 2000,
+        created: null,
         extension: "txt",
       },
     ]
@@ -80,6 +83,7 @@ describe("ColumnHeader sorting (simple list)", () => {
         is_hidden: false,
         size: 0,
         modified: 2000,
+        created: null,
         extension: "txt",
       },
       {
@@ -89,6 +93,7 @@ describe("ColumnHeader sorting (simple list)", () => {
         is_hidden: false,
         size: 0,
         modified: 1000,
+        created: null,
         extension: "txt",
       },
     ]
