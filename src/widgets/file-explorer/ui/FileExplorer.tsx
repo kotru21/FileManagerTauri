@@ -30,6 +30,7 @@ import { useSortingStore } from "@/features/sorting"
 import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
+import { getLastNav, setLastFiles, setPerfLog } from "@/shared/lib/devLogger"
 import { withPerfSync } from "@/shared/lib/perf"
 import { toast } from "@/shared/ui"
 import { CopyProgressDialog } from "@/widgets/progress-dialog"
@@ -99,31 +100,30 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   const { mutateAsync: moveEntries } = useMoveEntries()
 
   const processedFiles = useMemo(() => {
-    return withPerfSync("processFiles", { path: currentPath, count: rawFiles?.length ?? 0 }, () => {
-      const startLocal = performance.now()
-      if (!rawFiles) return []
+    // Compute processed files (filter + sort) without side-effects
+    if (!rawFiles) return []
 
-      // Filter with settings - use showHiddenFiles from displaySettings
-      const filtered = filterEntries(rawFiles, {
-        showHidden: displaySettings.showHiddenFiles,
-      })
-
-      // Sort
-      const sorted = sortEntries(filtered, sortConfig)
-
-      const duration = performance.now() - startLocal
-      try {
-        globalThis.__fm_perfLog = {
-          ...(globalThis.__fm_perfLog ?? {}),
-          lastProcess: { path: currentPath, count: rawFiles.length, duration, ts: Date.now() },
-        }
-      } catch {
-        /* ignore */
-      }
-
-      return sorted
+    // Filter with settings - use showHiddenFiles from displaySettings
+    const filtered = filterEntries(rawFiles, {
+      showHidden: displaySettings.showHiddenFiles,
     })
-  }, [rawFiles, displaySettings.showHiddenFiles, sortConfig, currentPath])
+
+    // Sort
+    const sorted = sortEntries(filtered, sortConfig)
+
+    return sorted
+  }, [rawFiles, displaySettings.showHiddenFiles, sortConfig])
+
+  // Log process metadata in an effect (avoid mutations during render)
+  useEffect(() => {
+    try {
+      setPerfLog({
+        lastProcess: { path: currentPath, count: processedFiles.length, ts: Date.now() },
+      })
+    } catch {
+      /* ignore */
+    }
+  }, [processedFiles.length, currentPath])
 
   const files = useMemo(() => {
     if (!isQuickFilterActive || !quickFilter) return processedFiles
@@ -139,13 +139,13 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
 
     // Expose files to keyboard helpers (used by vim-mode fallback)
     try {
-      globalThis.__fm_lastFiles = files
+      setLastFiles(files)
     } catch {
       /* ignore */
     }
 
     try {
-      const last = globalThis.__fm_lastNav as { id: string; path: string; t: number } | undefined
+      const last = getLastNav()
       if (last) {
         withPerfSync(
           "nav->render",
@@ -153,8 +153,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
           () => {
             const now = performance.now()
             const navToRender = now - last.t
-            globalThis.__fm_perfLog = {
-              ...(globalThis.__fm_perfLog ?? {}),
+            setPerfLog({
               lastRender: {
                 id: last.id,
                 path: last.path,
@@ -162,15 +161,12 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
                 filesCount: files.length,
                 ts: Date.now(),
               },
-            }
+            })
           },
         )
       } else {
         withPerfSync("nav->render", { filesCount: files.length }, () => {
-          globalThis.__fm_perfLog = {
-            ...(globalThis.__fm_perfLog ?? {}),
-            lastRender: { filesCount: files.length, ts: Date.now() },
-          }
+          setPerfLog({ lastRender: { filesCount: files.length, ts: Date.now() } })
         })
       }
     } catch {
@@ -261,7 +257,9 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   const performanceSettings = usePerformanceSettings()
 
   // Use separate view component to keep FileExplorer container-focused
-  import("./FileExplorer.view").then(() => {})
+  useEffect(() => {
+    import("./FileExplorer.view").then(() => {})
+  }, [])
 
   const content = (
     <FileExplorerView

@@ -6,6 +6,7 @@ import { useNavigationStore } from "@/features/navigation"
 import { useQuickFilterStore } from "@/features/quick-filter"
 import { useKeyboardSettings, useSettingsStore } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
+import { getLastFiles } from "@/shared/lib/devLogger"
 
 export interface UseFileExplorerKeyboardOptions {
   files?: FileEntry[]
@@ -97,7 +98,7 @@ export function useFileExplorerKeyboard({
         if (e.key === "j") {
           e.preventDefault()
           const sel = getSelectedPaths()
-          const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
+          const files = getLastFiles()
           if (!files || files.length === 0) return
           const last = sel[0] || files[0].path
           const idx = files.findIndex((f) => f.path === last)
@@ -108,7 +109,7 @@ export function useFileExplorerKeyboard({
         if (e.key === "k") {
           e.preventDefault()
           const sel = getSelectedPaths()
-          const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
+          const files = getLastFiles()
           if (!files || files.length === 0) return
           const last = sel[0] || files[0].path
           const idx = files.findIndex((f) => f.path === last)
@@ -121,7 +122,7 @@ export function useFileExplorerKeyboard({
           if (now - lastGAt < 350) {
             // gg -> go to first
             e.preventDefault()
-            const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
+            const files = getLastFiles()
             if (files && files.length > 0) selectFile(files[0].path)
             lastGAt = 0
             return
@@ -130,7 +131,7 @@ export function useFileExplorerKeyboard({
         }
         if (e.key === "G") {
           e.preventDefault()
-          const files = globalThis.__fm_lastFiles as FileEntry[] | undefined
+          const files = getLastFiles()
           if (files && files.length > 0) selectFile(files[files.length - 1].path)
           return
         }

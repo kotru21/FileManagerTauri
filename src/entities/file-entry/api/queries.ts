@@ -1,5 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
 import { tauriClient } from "@/shared/api/tauri/client"
+import { getLastNav, setPerfLog } from "@/shared/lib/devLogger"
 import { markPerf, withPerf } from "@/shared/lib/perf"
 import { fileKeys } from "./keys"
 
@@ -14,12 +15,11 @@ export function useDirectoryContents(path: string | null) {
         const duration = performance.now() - start
 
         try {
-          const last = globalThis.__fm_lastNav
+          const last = getLastNav()
           if (last && last.path === path) {
             const navToRead = performance.now() - last.t
             markPerf("nav->readDirectory", { id: last.id, path, navToRead })
-            globalThis.__fm_perfLog = {
-              ...(globalThis.__fm_perfLog ?? {}),
+            setPerfLog({
               lastRead: {
                 id: last.id,
                 path,
@@ -27,12 +27,9 @@ export function useDirectoryContents(path: string | null) {
                 navToRead,
                 ts: Date.now(),
               },
-            }
+            })
           } else {
-            globalThis.__fm_perfLog = {
-              ...(globalThis.__fm_perfLog ?? {}),
-              lastRead: { path, duration, ts: Date.now() },
-            }
+            setPerfLog({ lastRead: { path, duration, ts: Date.now() } })
           }
         } catch {
           /* ignore */

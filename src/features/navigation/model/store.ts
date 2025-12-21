@@ -1,6 +1,7 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
 import { tauriClient } from "@/shared/api/tauri/client"
+import { setLastNav } from "@/shared/lib/devLogger"
 import { markPerf } from "@/shared/lib/perf"
 
 interface NavigationState {
@@ -33,7 +34,7 @@ export const useNavigationStore = create<NavigationState>()(
         // Mark navigation start for performance debugging
         try {
           const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
-          globalThis.__fm_lastNav = { id, path, t: performance.now() }
+          setLastNav({ id, path, t: performance.now() })
           markPerf("nav:start", { id, path })
         } catch {
           /* ignore */
