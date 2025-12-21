@@ -1,17 +1,5 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-import {
-  filterEntries,
-  sortEntries,
-  useCopyEntries,
-  useCreateDirectory,
-  useCreateFile,
-  useDeleteEntries,
-  useDirectoryContents,
-  useFileWatcher,
-  useMoveEntries,
-  useRenameEntry,
-  useStreamingDirectory,
-} from "@/entities/file-entry"
+import { useCallback, useEffect, useMemo } from "react"
+import { filterEntries, useFileWatcher } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
 import { FileContextMenu } from "@/features/context-menu"
 import { useDeleteConfirmStore } from "@/features/delete-confirm"
@@ -19,22 +7,13 @@ import { useSelectionStore } from "@/features/file-selection"
 import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
 import { QuickFilterBar, useQuickFilterStore } from "@/features/quick-filter"
-import {
-  useAppearanceSettings,
-  useBehaviorSettings,
-  useFileDisplaySettings,
-  useLayoutSettings,
-  usePerformanceSettings,
-} from "@/features/settings"
-import { useSortingStore } from "@/features/sorting"
+import { useBehaviorSettings, useLayoutSettings, usePerformanceSettings } from "@/features/settings"
 import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
-import { getLastNav, setLastFiles, setPerfLog } from "@/shared/lib/devLogger"
-import { withPerfSync } from "@/shared/lib/perf"
 import { toast } from "@/shared/ui"
 import { CopyProgressDialog } from "@/widgets/progress-dialog"
-import { useFileExplorerHandlers, useFileExplorerKeyboard } from "../lib"
+import { useFileExplorerKeyboard, useFileExplorerLogic } from "../lib"
 import { FileExplorerView } from "./FileExplorer.view"
 
 interface FileExplorerProps {
@@ -46,18 +25,11 @@ interface FileExplorerProps {
 export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExplorerProps) {
   const { currentPath } = useNavigationStore()
   const { settings: viewSettings } = useViewModeStore()
-  const { sortConfig, setSortField } = useSortingStore()
 
-  const displaySettings = useFileDisplaySettings()
-  const appearance = useAppearanceSettings()
   const behaviorSettings = useBehaviorSettings()
   const layoutSettings = useLayoutSettings()
 
   const { filter: quickFilter, isActive: isQuickFilterActive } = useQuickFilterStore()
-
-  const [copyDialogOpen, setCopyDialogOpen] = useState(false)
-  const [_copySource, _setCopySource] = useState<string[]>([])
-  const [_copyDestination, _setCopyDestination] = useState<string>("")
 
   const selectedPaths = useSelectionStore((s) => s.selectedPaths)
   const clearSelection = useSelectionStore((s) => s.clearSelection)
@@ -69,13 +41,28 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
 
   const clipboardHasContent = useClipboardStore((s) => s.hasContent)
 
-  // Data fetching - prefer streaming directory for faster incremental rendering
-  const dirQuery = useDirectoryContents(currentPath)
-  const stream = useStreamingDirectory(currentPath)
+  const {
+    files: processedFiles,
+    processedFilesCount,
+    isLoading,
+    refetch,
+    handlers,
+    copyDialogOpen,
+    setCopyDialogOpen,
+    displaySettings,
+    appearance,
+    sortConfig,
+    setSortField,
+  } = useFileExplorerLogic(currentPath, onQuickLook, onFilesChange)
 
-  const rawFiles = stream.entries.length > 0 ? stream.entries : dirQuery.data
-  const isLoading = dirQuery.isLoading || stream.isLoading
-  const refetch = dirQuery.refetch
+  const files = useMemo(() => {
+    if (!isQuickFilterActive || !quickFilter) return processedFiles
+
+    return filterEntries(processedFiles, {
+      showHidden: displaySettings.showHiddenFiles,
+      searchQuery: quickFilter,
+    })
+  }, [processedFiles, isQuickFilterActive, quickFilter, displaySettings.showHiddenFiles])
 
   // File watcher
   useFileWatcher(currentPath)
@@ -91,116 +78,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     return () => window.removeEventListener("focus", handleFocus)
   }, [behaviorSettings.autoRefreshOnFocus, refetch])
 
-  // Mutations
-  const { mutateAsync: createDirectory } = useCreateDirectory()
-  const { mutateAsync: createFile } = useCreateFile()
-  const { mutateAsync: renameEntry } = useRenameEntry()
-  const { mutateAsync: deleteEntries } = useDeleteEntries()
-  const { mutateAsync: copyEntries } = useCopyEntries()
-  const { mutateAsync: moveEntries } = useMoveEntries()
-
-  const processedFiles = useMemo(() => {
-    // Compute processed files (filter + sort) without side-effects
-    if (!rawFiles) return []
-
-    // Filter with settings - use showHiddenFiles from displaySettings
-    const filtered = filterEntries(rawFiles, {
-      showHidden: displaySettings.showHiddenFiles,
-    })
-
-    // Sort
-    const sorted = sortEntries(filtered, sortConfig)
-
-    return sorted
-  }, [rawFiles, displaySettings.showHiddenFiles, sortConfig])
-
-  // Log process metadata in an effect (avoid mutations during render)
-  useEffect(() => {
-    try {
-      setPerfLog({
-        lastProcess: { path: currentPath, count: processedFiles.length, ts: Date.now() },
-      })
-    } catch {
-      /* ignore */
-    }
-  }, [processedFiles.length, currentPath])
-
-  const files = useMemo(() => {
-    if (!isQuickFilterActive || !quickFilter) return processedFiles
-
-    return filterEntries(processedFiles, {
-      showHidden: displaySettings.showHiddenFiles,
-      searchQuery: quickFilter,
-    })
-  }, [processedFiles, isQuickFilterActive, quickFilter, displaySettings.showHiddenFiles])
-
-  useEffect(() => {
-    onFilesChange?.(files)
-
-    // Expose files to keyboard helpers (used by vim-mode fallback)
-    try {
-      setLastFiles(files)
-    } catch {
-      /* ignore */
-    }
-
-    try {
-      const last = getLastNav()
-      if (last) {
-        withPerfSync(
-          "nav->render",
-          { id: last.id, path: last.path, filesCount: files.length },
-          () => {
-            const now = performance.now()
-            const navToRender = now - last.t
-            setPerfLog({
-              lastRender: {
-                id: last.id,
-                path: last.path,
-                navToRender,
-                filesCount: files.length,
-                ts: Date.now(),
-              },
-            })
-          },
-        )
-      } else {
-        withPerfSync("nav->render", { filesCount: files.length }, () => {
-          setPerfLog({ lastRender: { filesCount: files.length, ts: Date.now() } })
-        })
-      }
-    } catch {
-      /* ignore */
-    }
-  }, [files, onFilesChange])
-
-  const handlers = useFileExplorerHandlers({
-    files,
-    createDirectory: async (path) => {
-      await createDirectory(path)
-    },
-    createFile: async (path) => {
-      await createFile(path)
-    },
-    renameEntry: async ({ oldPath, newName }) => {
-      await renameEntry({ oldPath, newName })
-    },
-    deleteEntries: async ({ paths, permanent }) => {
-      await deleteEntries({ paths, permanent })
-    },
-    copyEntries: async ({ sources, destination }) => {
-      await copyEntries({ sources, destination })
-    },
-    moveEntries: async ({ sources, destination }) => {
-      await moveEntries({ sources, destination })
-    },
-    onQuickLook: onQuickLook,
-    onStartCopyWithProgress: (sources, destination) => {
-      _setCopySource(sources)
-      _setCopyDestination(destination)
-      setCopyDialogOpen(true)
-    },
-  })
+  // handlers provided by useFileExplorerLogic
 
   const openDeleteConfirm = useDeleteConfirmStore((s) => s.open)
 
@@ -216,19 +94,11 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     }
 
     try {
-      await deleteEntries({ paths, permanent: false })
-      toast.success(`Удалено: ${paths.length} элемент(ов)`)
-      clearSelection()
+      await handlers.handleDelete()
     } catch (error) {
       toast.error(`Ошибка удаления: ${error}`)
     }
-  }, [
-    getSelectedPaths,
-    behaviorSettings.confirmDelete,
-    deleteEntries,
-    clearSelection,
-    openDeleteConfirm,
-  ])
+  }, [getSelectedPaths, behaviorSettings.confirmDelete, openDeleteConfirm, handlers])
 
   // Quick Look handler
   const handleQuickLook = useCallback(() => {
@@ -266,7 +136,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       className={className}
       isLoading={isLoading}
       files={files}
-      processedFilesCount={processedFiles.length}
+      processedFilesCount={processedFilesCount}
       selectedPaths={selectedPaths}
       onQuickLook={onQuickLook}
       handlers={{
@@ -327,7 +197,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       >
         {/* Quick Filter Bar */}
         {isQuickFilterActive && (
-          <QuickFilterBar totalCount={processedFiles.length} filteredCount={files.length} />
+          <QuickFilterBar totalCount={processedFilesCount} filteredCount={files.length} />
         )}
 
         {/* Content */}

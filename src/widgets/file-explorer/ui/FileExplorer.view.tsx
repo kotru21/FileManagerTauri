@@ -1,3 +1,4 @@
+import { memo } from "react"
 import { FileExplorerGrid } from "./FileExplorerGrid"
 import { FileExplorerLoading } from "./FileExplorerLoading"
 import { FileExplorerSimpleList } from "./FileExplorerSimpleList"
@@ -5,7 +6,7 @@ import { FileExplorerVirtualList } from "./FileExplorerVirtualList"
 import type { FileExplorerViewProps } from "./types"
 import { useFileExplorer } from "./useFileExplorer"
 
-export function FileExplorerView({
+export const FileExplorerView = memo(function FileExplorerView({
   className,
   isLoading,
   files,
@@ -41,7 +42,8 @@ export function FileExplorerView({
     )
   }
 
-  const simpleListThreshold = performanceThreshold
+  const simpleListThreshold =
+    typeof performanceThreshold === "number" ? performanceThreshold : Number.POSITIVE_INFINITY
   if (files.length < simpleListThreshold) {
     return (
       <FileExplorerSimpleList
@@ -70,4 +72,4 @@ export function FileExplorerView({
       onQuickLook={onQuickLook}
     />
   )
-}
+})
