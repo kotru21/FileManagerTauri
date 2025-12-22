@@ -53,13 +53,19 @@ const Slider = memo(function Slider({
 interface ToggleSwitchProps {
   checked: boolean
   onChange: (checked: boolean) => void
+  ariaLabel?: string
 }
 
-const ToggleSwitch = memo(function ToggleSwitch({ checked, onChange }: ToggleSwitchProps) {
+const ToggleSwitch = memo(function ToggleSwitch({
+  checked,
+  onChange,
+  ariaLabel,
+}: ToggleSwitchProps) {
   return (
     <button
       type="button"
       role="switch"
+      aria-label={ariaLabel}
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
@@ -125,6 +131,7 @@ export const PerformanceSettings = memo(function PerformanceSettings() {
               </div>
               <ToggleSwitch
                 checked={performance.lazyLoadImages}
+                ariaLabel="Ленивая загрузка изображений"
                 onChange={(v) => updatePerformance({ lazyLoadImages: v })}
               />
             </div>

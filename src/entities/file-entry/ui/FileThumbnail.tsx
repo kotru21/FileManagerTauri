@@ -88,7 +88,7 @@ export const FileThumbnail = memo(function FileThumbnail({
 
   const showThumbnail = canShowThumbnail(extension) && !isDir
 
-  const performanceDefaults = { lazyLoadImages: true, thumbnailCacheSize: 20 }
+  const performanceDefaults = { lazyLoadImages: true, thumbnailCacheSize: 100 }
   const performance = performanceSettings ?? performanceDefaults
 
   // Intersection observer for lazy loading (or eager load based on settings)
@@ -138,6 +138,7 @@ export const FileThumbnail = memo(function FileThumbnail({
           const tSmall = await import("@/shared/api/tauri/client").then((m) =>
             m.tauriClient.getThumbnail(path, smallSide),
           )
+          if (!tSmall) throw new Error("no thumbnail")
           const lqip = `data:${tSmall.mime};base64,${tSmall.base64}`
           // Use state to drive the rendered src so it works even before the image ref is set
           setLqipSrc(lqip)
@@ -150,6 +151,7 @@ export const FileThumbnail = memo(function FileThumbnail({
             const tFull = await import("@/shared/api/tauri/client").then((m) =>
               m.tauriClient.getThumbnail(path, thumbnailGenerator.maxSide),
             )
+            if (!tFull) throw new Error("no thumbnail")
             const full = `data:${tFull.mime};base64,${tFull.base64}`
             maybeCacheThumbnail(path, full, performance.thumbnailCacheSize)
             // mark loaded so render switches from lqip to full cached src
@@ -270,3 +272,7 @@ export const FileThumbnail = memo(function FileThumbnail({
     </div>
   )
 })
+
+// Test-only exports for verifying LRU cache behavior in unit tests
+export const __thumbnailCache = thumbnailCache
+export const __maybeCacheThumbnail = maybeCacheThumbnail

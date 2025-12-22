@@ -25,6 +25,8 @@ type FileEntry = {
 
 import { FileRow } from "../FileRow"
 
+const nowSec = Math.floor(Date.now() / 1000)
+
 const file: FileEntry = {
   path: "/tmp/file.txt",
   name: "file.txt",
@@ -32,7 +34,7 @@ const file: FileEntry = {
   is_hidden: false,
   extension: "txt",
   size: 100,
-  modified: Date.now(),
+  modified: nowSec,
   created: null,
 }
 
