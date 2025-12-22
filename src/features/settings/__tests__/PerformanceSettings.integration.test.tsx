@@ -43,11 +43,19 @@ describe("PerformanceSettings integration", () => {
   it("slider 'Размер кэша миниатюр' updates store and reflected in consumer", async () => {
     const { container, getByTestId } = render(<Combined />)
 
-    const input = container.querySelector('input[type="range"]') as HTMLInputElement
+    // find the slider by searching range inputs for the one whose parent contains the label text
+    const inputs = container.querySelectorAll('input[type="range"]')
+    let input: HTMLInputElement | null = null
+    for (const el of inputs) {
+      if (el.parentElement?.textContent?.includes("Размер кэша миниатюр")) {
+        input = el as HTMLInputElement
+        break
+      }
+    }
     expect(input).toBeTruthy()
 
     // change to 150
-    fireEvent.change(input, { target: { value: "150" } })
+    fireEvent.change(input!, { target: { value: "150" } })
 
     await waitFor(() => {
       expect(getByTestId("perf-values").textContent).toContain("cache:150")
