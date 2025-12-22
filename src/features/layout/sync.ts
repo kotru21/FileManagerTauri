@@ -85,11 +85,14 @@ export function initLayoutSync() {
       const updates: Partial<LayoutSettings> = {}
 
       // Panel layout fields to compare
+      const parseSize = (v: number | string | undefined) =>
+        typeof v === "number" ? v : v ? parseFloat(String(v).replace("%", "")) : 0
+
       const samePanel =
         settingsPanelNow.showSidebar === toSync.showSidebar &&
         settingsPanelNow.showPreview === toSync.showPreview &&
-        settingsPanelNow.sidebarSize === toSync.sidebarSize &&
-        settingsPanelNow.previewPanelSize === toSync.previewPanelSize &&
+        parseSize(settingsPanelNow.sidebarSize) === parseSize(toSync.sidebarSize) &&
+        parseSize(settingsPanelNow.previewPanelSize) === parseSize(toSync.previewPanelSize) &&
         (settingsPanelNow.sidebarCollapsed ?? false) === (toSync.sidebarCollapsed ?? false)
 
       if (!samePanel) updates.panelLayout = toSync

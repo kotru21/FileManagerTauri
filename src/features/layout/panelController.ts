@@ -1,4 +1,4 @@
-import type { ImperativePanelHandle } from "react-resizable-panels"
+import type { ImperativePanelHandle } from "@/shared/ui/resizable"
 import type { PanelLayout } from "./model/layoutStore"
 
 let sidebarRef: React.RefObject<ImperativePanelHandle | null> | null = null

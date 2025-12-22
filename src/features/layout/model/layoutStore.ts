@@ -63,7 +63,7 @@ interface LayoutState {
 
 export const useLayoutStore = create<LayoutState>()(
   persist(
-    subscribeWithSelector((set) => ({
+    subscribeWithSelector<LayoutState>((set) => ({
       layout: DEFAULT_LAYOUT,
 
       setLayout: (updates) =>
@@ -73,17 +73,29 @@ export const useLayoutStore = create<LayoutState>()(
 
       setSidebarSize: (size) =>
         set((state) => ({
-          layout: { ...state.layout, sidebarSize: size },
+          layout: {
+            ...state.layout,
+            sidebarSize:
+              typeof size === "string" ? parseFloat(String(size).replace("%", "")) : size,
+          },
         })),
 
       setMainPanelSize: (size) =>
         set((state) => ({
-          layout: { ...state.layout, mainPanelSize: size },
+          layout: {
+            ...state.layout,
+            mainPanelSize:
+              typeof size === "string" ? parseFloat(String(size).replace("%", "")) : size,
+          },
         })),
 
       setPreviewPanelSize: (size) =>
         set((state) => ({
-          layout: { ...state.layout, previewPanelSize: size },
+          layout: {
+            ...state.layout,
+            previewPanelSize:
+              typeof size === "string" ? parseFloat(String(size).replace("%", "")) : size,
+          },
         })),
 
       setColumnWidth: (column, width) =>
@@ -142,6 +154,52 @@ export const useLayoutStore = create<LayoutState>()(
     {
       name: "layout-storage",
       partialize: (state) => ({ layout: state.layout }),
+      // onRehydrateStorage will migrate legacy numeric persisted values into percent-strings
+      onRehydrateStorage: () => () => {
+        const key = "layout-storage"
+        try {
+          const raw = localStorage.getItem(key)
+          if (!raw) return
+          const parsed = JSON.parse(raw) as unknown
+
+          const getLayoutObject = (p: unknown): Record<string, unknown> | undefined => {
+            if (p && typeof p === "object") {
+              const obj = p as Record<string, unknown>
+              if (obj.state && typeof obj.state === "object") {
+                const state = obj.state as Record<string, unknown>
+                if (state.layout && typeof state.layout === "object")
+                  return state.layout as Record<string, unknown>
+              }
+              if (obj.layout && typeof obj.layout === "object")
+                return obj.layout as Record<string, unknown>
+            }
+            return undefined
+          }
+
+          const layoutObj = getLayoutObject(parsed)
+          if (!layoutObj) return
+
+          const keys: Array<"sidebarSize" | "mainPanelSize" | "previewPanelSize"> = [
+            "sidebarSize",
+            "mainPanelSize",
+            "previewPanelSize",
+          ]
+          let changed = false
+
+          for (const k of keys) {
+            if (Object.hasOwn(layoutObj, k) && typeof layoutObj[k] === "number") {
+              layoutObj[k] = `${layoutObj[k]}%`
+              changed = true
+            }
+          }
+
+          if (changed) {
+            localStorage.setItem(key, JSON.stringify(parsed))
+          }
+        } catch {
+          /* ignore migration errors */
+        }
+      },
     },
   ),
 )
@@ -161,3 +219,26 @@ export const usePreviewLayout = () =>
   }))
 
 export const useColumnWidths = () => useLayoutStore((s) => s.layout.columnWidths)
+
+// Ensure persisted representation uses percent-strings for sizes: subscribe and rewrite storage when layout updates
+const LAYOUT_KEY = "layout-storage"
+useLayoutStore.subscribe(
+  (s) => s.layout,
+  (newLayout) => {
+    try {
+      const toPercent = (v?: number | string) => (typeof v === "number" ? `${v}%` : v)
+      const payload = {
+        state: {
+          layout: {
+            sidebarSize: toPercent(newLayout.sidebarSize),
+            mainPanelSize: toPercent(newLayout.mainPanelSize),
+            previewPanelSize: toPercent(newLayout.previewPanelSize),
+          },
+        },
+      }
+      localStorage.setItem(LAYOUT_KEY, JSON.stringify(payload))
+    } catch {
+      /* ignore */
+    }
+  },
+)

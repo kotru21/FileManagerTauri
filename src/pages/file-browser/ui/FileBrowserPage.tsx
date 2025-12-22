@@ -1,6 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { ImperativePanelHandle } from "react-resizable-panels"
 import { fileKeys } from "@/entities/file-entry"
 import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
 import { ConfirmDialog } from "@/features/confirm"
@@ -28,6 +27,7 @@ import {
   TooltipProvider,
   toast,
 } from "@/shared/ui"
+import type { ImperativePanelHandle } from "@/shared/ui/resizable"
 import {
   Breadcrumbs,
   FileExplorer,
@@ -326,7 +326,7 @@ export function FileBrowserPage() {
         </div>
 
         {/* Main Content */}
-        <ResizablePanelGroup direction="horizontal" className="flex-1">
+        <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0 min-w-0">
           {/* Sidebar */}
           {panelLayout.showSidebar && (
             <>
