@@ -1,12 +1,17 @@
 import { openPath } from "@tauri-apps/plugin-opener"
 import { useCallback } from "react"
 import { useClipboardStore } from "@/features/clipboard"
+import { useConfirmStore } from "@/features/confirm"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
+import { useBehaviorSettings } from "@/features/settings"
+import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { joinPath } from "@/shared/lib"
+
 import { toast } from "@/shared/ui"
+import { handleSelectionEvent } from "./selectionHandlers"
 
 interface UseFileExplorerHandlersOptions {
   files: FileEntry[]
@@ -17,6 +22,7 @@ interface UseFileExplorerHandlersOptions {
   copyEntries: (params: { sources: string[]; destination: string }) => Promise<void>
   moveEntries: (params: { sources: string[]; destination: string }) => Promise<void>
   onStartCopyWithProgress: (sources: string[], destination: string) => void
+  onQuickLook?: (file: FileEntry) => void
 }
 
 export function useFileExplorerHandlers({
@@ -28,40 +34,108 @@ export function useFileExplorerHandlers({
   copyEntries,
   moveEntries,
   onStartCopyWithProgress,
+  onQuickLook,
 }: UseFileExplorerHandlersOptions) {
   const { currentPath, navigate } = useNavigationStore()
   const { selectFile, toggleSelection, selectRange, clearSelection, getSelectedPaths } =
     useSelectionStore()
   const { reset: resetInlineEdit, startNewFolder, startNewFile, startRename } = useInlineEditStore()
   const {
-    paths: clipboardPaths,
-    action: clipboardAction,
+    // Do not rely on closing over clipboard values since handlers may be called after
+    // clipboard store updates without a re-render. We'll read the latest clipboard
+    // values inside handlers when needed.
     clear: clearClipboard,
   } = useClipboardStore()
   const clipboardCopy = useClipboardStore((s) => s.copy)
   const clipboardCut = useClipboardStore((s) => s.cut)
+  const openConfirm = useConfirmStore((s) => s.open)
+  const behaviorSettings = useBehaviorSettings()
 
   // Selection handlers
   const handleSelect = useCallback(
     (path: string, e: React.MouseEvent) => {
-      if (e.shiftKey && files.length > 0) {
-        const allPaths = files.map((f) => f.path)
-        const lastSelected = getSelectedPaths()[0] || allPaths[0]
-        selectRange(lastSelected, path, allPaths)
-      } else if (e.ctrlKey || e.metaKey) {
-        toggleSelection(path)
-      } else {
-        selectFile(path)
+      // Ctrl+Click + setting => open folder in new tab (preserve existing behavior)
+      if ((e.ctrlKey || e.metaKey) && behaviorSettings.openFoldersInNewTab) {
+        const file = files.find((f) => f.path === path)
+        if (file?.is_dir) {
+          // Add a new tab and navigate to it
+          try {
+            useTabsStore.getState().addTab(path)
+            requestAnimationFrame(() => {
+              navigate(path)
+              if (!behaviorSettings.singleClickToSelect) clearSelection()
+            })
+          } catch {
+            /* ignore */
+          }
+          return
+        }
+      }
+
+      // Delegate selection logic to shared helper (keeps consistent behavior across views)
+      const { shouldOpen } = handleSelectionEvent({
+        path,
+        e,
+        files,
+        behaviorSettings,
+        selectFile,
+        toggleSelection,
+        selectRange,
+        getSelectedPaths,
+      })
+
+      // If helper indicates we should open/navigate (happens when doubleClickToOpen === false and not contextmenu)
+      if (shouldOpen) {
+        const file = files.find((f) => f.path === path)
+        if (!file) return
+
+        // If an onQuickLook handler is provided, use it to preview files and folders immediately
+        if (onQuickLook) {
+          onQuickLook(file)
+          // Clear selection so actions (More actions) are not shown while previewing
+          clearSelection()
+          return
+        }
+
+        // Open directories via navigation (deferred) and files via opener
+        if (file.is_dir) {
+          requestAnimationFrame(() => {
+            navigate(path)
+            // If singleClickToSelect is enabled, we keep the selection when opening via single click.
+            if (!behaviorSettings.singleClickToSelect) clearSelection()
+          })
+        } else {
+          try {
+            // Use opener for files
+            openPath(path)
+          } catch (error) {
+            toast.error(`Не удалось открыть файл: ${error}`)
+          }
+        }
       }
     },
-    [files, selectFile, toggleSelection, selectRange, getSelectedPaths],
+    [
+      files,
+      selectFile,
+      toggleSelection,
+      selectRange,
+      getSelectedPaths,
+      behaviorSettings,
+      navigate,
+      clearSelection,
+      onQuickLook,
+    ],
   )
 
   const handleOpen = useCallback(
     async (path: string, isDir: boolean) => {
       if (isDir) {
-        navigate(path)
-        clearSelection()
+        // Defer navigation to next animation frame so click handler can finish and
+        // the browser remains responsive (improves perceived latency).
+        requestAnimationFrame(() => {
+          navigate(path)
+          clearSelection()
+        })
       } else {
         try {
           await openPath(path)
@@ -132,6 +206,13 @@ export function useFileExplorerHandlers({
     startRename(selected[0])
   }, [getSelectedPaths, startRename])
 
+  const handleStartRenameAt = useCallback(
+    (path: string) => {
+      startRename(path)
+    },
+    [startRename],
+  )
+
   const handleRename = useCallback(
     async (oldPath: string, newName: string) => {
       try {
@@ -163,9 +244,26 @@ export function useFileExplorerHandlers({
   }, [getSelectedPaths, clipboardCut])
 
   const handlePaste = useCallback(async () => {
-    if (!currentPath || clipboardPaths.length === 0) return
+    if (!currentPath) return
+
+    // Read the latest clipboard state at call time so this handler works even if
+    // the clipboard was updated after the hook initially ran.
+    const { paths: clipboardPaths, action: clipboardAction } = useClipboardStore.getState()
+    if (clipboardPaths.length === 0) return
 
     try {
+      // Check for name conflicts in destination
+      const destinationNames = files.map((f) => f.name)
+      const conflictNames = clipboardPaths
+        .map((p) => p.split(/[\\/]/).pop() || p)
+        .filter((name) => destinationNames.includes(name))
+
+      if (conflictNames.length > 0 && behaviorSettings.confirmOverwrite) {
+        const message = `В целевой папке уже существуют файлы: ${conflictNames.join(", ")}. Перезаписать?`
+        const ok = await openConfirm("Перезаписать файлы?", message)
+        if (!ok) return
+      }
+
       if (clipboardPaths.length > 5) {
         onStartCopyWithProgress(clipboardPaths, currentPath)
       } else if (clipboardAction === "cut") {
@@ -181,12 +279,13 @@ export function useFileExplorerHandlers({
     }
   }, [
     currentPath,
-    clipboardPaths,
-    clipboardAction,
     copyEntries,
     moveEntries,
     clearClipboard,
     onStartCopyWithProgress,
+    files,
+    behaviorSettings.confirmOverwrite,
+    openConfirm,
   ])
 
   const handleDelete = useCallback(async () => {
@@ -213,6 +312,7 @@ export function useFileExplorerHandlers({
     const selected = getSelectedPaths()
     if (selected.length === 0) return
     const path = selected[0]
+
     try {
       await openPath(path)
     } catch (error) {
@@ -245,6 +345,7 @@ export function useFileExplorerHandlers({
     handleStartNewFolder,
     handleStartNewFile,
     handleStartRename,
+    handleStartRenameAt,
     handleCopyPath,
     handleOpenInExplorer,
     handleOpenInTerminal,

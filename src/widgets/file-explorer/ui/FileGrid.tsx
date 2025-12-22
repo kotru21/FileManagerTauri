@@ -1,12 +1,16 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
 import { Eye } from "lucide-react"
-import { memo, useCallback, useMemo, useRef, useState } from "react"
-import { FileIcon, FileThumbnail } from "@/entities/file-entry"
+import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { FileThumbnail } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
-import { useViewModeStore } from "@/features/view-mode"
+import {
+  useBehaviorSettings,
+  useFileDisplaySettings,
+  usePerformanceSettings,
+} from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
-import { cn, formatBytes } from "@/shared/lib"
-import { createDragData, parseDragData } from "@/shared/lib/drag-drop"
+import { cn } from "@/shared/lib"
+import { parseDragData } from "@/shared/lib/drag-drop"
 
 interface FileGridProps {
   files: FileEntry[]
@@ -18,7 +22,13 @@ interface FileGridProps {
   className?: string
 }
 
-export const FileGrid = memo(function FileGrid({
+const GRID_CONFIGS = {
+  small: { itemSize: 80, iconSize: 40, thumbnailSize: 60 },
+  medium: { itemSize: 120, iconSize: 56, thumbnailSize: 96 },
+  large: { itemSize: 160, iconSize: 72, thumbnailSize: 128 },
+}
+
+export function FileGrid({
   files,
   selectedPaths,
   onSelect,
@@ -27,216 +37,212 @@ export const FileGrid = memo(function FileGrid({
   onQuickLook,
   className,
 }: FileGridProps) {
-  const parentRef = useRef<HTMLDivElement>(null)
-  const { settings } = useViewModeStore()
-  const clipboardPaths = useClipboardStore((s) => s.paths)
-  const clipboardAction = useClipboardStore((s) => s.action)
+  const containerRef = useRef<HTMLDivElement>(null)
+  const [containerWidth, setContainerWidth] = useState(0)
 
-  // Grid configuration based on size
-  const gridConfig = useMemo(() => {
-    switch (settings.gridSize) {
-      case "small":
-        return { columns: 8, iconSize: 48, itemHeight: 100, itemWidth: 100, showThumbnail: false }
-      case "large":
-        return { columns: 4, iconSize: 96, itemHeight: 160, itemWidth: 180, showThumbnail: true }
-      default: // medium
-        return { columns: 6, iconSize: 64, itemHeight: 120, itemWidth: 140, showThumbnail: true }
-    }
-  }, [settings.gridSize])
+  const displaySettings = useFileDisplaySettings()
+  const behaviorSettings = useBehaviorSettings()
+  const performance = usePerformanceSettings()
+  const { paths: cutPaths, isCut } = useClipboardStore()
+
+  const gridConfig = GRID_CONFIGS[displaySettings.thumbnailSize]
 
   // Calculate actual columns based on container width
-  const columnCount = gridConfig.columns
-  const rowCount = Math.ceil(files.length / columnCount)
+  const columns = useMemo(() => {
+    if (containerWidth === 0) return 4
+    return Math.max(1, Math.floor(containerWidth / gridConfig.itemSize))
+  }, [containerWidth, gridConfig.itemSize])
 
-  // Virtual row renderer
   const rowVirtualizer = useVirtualizer({
-    count: rowCount,
-    getScrollElement: () => parentRef.current,
-    estimateSize: () => gridConfig.itemHeight + 8,
+    count: Math.ceil(files.length / columns),
+    getScrollElement: () => containerRef.current,
+    estimateSize: () => gridConfig.itemSize + 40,
     overscan: 3,
   })
 
-  // Memoized handlers
-  const handleDragStart = useCallback(
-    (e: React.DragEvent, file: FileEntry) => {
-      const paths = selectedPaths.has(file.path) ? [...selectedPaths] : [file.path]
-      e.dataTransfer.setData("application/json", createDragData(paths))
-      e.dataTransfer.effectAllowed = "copyMove"
+  const handleClick = useCallback(
+    (file: FileEntry, e: React.MouseEvent) => {
+      onSelect(file.path, e)
     },
-    [selectedPaths],
+    [onSelect],
   )
 
-  const handleDrop = useCallback(
-    (e: React.DragEvent, targetPath: string) => {
-      e.preventDefault()
-      const data = parseDragData(e.dataTransfer)
-      if (data && onDrop) {
-        onDrop(data.paths, targetPath)
+  const handleDoubleClick = useCallback(
+    (file: FileEntry) => {
+      if (behaviorSettings.doubleClickToOpen) {
+        onOpen(file.path, file.is_dir)
       }
     },
-    [onDrop],
+    [behaviorSettings.doubleClickToOpen, onOpen],
   )
 
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault()
-    e.dataTransfer.dropEffect = "move"
+  const isFileCut = useCallback(
+    (path: string) => isCut() && cutPaths.includes(path),
+    [cutPaths, isCut],
+  )
+
+  useEffect(() => {
+    if (!containerRef.current) return
+
+    const observer = new ResizeObserver((entries) => {
+      setContainerWidth(entries[0].contentRect.width)
+    })
+    observer.observe(containerRef.current)
+    return () => observer.disconnect()
   }, [])
 
-  // Check if file is cut
-  const isCut = useCallback(
-    (path: string) => clipboardAction === "cut" && clipboardPaths.includes(path),
-    [clipboardAction, clipboardPaths],
-  )
-
   return (
-    <div ref={parentRef} className={cn("h-full overflow-auto p-2", className)}>
+    <div ref={containerRef} className={cn("h-full overflow-auto p-2", className)}>
       <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-        {rowVirtualizer.getVirtualItems().map((virtualRow) => (
-          <div
-            key={virtualRow.key}
-            className="absolute top-0 left-0 w-full flex gap-2"
-            style={{
-              height: `${virtualRow.size}px`,
-              transform: `translateY(${virtualRow.start}px)`,
-            }}
-          >
-            {Array.from({ length: columnCount }).map((_, colIndex) => {
-              const fileIndex = virtualRow.index * columnCount + colIndex
-              const file = files[fileIndex]
-              if (!file)
-                return (
-                  <div
-                    key={`placeholder-${virtualRow.index}-${colIndex}`}
-                    style={{ width: gridConfig.itemWidth }}
-                  />
-                )
+        {rowVirtualizer.getVirtualItems().map((virtualRow) => {
+          const startIndex = virtualRow.index * columns
+          const rowFiles = files.slice(startIndex, startIndex + columns)
 
-              return (
-                <div key={file.path} style={{ width: gridConfig.itemWidth }}>
-                  <GridItem
-                    file={file}
-                    isSelected={selectedPaths.has(file.path)}
-                    isCut={isCut(file.path)}
-                    iconSize={gridConfig.iconSize}
-                    itemHeight={gridConfig.itemHeight}
-                    showThumbnail={gridConfig.showThumbnail}
-                    onSelect={(e) => onSelect(file.path, e)}
-                    onOpen={() => onOpen(file.path, file.is_dir)}
-                    onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
-                    onDragStart={(e) => handleDragStart(e, file)}
-                    onDrop={(e) => handleDrop(e, file.path)}
-                    onDragOver={handleDragOver}
-                  />
-                </div>
-              )
-            })}
-          </div>
-        ))}
+          return (
+            <div
+              key={virtualRow.key}
+              className="absolute left-0 right-0 flex gap-2"
+              style={{ top: virtualRow.start, height: virtualRow.size }}
+            >
+              {rowFiles.map((file) => (
+                <GridItem
+                  key={file.path}
+                  file={file}
+                  isSelected={selectedPaths.has(file.path)}
+                  isCut={isFileCut(file.path)}
+                  gridConfig={gridConfig}
+                  showFileExtensions={displaySettings.showFileExtensions}
+                  onClick={(e) => handleClick(file, e)}
+                  onDoubleClick={() => handleDoubleClick(file)}
+                  onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
+                  onDrop={onDrop}
+                  performanceSettings={performance}
+                />
+              ))}
+            </div>
+          )
+        })}
       </div>
     </div>
   )
-})
+}
+
+import type { PerformanceSettings } from "@/features/settings"
 
 interface GridItemProps {
   file: FileEntry
   isSelected: boolean
   isCut: boolean
-  iconSize: number
-  itemHeight: number
-  showThumbnail: boolean
-  onSelect: (e: React.MouseEvent) => void
-  onOpen: () => void
+  gridConfig: (typeof GRID_CONFIGS)[keyof typeof GRID_CONFIGS]
+  showFileExtensions: boolean
+  onClick: (e: React.MouseEvent) => void
+  onDoubleClick: () => void
   onQuickLook?: () => void
-  onDragStart: (e: React.DragEvent) => void
-  onDrop: (e: React.DragEvent) => void
-  onDragOver: (e: React.DragEvent) => void
+  onDrop?: (sources: string[], destination: string) => void
+  performanceSettings: PerformanceSettings
 }
+
 const GridItem = memo(function GridItem({
   file,
   isSelected,
   isCut,
-  iconSize,
-  itemHeight,
-  showThumbnail,
-  onSelect,
-  onOpen,
+  gridConfig,
+  showFileExtensions,
+  onClick,
+  onDoubleClick,
   onQuickLook,
-  onDragStart,
   onDrop,
-  onDragOver,
+  performanceSettings,
 }: GridItemProps) {
   const [isDragOver, setIsDragOver] = useState(false)
+
+  const displayName = showFileExtensions
+    ? file.name
+    : file.is_dir
+      ? file.name
+      : file.name.replace(/\.[^/.]+$/, "")
+
+  const handleDragOver = useCallback(
+    (e: React.DragEvent) => {
+      if (!file.is_dir) return
+      e.preventDefault()
+      setIsDragOver(true)
+    },
+    [file.is_dir],
+  )
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      setIsDragOver(false)
+      if (!file.is_dir || !onDrop) return
+
+      const data = parseDragData(e.dataTransfer)
+      if (data?.paths.length) {
+        onDrop(data.paths, file.path)
+      }
+    },
+    [file.is_dir, file.path, onDrop],
+  )
 
   return (
     <div
       className={cn(
-        "group flex flex-col items-center justify-center p-2 rounded-lg cursor-default select-none",
-        "hover:bg-accent/50 transition-colors relative",
+        "group relative flex flex-col items-center p-2 rounded-lg cursor-pointer",
+        // Only show hover background when not selected to avoid visual override of selection
+        !isSelected && "hover:bg-accent/50",
+        "transition-colors",
         isSelected && "bg-accent",
+        isDragOver && "bg-accent/70 ring-2 ring-primary",
         isCut && "opacity-50",
-        isDragOver && file.is_dir && "ring-2 ring-primary bg-accent",
       )}
-      style={{ height: itemHeight }}
-      onClick={onSelect}
-      onDoubleClick={onOpen}
-      onDragStart={onDragStart}
-      onDrop={(e) => {
-        setIsDragOver(false)
-        onDrop(e)
-      }}
-      onDragOver={(e) => {
-        if (file.is_dir) setIsDragOver(true)
-        onDragOver(e)
-      }}
+      style={{ width: gridConfig.itemSize }}
+      onClick={onClick}
+      onContextMenu={onClick}
+      onDoubleClick={onDoubleClick}
+      onDragOver={handleDragOver}
       onDragLeave={() => setIsDragOver(false)}
-      draggable
+      onDrop={handleDrop}
       data-path={file.path}
     >
-      {/* Quick Look button on hover */}
-      {onQuickLook && !file.is_dir && (
-        <button
-          type="button"
-          onClick={(e) => {
-            e.stopPropagation()
-            onQuickLook()
-          }}
-          className={cn(
-            "absolute top-1 right-1 p-1 rounded bg-background/80 backdrop-blur-sm",
-            "opacity-0 group-hover:opacity-100 transition-opacity",
-            "hover:bg-background",
-          )}
-          title="Быстрый просмотр"
-        >
-          <Eye className="h-4 w-4" />
-        </button>
-      )}
-
-      {showThumbnail ? (
+      {/* Thumbnail or Icon */}
+      <div
+        className="relative flex items-center justify-center"
+        style={{ width: gridConfig.thumbnailSize, height: gridConfig.thumbnailSize }}
+      >
         <FileThumbnail
           path={file.path}
           extension={file.extension}
           isDir={file.is_dir}
-          size={iconSize}
-          className={cn("mb-1", isCut && "opacity-70")}
+          size={gridConfig.thumbnailSize}
+          useContain={true}
+          performanceSettings={{
+            // For grid view show thumbnails eagerly and in contain mode
+            lazyLoadImages: false,
+            thumbnailCacheSize: performanceSettings.thumbnailCacheSize,
+          }}
+          thumbnailGenerator={{ maxSide: Math.max(48, Math.floor(gridConfig.thumbnailSize)) }}
         />
-      ) : (
-        <FileIcon
-          extension={file.extension}
-          isDir={file.is_dir}
-          size={iconSize}
-          className={cn("mb-1", isCut && "opacity-70")}
-        />
-      )}
+        {/* Quick Look button on hover */}
+        {onQuickLook && (
+          <button
+            type="button"
+            onClick={(e) => {
+              e.stopPropagation()
+              onQuickLook()
+            }}
+            className={cn(
+              "absolute top-1 right-1 p-1 rounded bg-black/50 text-white",
+              "opacity-0 group-hover:opacity-100 transition-opacity",
+            )}
+          >
+            <Eye size={14} />
+          </button>
+        )}{" "}
+      </div>
 
-      <span
-        className={cn("text-xs text-center truncate w-full px-1", isCut && "italic")}
-        title={file.name}
-      >
-        {file.name}
-      </span>
-      {!file.is_dir && (
-        <span className="text-xs text-muted-foreground">{formatBytes(file.size)}</span>
-      )}
+      {/* Name */}
+      <span className="mt-1 text-xs text-center line-clamp-2 w-full">{displayName}</span>
     </div>
   )
 })

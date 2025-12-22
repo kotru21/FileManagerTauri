@@ -10,6 +10,7 @@ import {
   LayoutGrid,
   RefreshCw,
   Search,
+  Settings,
   Star,
 } from "lucide-react"
 import { useState } from "react"
@@ -17,7 +18,8 @@ import { useBookmarksStore } from "@/features/bookmarks"
 import { useNavigationStore } from "@/features/navigation"
 import { useQuickFilterStore } from "@/features/quick-filter"
 import { SearchBar } from "@/features/search-content"
-import { useViewModeStore, ViewModeToggle } from "@/features/view-mode"
+import { useFileDisplaySettings, useSettingsStore } from "@/features/settings"
+import { ViewModeToggle } from "@/features/view-mode"
 import { cn } from "@/shared/lib"
 import { Button, Separator, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
 
@@ -40,9 +42,22 @@ export function Toolbar({
   showPreview,
   className,
 }: ToolbarProps) {
-  const { currentPath, goBack, goForward, goUp, canGoBack, canGoForward } = useNavigationStore()
-  const { settings, toggleHidden } = useViewModeStore()
-  const { isBookmarked, addBookmark, removeBookmark, getBookmarkByPath } = useBookmarksStore()
+  const currentPath = useNavigationStore((s) => s.currentPath)
+  const goBack = useNavigationStore((s) => s.goBack)
+  const goForward = useNavigationStore((s) => s.goForward)
+  const goUp = useNavigationStore((s) => s.goUp)
+  const canGoBack = useNavigationStore((s) => s.canGoBack)
+  const canGoForward = useNavigationStore((s) => s.canGoForward)
+  const displaySettings = useFileDisplaySettings()
+  const isBookmarked = useBookmarksStore((s) => s.isBookmarked)
+  const addBookmark = useBookmarksStore((s) => s.addBookmark)
+  const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
+  const getBookmarkByPath = useBookmarksStore((s) => s.getBookmarkByPath)
+  const openSettings = useSettingsStore((s) => s.open)
+  const updateFileDisplay = useSettingsStore((s) => s.updateFileDisplay)
+
+  const toggleHidden = () =>
+    updateFileDisplay({ showHiddenFiles: !displaySettings.showHiddenFiles })
 
   const [showSearch, setShowSearch] = useState(false)
 
@@ -58,6 +73,9 @@ export function Toolbar({
     }
   }
 
+  const toggleQuickFilter = useQuickFilterStore((s) => s.toggle)
+  const isQuickFilterActive = useQuickFilterStore((s) => s.isActive)
+
   return (
     <div className={cn("flex items-center gap-1 p-2 border-b border-border", className)}>
       {/* Navigation */}
@@ -70,6 +88,8 @@ export function Toolbar({
               onClick={goBack}
               disabled={!canGoBack()}
               className="h-8 w-8"
+              aria-label="Back"
+              title="Back"
             >
               <ArrowLeft className="h-4 w-4" />
             </Button>
@@ -85,6 +105,8 @@ export function Toolbar({
               onClick={goForward}
               disabled={!canGoForward()}
               className="h-8 w-8"
+              aria-label="Forward"
+              title="Forward"
             >
               <ArrowRight className="h-4 w-4" />
             </Button>
@@ -94,7 +116,14 @@ export function Toolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={goUp} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={goUp}
+              className="h-8 w-8"
+              aria-label="Up"
+              title="Up"
+            >
               <ArrowUp className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -103,7 +132,14 @@ export function Toolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={onRefresh} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onRefresh}
+              className="h-8 w-8"
+              aria-label="Refresh"
+              title="Refresh"
+            >
               <RefreshCw className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -117,7 +153,14 @@ export function Toolbar({
       <div className="flex items-center gap-0.5">
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={onNewFolder} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onNewFolder}
+              className="h-8 w-8"
+              aria-label="New folder"
+              title="New folder"
+            >
               <FolderPlus className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -126,7 +169,14 @@ export function Toolbar({
 
         <Tooltip>
           <TooltipTrigger asChild>
-            <Button variant="ghost" size="icon" onClick={onNewFile} className="h-8 w-8">
+            <Button
+              variant="ghost"
+              size="icon"
+              onClick={onNewFile}
+              className="h-8 w-8"
+              aria-label="New file"
+              title="New file"
+            >
               <FilePlus className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
@@ -146,13 +196,21 @@ export function Toolbar({
               variant="ghost"
               size="icon"
               onClick={toggleHidden}
-              className={cn("h-8 w-8", settings.showHidden && "bg-accent")}
+              className={cn("h-8 w-8", displaySettings.showHiddenFiles && "bg-accent")}
+              aria-label={
+                displaySettings.showHiddenFiles ? "Hide hidden files" : "Show hidden files"
+              }
+              title={displaySettings.showHiddenFiles ? "Hide hidden files" : "Show hidden files"}
             >
-              {settings.showHidden ? <Eye className="h-4 w-4" /> : <EyeOff className="h-4 w-4" />}
+              {displaySettings.showHiddenFiles ? (
+                <Eye className="h-4 w-4" />
+              ) : (
+                <EyeOff className="h-4 w-4" />
+              )}
             </Button>
           </TooltipTrigger>
           <TooltipContent>
-            {settings.showHidden ? "Скрыть скрытые файлы" : "Показать скрытые файлы"}
+            {displaySettings.showHiddenFiles ? "Скрыть скрытые файлы" : "Показать скрытые файлы"}
           </TooltipContent>
         </Tooltip>
 
@@ -181,8 +239,9 @@ export function Toolbar({
           <Button
             variant="ghost"
             size="icon"
-            onClick={() => useQuickFilterStore.getState().toggle()}
-            className={cn("h-8 w-8", useQuickFilterStore.getState().isActive && "bg-accent")}
+            aria-label="Быстрый фильтр"
+            onClick={toggleQuickFilter}
+            className={cn("h-8 w-8", isQuickFilterActive && "bg-accent")}
           >
             <Filter className="h-4 w-4" />
           </Button>
@@ -199,6 +258,9 @@ export function Toolbar({
             onClick={handleToggleBookmark}
             disabled={!currentPath}
             className={cn("h-8 w-8", bookmarked && "text-yellow-500")}
+            aria-label={bookmarked ? "Remove bookmark" : "Add bookmark"}
+            aria-pressed={bookmarked}
+            title={bookmarked ? "Remove bookmark" : "Add bookmark"}
           >
             <Star className={cn("h-4 w-4", bookmarked && "fill-current")} />
           </Button>
@@ -210,6 +272,21 @@ export function Toolbar({
 
       <div className="flex-1" />
 
+      <Tooltip>
+        <TooltipTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon"
+            aria-label="Настройки"
+            onClick={openSettings}
+            className="h-8 w-8"
+          >
+            <Settings className="h-4 w-4" />
+          </Button>
+        </TooltipTrigger>
+        <TooltipContent>Настройки (Ctrl+,)</TooltipContent>
+      </Tooltip>
+
       {/* Search */}
       <div className="relative">
         <Tooltip>
@@ -217,8 +294,8 @@ export function Toolbar({
             <Button
               variant="ghost"
               size="icon"
+              aria-label="Поиск"
               onClick={() => {
-                // Toggle local search popover
                 setShowSearch((s) => !s)
                 onSearch?.()
               }}
@@ -231,11 +308,10 @@ export function Toolbar({
         </Tooltip>
 
         {showSearch && (
-          <div className="absolute right-0 top-full z-50 mt-2 w-[320px] rounded border bg-popover p-2 shadow-md">
+          <div className="absolute right-0 top-full z-50 mt-2 w-[320px] rounded border bg-popover p-2 shadow-md popover-surface">
             <SearchBar
               className="w-full"
               onSearch={() => {
-                // Close popover on search submit
                 setShowSearch(false)
                 onSearch?.()
               }}

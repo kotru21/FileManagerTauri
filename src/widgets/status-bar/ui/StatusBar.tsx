@@ -21,7 +21,6 @@ export function StatusBar({ className }: StatusBarProps) {
   const { filter, isActive: isFilterActive } = useQuickFilterStore()
   const { isSearching, results: searchResults } = useSearchStore()
 
-  // Calculate stats
   const stats = useMemo(() => {
     const selected = getSelectedPaths()
     const selectedFiles = files.filter((f) => selected.includes(f.path))
@@ -42,7 +41,6 @@ export function StatusBar({ className }: StatusBarProps) {
     }
   }, [files, getSelectedPaths])
 
-  // Filtered count
   const filteredCount = useMemo(() => {
     if (!isFilterActive || !filter) return files.length
     const lowerFilter = filter.toLowerCase()
@@ -56,9 +54,7 @@ export function StatusBar({ className }: StatusBarProps) {
         className,
       )}
     >
-      {/* Left section - Stats */}
       <div className="flex items-center gap-3">
-        {/* Loading indicator */}
         {(isLoading || isFetching || isSearching) && (
           <div className="flex items-center gap-1 text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
@@ -66,12 +62,10 @@ export function StatusBar({ className }: StatusBarProps) {
           </div>
         )}
 
-        {/* Search results */}
         {searchResults.length > 0 && !isSearching && (
           <div className="text-muted-foreground">Найдено: {searchResults.length} результат(ов)</div>
         )}
 
-        {/* Folder contents */}
         {!isSearching && searchResults.length === 0 && (
           <>
             <div className="flex items-center gap-1 text-muted-foreground">
@@ -83,7 +77,6 @@ export function StatusBar({ className }: StatusBarProps) {
               <span>{stats.fileCount}</span>
             </div>
 
-            {/* Filter info */}
             {isFilterActive && filter && (
               <>
                 <Separator orientation="vertical" className="h-3" />

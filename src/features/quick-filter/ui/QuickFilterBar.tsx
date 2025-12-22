@@ -1,5 +1,6 @@
 import { Filter, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
+import { usePerformanceSettings } from "@/features/settings"
 import { cn } from "@/shared/lib"
 import { Button, Input } from "@/shared/ui"
 import { useQuickFilterStore } from "../model/store"
@@ -11,10 +12,13 @@ interface QuickFilterBarProps {
 }
 
 export function QuickFilterBar({ totalCount, filteredCount, className }: QuickFilterBarProps) {
-  const { filter, setFilter, deactivate, clear, isActive } = useQuickFilterStore()
   const inputRef = useRef<HTMLInputElement>(null)
+  const timeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  const { filter, setFilter, deactivate } = useQuickFilterStore()
+  const performanceSettings = usePerformanceSettings()
+
   const [localValue, setLocalValue] = useState(filter)
-  const debounceRef = useRef<number | undefined>(undefined)
 
   // Focus input when activated
   useEffect(() => {
@@ -26,30 +30,30 @@ export function QuickFilterBar({ totalCount, filteredCount, className }: QuickFi
     setLocalValue(filter)
   }, [filter])
 
-  // Debounced filter update
+  // Debounced filter update using settings
   const handleChange = useCallback(
     (e: React.ChangeEvent<HTMLInputElement>) => {
       const value = e.target.value
       setLocalValue(value)
 
       // Clear previous timeout
-      if (debounceRef.current) {
-        clearTimeout(debounceRef.current)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
       }
 
       // Debounce the actual filter update
-      debounceRef.current = window.setTimeout(() => {
+      timeoutRef.current = setTimeout(() => {
         setFilter(value)
-      }, 150)
+      }, performanceSettings.debounceDelay)
     },
-    [setFilter],
+    [setFilter, performanceSettings.debounceDelay],
   )
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
-      if (debounceRef.current) {
-        window.clearTimeout(debounceRef.current)
+      if (timeoutRef.current) {
+        clearTimeout(timeoutRef.current)
       }
     }
   }, [])
@@ -57,55 +61,49 @@ export function QuickFilterBar({ totalCount, filteredCount, className }: QuickFi
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
       if (e.key === "Escape") {
-        if (localValue) {
-          clear()
-          setLocalValue("")
-        } else {
-          deactivate()
-        }
+        deactivate()
       }
     },
-    [localValue, clear, deactivate],
+    [deactivate],
   )
 
   const handleClear = useCallback(() => {
-    clear()
     setLocalValue("")
+    setFilter("")
     inputRef.current?.focus()
-  }, [clear])
-
-  if (!isActive) {
-    return null
-  }
+  }, [setFilter])
 
   return (
     <div
       className={cn(
-        "flex items-center gap-2 px-3 py-1.5 bg-muted/50 border-b border-border",
+        "flex items-center gap-2 px-3 py-2 border-b bg-muted/30",
+        "filter-bar transition-all duration-(--transition-duration)",
         className,
       )}
     >
-      <Filter className="h-4 w-4 text-muted-foreground shrink-0" />
+      <Filter size={16} className="text-muted-foreground shrink-0" />
+
       <Input
         ref={inputRef}
         value={localValue}
         onChange={handleChange}
         onKeyDown={handleKeyDown}
-        placeholder="Фильтр..."
-        className="h-7 text-sm flex-1 min-w-0"
+        placeholder="Фильтр по имени..."
+        className="h-7 flex-1"
       />
-      {filter && (
-        <span className="text-xs text-muted-foreground whitespace-nowrap">
-          {filteredCount} из {totalCount}
-        </span>
-      )}
-      {filter && (
+
+      <span className="text-xs text-muted-foreground shrink-0">
+        {filteredCount} / {totalCount}
+      </span>
+
+      {localValue && (
         <Button variant="ghost" size="icon" className="h-6 w-6" onClick={handleClear}>
-          <X className="h-3 w-3" />
+          <X size={14} />
         </Button>
       )}
+
       <Button variant="ghost" size="icon" className="h-6 w-6" onClick={deactivate}>
-        <X className="h-4 w-4" />
+        <X size={14} />
       </Button>
     </div>
   )

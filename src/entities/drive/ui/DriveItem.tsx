@@ -15,11 +15,19 @@ export function DriveItem({ drive, isSelected, onSelect }: DriveItemProps) {
       onClick={onSelect}
       className={cn(
         "flex items-center gap-2 w-full px-3 py-2 text-sm rounded-md",
-        "hover:bg-accent/50 transition-colors text-left",
-        isSelected && "bg-accent",
+        // Only show hover highlight when not selected to avoid flipping selected state color
+        !isSelected && "hover:bg-accent/50",
+        "transition-colors text-left",
+        isSelected ? "bg-accent text-accent-foreground" : "text-muted-foreground",
       )}
     >
-      <HardDrive size={16} className="text-blue-500" />
+      <HardDrive
+        size={16}
+        className={cn(
+          "h-4 w-4",
+          isSelected ? "icon-fill-accent icon-accent-foreground" : "text-muted-foreground",
+        )}
+      />
       <span className="truncate">{drive.name}</span>
     </button>
   )

@@ -17,7 +17,7 @@ export function useFileWatcher(currentPath: string | null) {
   const currentPathRef = useRef<string | null>(null)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
-  // Используем useCallback с currentPath в замыкании через ref
+  // Use useCallback with currentPath captured via ref
   const invalidateDirectoryQueries = useCallback(() => {
     const path = currentPathRef.current
     if (path) {

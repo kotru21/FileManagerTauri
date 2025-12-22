@@ -74,3 +74,41 @@ fn generate_image_preview(path: &str, extension: &str) -> Result<FilePreview, St
         mime: mime_type.to_string(),
     })
 }
+
+/// Generates a thumbnail (resized image) as base64 with given max side length.
+#[allow(dead_code)]
+#[tauri::command]
+#[specta::specta]
+pub async fn get_thumbnail(
+    path: String,
+    max_side: u32,
+) -> Result<crate::models::Thumbnail, String> {
+    use image::imageops::FilterType;
+    use image::io::Reader as ImageReader;
+
+    let file_path = Path::new(&path);
+    let _extension = get_extension(file_path).unwrap_or_default();
+
+    // Try to open and decode image
+    let img = ImageReader::open(path)
+        .map_err(|e| e.to_string())?
+        .decode()
+        .map_err(|e| e.to_string())?;
+
+    // Resize preserving aspect ratio to fit inside max_side x max_side
+    let resized = img.resize(max_side, max_side, FilterType::Lanczos3);
+
+    // Encode as PNG
+    let mut buf: Vec<u8> = Vec::new();
+    resized
+        .write_to(
+            &mut std::io::Cursor::new(&mut buf),
+            image::ImageOutputFormat::Png,
+        )
+        .map_err(|e| e.to_string())?;
+
+    let base64 = STANDARD.encode(&buf);
+    let mime = "image/png".to_string();
+
+    Ok(crate::models::Thumbnail { base64, mime })
+}

@@ -30,14 +30,14 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
   const { currentPath } = useNavigationStore()
   const { search } = useSearchWithProgress()
 
-  // Синхронизируем searchPath с currentPath
+  // Sync searchPath with currentPath
   useEffect(() => {
     if (currentPath) {
       setSearchPath(currentPath)
     }
   }, [currentPath, setSearchPath])
 
-  // Синхронизируем localQuery с query из store
+  // Sync localQuery with store query
   useEffect(() => {
     setLocalQuery(query)
   }, [query])
@@ -74,7 +74,7 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
     cancelSearch()
   }, [cancelSearch])
 
-  // Сокращаем путь для отображения
+  // Shorten path for display
   const shortenPath = (path: string, maxLength: number = 30) => {
     if (path.length <= maxLength) return path
     const parts = path.split(/[/\\]/)
@@ -144,7 +144,7 @@ export function SearchBar({ onSearch, className }: SearchBarProps) {
         )}
       </div>
 
-      {/* Индикатор прогресса поиска */}
+      {/* Search progress indicator */}
       {isSearching && progress && (
         <div className="text-xs text-muted-foreground px-1">
           <span>Найдено: {progress.found}</span>

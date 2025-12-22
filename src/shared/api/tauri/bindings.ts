@@ -262,9 +262,6 @@ export type DriveInfo = { name: string; path: string; total_space: number; free_
  * Represents a file or directory entry in the filesystem.
  */
 export type FileEntry = { name: string; path: string; is_dir: boolean; is_hidden: boolean; size: number; modified: number | null; created: number | null; extension: string | null }
-/**
- * File preview content types.
- */
 export type FilePreview = { type: "Text"; content: string; truncated: boolean } | { type: "Image"; base64: string; mime: string } | { type: "Unsupported"; mime: string }
 /**
  * Options for file search operations.

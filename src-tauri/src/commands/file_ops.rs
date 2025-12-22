@@ -174,7 +174,6 @@ pub async fn create_file(path: String) -> std::result::Result<(), String> {
         return Err(FileManagerError::NotAbsolutePath(path).to_string());
     }
 
-    // Ensure parent directory exists
     if let Some(parent) = file_path.parent() {
         if !parent.exists() {
             fs::create_dir_all(parent)

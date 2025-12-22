@@ -1,5 +1,5 @@
 import { create } from "zustand"
-import { persist } from "zustand/middleware"
+import { persist, subscribeWithSelector } from "zustand/middleware"
 
 export interface ColumnWidths {
   size: number
@@ -15,6 +15,34 @@ export interface PanelLayout {
   sidebarCollapsed?: boolean
   showPreview: boolean
   columnWidths: ColumnWidths
+  // Persisted expanded/collapsed state for sidebar sections
+  expandedSections?: Record<string, boolean>
+  // Lock flags: when true, size is controlled via settings sliders and resizing is disabled
+  sidebarSizeLocked?: boolean
+  previewSizeLocked?: boolean
+}
+
+const DEFAULT_LAYOUT: PanelLayout = {
+  sidebarSize: 15,
+  mainPanelSize: 60,
+  previewPanelSize: 25,
+  showSidebar: true,
+  sidebarCollapsed: false,
+  showPreview: true,
+  columnWidths: {
+    size: 100,
+    date: 180,
+    padding: 8,
+  },
+  // Default: all sections expanded
+  expandedSections: {
+    bookmarks: true,
+    recent: true,
+    drives: true,
+    quickAccess: true,
+  },
+  sidebarSizeLocked: false,
+  previewSizeLocked: false,
 }
 
 interface LayoutState {
@@ -27,41 +55,25 @@ interface LayoutState {
   setSidebarCollapsed: (collapsed: boolean) => void
   toggleSidebar: () => void
   togglePreview: () => void
+  setSectionExpanded: (section: string, expanded: boolean) => void
+  toggleSectionExpanded: (section: string) => void
   resetLayout: () => void
-}
-
-const defaultLayout: PanelLayout = {
-  sidebarSize: 20,
-  sidebarCollapsed: false,
-  mainPanelSize: 80,
-  previewPanelSize: 0,
-  showSidebar: true,
-  showPreview: false,
-  columnWidths: {
-    size: 80,
-    date: 140,
-    padding: 12,
-  },
+  applyLayout: (layout: PanelLayout) => void
 }
 
 export const useLayoutStore = create<LayoutState>()(
   persist(
-    (set) => ({
-      layout: defaultLayout,
+    subscribeWithSelector((set) => ({
+      layout: DEFAULT_LAYOUT,
 
-      setLayout: (newLayout) =>
+      setLayout: (updates) =>
         set((state) => ({
-          layout: { ...state.layout, ...newLayout },
+          layout: { ...state.layout, ...updates },
         })),
 
       setSidebarSize: (size) =>
         set((state) => ({
           layout: { ...state.layout, sidebarSize: size },
-        })),
-
-      setSidebarCollapsed: (collapsed: boolean) =>
-        set((state) => ({
-          layout: { ...state.layout, sidebarCollapsed: collapsed },
         })),
 
       setMainPanelSize: (size) =>
@@ -82,6 +94,11 @@ export const useLayoutStore = create<LayoutState>()(
           },
         })),
 
+      setSidebarCollapsed: (collapsed) =>
+        set((state) => ({
+          layout: { ...state.layout, sidebarCollapsed: collapsed },
+        })),
+
       toggleSidebar: () =>
         set((state) => ({
           layout: { ...state.layout, showSidebar: !state.layout.showSidebar },
@@ -92,24 +109,55 @@ export const useLayoutStore = create<LayoutState>()(
           layout: { ...state.layout, showPreview: !state.layout.showPreview },
         })),
 
-      resetLayout: () => set({ layout: defaultLayout }),
-    }),
-    {
-      name: "file-manager-layout",
-      merge: (persistedState, currentState) => {
-        const persisted = persistedState as Partial<LayoutState> | undefined
-        return {
-          ...currentState,
+      setSectionExpanded: (section: string, expanded: boolean) =>
+        set((state) => ({
           layout: {
-            ...defaultLayout,
-            ...persisted?.layout,
-            columnWidths: {
-              ...defaultLayout.columnWidths,
-              ...persisted?.layout?.columnWidths,
+            ...state.layout,
+            expandedSections: { ...(state.layout.expandedSections ?? {}), [section]: expanded },
+          },
+        })),
+
+      toggleSectionExpanded: (section: string) =>
+        set((state) => ({
+          layout: {
+            ...state.layout,
+            expandedSections: {
+              ...(state.layout.expandedSections ?? {}),
+              [section]: !(state.layout.expandedSections?.[section] ?? true),
             },
           },
-        }
-      },
+        })),
+
+      resetLayout: () => set({ layout: DEFAULT_LAYOUT }),
+
+      applyLayout: (layout) =>
+        set((state) => ({
+          layout: {
+            ...layout,
+            // Preserve persisted expandedSections if already set in runtime state
+            expandedSections: state.layout.expandedSections ?? layout.expandedSections,
+          },
+        })),
+    })),
+    {
+      name: "layout-storage",
+      partialize: (state) => ({ layout: state.layout }),
     },
   ),
 )
+
+// Selector hooks for optimized re-renders
+export const useSidebarLayout = () =>
+  useLayoutStore((s) => ({
+    showSidebar: s.layout.showSidebar,
+    sidebarSize: s.layout.sidebarSize,
+    sidebarCollapsed: s.layout.sidebarCollapsed,
+  }))
+
+export const usePreviewLayout = () =>
+  useLayoutStore((s) => ({
+    showPreview: s.layout.showPreview,
+    previewPanelSize: s.layout.previewPanelSize,
+  }))
+
+export const useColumnWidths = () => useLayoutStore((s) => s.layout.columnWidths)
