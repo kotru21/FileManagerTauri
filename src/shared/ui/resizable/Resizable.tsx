@@ -7,14 +7,7 @@ import { cn } from "@/shared/lib"
 export type PrimitivePanelRef = PanelImperativeHandle
 export type PrimitiveGroupRef = GroupImperativeHandle
 
-export type ImperativePanelHandle = {
-  collapse: () => void
-  expand: () => void
-  getSize: () => number
-  isCollapsed: () => boolean
-  isExpanded: () => boolean
-  resize: (size: number) => void
-}
+export type ImperativePanelHandle = PanelImperativeHandle
 
 function toPercentString(v?: number | string | null) {
   if (v === undefined || v === null) return undefined

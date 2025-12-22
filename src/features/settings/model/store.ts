@@ -422,9 +422,10 @@ export const useSettingsStore = create<SettingsState>()(
             version: z.number().optional(),
           })
 
-          if (!settingsImportSchema.safeParse(importedRaw).success) return false
+          const parsed = settingsImportSchema.safeParse(importedRaw)
+          if (!parsed.success) return false
 
-          const imported = importedRaw as Partial<AppSettings>
+          const imported = parsed.data as Partial<AppSettings>
 
           // Simple migrator placeholder — if version mismatch, log and proceed
           if (typeof imported.version === "number" && imported.version !== SETTINGS_VERSION) {
