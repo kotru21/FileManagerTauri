@@ -79,7 +79,10 @@ fn generate_image_preview(path: &str, extension: &str) -> Result<FilePreview, St
 #[allow(dead_code)]
 #[tauri::command]
 #[specta::specta]
-pub async fn get_thumbnail(path: String, max_side: u32) -> Result<crate::models::Thumbnail, String> {
+pub async fn get_thumbnail(
+    path: String,
+    max_side: u32,
+) -> Result<crate::models::Thumbnail, String> {
     use image::imageops::FilterType;
     use image::io::Reader as ImageReader;
 
@@ -87,7 +90,10 @@ pub async fn get_thumbnail(path: String, max_side: u32) -> Result<crate::models:
     let _extension = get_extension(file_path).unwrap_or_default();
 
     // Try to open and decode image
-    let img = ImageReader::open(path).map_err(|e| e.to_string())?.decode().map_err(|e| e.to_string())?;
+    let img = ImageReader::open(path)
+        .map_err(|e| e.to_string())?
+        .decode()
+        .map_err(|e| e.to_string())?;
 
     // Resize preserving aspect ratio to fit inside max_side x max_side
     let resized = img.resize(max_side, max_side, FilterType::Lanczos3);
@@ -95,7 +101,10 @@ pub async fn get_thumbnail(path: String, max_side: u32) -> Result<crate::models:
     // Encode as PNG
     let mut buf: Vec<u8> = Vec::new();
     resized
-        .write_to(&mut std::io::Cursor::new(&mut buf), image::ImageOutputFormat::Png)
+        .write_to(
+            &mut std::io::Cursor::new(&mut buf),
+            image::ImageOutputFormat::Png,
+        )
         .map_err(|e| e.to_string())?;
 
     let base64 = STANDARD.encode(&buf);
