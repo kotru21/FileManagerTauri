@@ -1,7 +1,7 @@
 import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useReducer, useRef } from "react"
 import type { FileEntry } from "@/shared/api/tauri"
-import { commands } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
 
 interface State {
   entries: FileEntry[]
@@ -86,10 +86,13 @@ export function useStreamingDirectory(path: string | null) {
           dispatch({ type: "COMPLETE" })
         })
 
-        // Start streaming
-        const result = await commands.readDirectoryStream(path)
-        if (result.status === "error" && !cancelled) {
-          dispatch({ type: "ERROR", payload: result.error })
+        // Start streaming: client throws on error, keep event listeners for entries/completion
+        try {
+          await tauriClient.readDirectoryStream(path)
+        } catch (err) {
+          if (!cancelled) {
+            dispatch({ type: "ERROR", payload: String(err) })
+          }
         }
 
         // Cleanup complete listener on completion

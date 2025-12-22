@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest"
 import type { FileEntry } from "@/shared/api/tauri"
 import { filterEntries, type SortConfig, sortEntries } from "../types"
 
-// Helper для создания тестовых файлов
+// Helper to create test files
 function createFileEntry(overrides: Partial<FileEntry> = {}): FileEntry {
   return {
     name: "test.txt",
@@ -137,7 +137,6 @@ describe("sortEntries", () => {
       const config: SortConfig = { field: "modified", direction: "asc" }
       const result = sortEntries(files, config)
 
-      // Should not throw
       expect(result).toHaveLength(2)
     })
   })
@@ -228,7 +227,6 @@ describe("filterEntries", () => {
     it("should filter by single extension", () => {
       const result = filterEntries(files, { showHidden: true, extensions: ["txt"] })
 
-      // Should return: visible.txt + folder (folders always pass)
       expect(result.filter((f) => !f.is_dir)).toHaveLength(1)
       expect(result.some((f) => f.name === "visible.txt")).toBe(true)
       expect(result.some((f) => f.name === "folder")).toBe(true) // folder always included
@@ -237,7 +235,6 @@ describe("filterEntries", () => {
     it("should filter by multiple extensions", () => {
       const result = filterEntries(files, { showHidden: true, extensions: ["txt", "pdf"] })
 
-      // Should return: visible.txt, document.pdf + folder
       const nonDirs = result.filter((f) => !f.is_dir)
       expect(nonDirs).toHaveLength(2)
       expect(result.some((f) => f.name === "visible.txt")).toBe(true)

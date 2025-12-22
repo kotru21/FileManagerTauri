@@ -1,13 +1,8 @@
 import { useQuery } from "@tanstack/react-query"
-import { commands, type Result, type SearchOptions } from "@/shared/api/tauri"
+import { commands, type SearchOptions } from "@/shared/api/tauri"
 
-// Хелпер для распаковки Result из tauri-specta
-function unwrapResult<T, E>(result: Result<T, E>): T {
-  if (result.status === "ok") {
-    return result.data
-  }
-  throw new Error(String(result.error))
-}
+// Helper to unwrap Result from tauri-specta
+import { unwrapResult } from "@/shared/api/tauri/client"
 
 export const searchKeys = {
   all: ["search"] as const,

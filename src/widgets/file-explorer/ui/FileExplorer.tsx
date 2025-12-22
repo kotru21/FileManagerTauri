@@ -1,37 +1,20 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
-import {
-  filterEntries,
-  sortEntries,
-  useCopyEntries,
-  useCreateDirectory,
-  useCreateFile,
-  useDeleteEntries,
-  useDirectoryContents,
-  useFileWatcher,
-  useMoveEntries,
-  useRenameEntry,
-} from "@/entities/file-entry"
+import { useCallback, useEffect, useMemo } from "react"
+import { filterEntries, useFileWatcher } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
 import { FileContextMenu } from "@/features/context-menu"
 import { useDeleteConfirmStore } from "@/features/delete-confirm"
 import { useSelectionStore } from "@/features/file-selection"
-import { useInlineEditStore } from "@/features/inline-edit"
+import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
-import {
-  createOperationDescription,
-  useOperationsHistoryStore,
-} from "@/features/operations-history"
 import { QuickFilterBar, useQuickFilterStore } from "@/features/quick-filter"
-import { useSettingsStore } from "@/features/settings"
-import { useSortingStore } from "@/features/sorting"
+import { useBehaviorSettings, useLayoutSettings, usePerformanceSettings } from "@/features/settings"
 import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
 import { toast } from "@/shared/ui"
 import { CopyProgressDialog } from "@/widgets/progress-dialog"
-import { useFileExplorerHandlers, useFileExplorerKeyboard } from "../lib"
-import { FileGrid } from "./FileGrid"
-import { VirtualFileList } from "./VirtualFileList"
+import { useFileExplorerKeyboard, useFileExplorerLogic } from "../lib"
+import { FileExplorerView } from "./FileExplorer.view"
 
 interface FileExplorerProps {
   className?: string
@@ -41,200 +24,152 @@ interface FileExplorerProps {
 
 export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExplorerProps) {
   const { currentPath } = useNavigationStore()
-  const { settings } = useViewModeStore()
-  const { sortConfig } = useSortingStore()
-  const { selectedPaths, getSelectedPaths, clearSelection } = useSelectionStore()
-  const { hasContent: hasClipboard } = useClipboardStore()
-  const { mode: inlineEditMode } = useInlineEditStore()
+  const { settings: viewSettings } = useViewModeStore()
 
-  // Quick filter
-  const { filter: quickFilter } = useQuickFilterStore()
+  const behaviorSettings = useBehaviorSettings()
+  const layoutSettings = useLayoutSettings()
 
-  // Progress dialog state
-  const [copyDialogOpen, setCopyDialogOpen] = useState(false)
+  const { filter: quickFilter, isActive: isQuickFilterActive } = useQuickFilterStore()
 
-  // Data fetching
-  const { data: files = [], isLoading, refetch } = useDirectoryContents(currentPath)
+  const selectedPaths = useSelectionStore((s) => s.selectedPaths)
+  const clearSelection = useSelectionStore((s) => s.clearSelection)
+  const getSelectedPaths = useSelectionStore((s) => s.getSelectedPaths)
+
+  // Layout selectors to avoid getState() in render
+  const columnWidths = useLayoutStore((s) => s.layout.columnWidths)
+  const setColumnWidth = useLayoutStore((s) => s.setColumnWidth)
+
+  const clipboardHasContent = useClipboardStore((s) => s.hasContent)
+
+  const {
+    files: processedFiles,
+    processedFilesCount,
+    isLoading,
+    refetch,
+    handlers,
+    copyDialogOpen,
+    setCopyDialogOpen,
+    displaySettings,
+    appearance,
+    sortConfig,
+    setSortField,
+  } = useFileExplorerLogic(currentPath, onQuickLook, onFilesChange)
+
+  const files = useMemo(() => {
+    if (!isQuickFilterActive || !quickFilter) return processedFiles
+
+    return filterEntries(processedFiles, {
+      showHidden: displaySettings.showHiddenFiles,
+      searchQuery: quickFilter,
+    })
+  }, [processedFiles, isQuickFilterActive, quickFilter, displaySettings.showHiddenFiles])
 
   // File watcher
   useFileWatcher(currentPath)
 
-  // Mutations (use mutateAsync wrappers)
-  const { mutateAsync: createDirectory } = useCreateDirectory()
-  const { mutateAsync: createFile } = useCreateFile()
-  const { mutateAsync: renameEntry } = useRenameEntry()
-  const { mutateAsync: deleteEntries } = useDeleteEntries()
-  const { mutateAsync: copyEntries } = useCopyEntries()
-  const { mutateAsync: moveEntries } = useMoveEntries()
+  useEffect(() => {
+    if (!behaviorSettings.autoRefreshOnFocus) return
 
-  // Process files with sorting and filtering
-  const processedFiles = useMemo(() => {
-    let result = filterEntries(files, {
-      showHidden: settings.showHidden,
-    })
-    result = sortEntries(result, sortConfig)
-
-    // Apply quick filter
-    if (quickFilter) {
-      const lowerFilter = quickFilter.toLowerCase()
-      result = result.filter((file) => file.name.toLowerCase().includes(lowerFilter))
+    const handleFocus = () => {
+      refetch()
     }
 
-    return result
-  }, [files, settings.showHidden, sortConfig, quickFilter])
+    window.addEventListener("focus", handleFocus)
+    return () => window.removeEventListener("focus", handleFocus)
+  }, [behaviorSettings.autoRefreshOnFocus, refetch])
 
-  // Notify parent about files change
-  useEffect(() => {
-    onFilesChange?.(processedFiles)
-  }, [processedFiles, onFilesChange])
+  // handlers provided by useFileExplorerLogic
 
-  // Handlers
-  const handlers = useFileExplorerHandlers({
-    files: processedFiles,
-    createDirectory: (path) => createDirectory(path),
-    createFile: (path) => createFile(path),
-    renameEntry: (params) => renameEntry(params),
-    deleteEntries: (params) => deleteEntries(params),
-    copyEntries: (params) => copyEntries(params),
-    moveEntries: (params) => moveEntries(params),
-    onStartCopyWithProgress: () => setCopyDialogOpen(true),
-  })
+  const openDeleteConfirm = useDeleteConfirmStore((s) => s.open)
 
-  const { open: openDeleteConfirm } = useDeleteConfirmStore()
-  const { settings: appSettings } = useSettingsStore()
-  const { addOperation } = useOperationsHistoryStore()
-
-  // Delete handler with confirmation
-  const handleDeleteWithConfirm = useCallback(async () => {
+  // Delete handler with confirmation based on settings
+  const handleDelete = useCallback(async () => {
     const paths = getSelectedPaths()
     if (paths.length === 0) return
 
-    // Show confirmation if enabled in settings
-    if (appSettings.confirmDelete) {
+    // Use confirmDelete from behaviorSettings
+    if (behaviorSettings.confirmDelete) {
       const confirmed = await openDeleteConfirm(paths, false)
       if (!confirmed) return
     }
 
     try {
-      await deleteEntries({ paths, permanent: false })
-
-      addOperation({
-        type: "delete",
-        description: createOperationDescription("delete", { deletedPaths: paths }),
-        data: { deletedPaths: paths },
-        canUndo: false,
-      })
-
-      clearSelection()
-      refetch()
-      toast.success(`Удалено ${paths.length} элемент(ов)`)
-    } catch (_error) {
-      toast.error("Ошибка удаления")
+      await handlers.handleDelete()
+    } catch (error) {
+      toast.error(`Ошибка удаления: ${error}`)
     }
-  }, [
-    getSelectedPaths,
-    appSettings.confirmDelete,
-    openDeleteConfirm,
-    deleteEntries,
-    addOperation,
-    clearSelection,
-    refetch,
-  ])
+  }, [getSelectedPaths, behaviorSettings.confirmDelete, openDeleteConfirm, handlers])
 
-  // Quick Look handler (Space key)
+  // Quick Look handler
   const handleQuickLook = useCallback(() => {
     const paths = getSelectedPaths()
-    if (paths.length === 1 && onQuickLook) {
-      const file = processedFiles.find((f) => f.path === paths[0])
-      if (file) {
-        onQuickLook(file)
-      }
+    if (paths.length !== 1) return
+
+    const file = files.find((f) => f.path === paths[0])
+    if (file) {
+      onQuickLook?.(file)
     }
-  }, [getSelectedPaths, processedFiles, onQuickLook])
+  }, [getSelectedPaths, files, onQuickLook])
 
   // Keyboard shortcuts
   useFileExplorerKeyboard({
+    files,
     onCopy: handlers.handleCopy,
     onCut: handlers.handleCut,
     onPaste: handlers.handlePaste,
-    onDelete: handleDeleteWithConfirm,
+    onDelete: handleDelete,
     onStartNewFolder: handlers.handleStartNewFolder,
+    onStartRename: handlers.handleStartRename,
     onRefresh: () => refetch(),
     onQuickLook: handleQuickLook,
   })
 
-  // Add Space key handler
+  const performanceSettings = usePerformanceSettings()
+
+  // Use separate view component to keep FileExplorer container-focused
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.code === "Space" && !inlineEditMode) {
-        const target = e.target as HTMLElement
-        if (target.tagName !== "INPUT" && target.tagName !== "TEXTAREA") {
-          e.preventDefault()
-          handleQuickLook()
-        }
-      }
-    }
+    import("./FileExplorer.view").then(() => {})
+  }, [])
 
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
-  }, [handleQuickLook, inlineEditMode])
-
-  const renderContent = () => {
-    if (isLoading) {
-      return (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          Загрузка...
-        </div>
-      )
-    }
-
-    if (!currentPath) {
-      return (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          Выберите папку для просмотра
-        </div>
-      )
-    }
-
-    if (processedFiles.length === 0) {
-      return (
-        <div className="flex-1 flex items-center justify-center text-muted-foreground">
-          {quickFilter ? "Нет файлов, соответствующих фильтру" : "Папка пуста"}
-        </div>
-      )
-    }
-
-    if (settings.mode === "grid") {
-      return (
-        <FileGrid
-          files={processedFiles}
-          selectedPaths={selectedPaths}
-          onSelect={(path, e) => handlers.handleSelect(path, e)}
-          onOpen={(path, isDir) => handlers.handleOpen(path, isDir)}
-          onDrop={handlers.handleDrop}
-          onQuickLook={onQuickLook}
-        />
-      )
-    }
-
-    return (
-      <VirtualFileList
-        files={processedFiles}
-        selectedPaths={selectedPaths}
-        onSelect={(path, e) => handlers.handleSelect(path, e)}
-        onOpen={(path, isDir) => handlers.handleOpen(path, isDir)}
-        onDrop={handlers.handleDrop}
-        getSelectedPaths={getSelectedPaths}
-        onCreateFolder={handlers.handleCreateFolder}
-        onCreateFile={handlers.handleCreateFile}
-        onRename={handlers.handleRename}
-        onCopy={handlers.handleCopy}
-        onCut={handlers.handleCut}
-        onDelete={handleDeleteWithConfirm}
-        onQuickLook={onQuickLook}
-      />
-    )
-  }
+  const content = (
+    <FileExplorerView
+      className={className}
+      isLoading={isLoading}
+      files={files}
+      processedFilesCount={processedFilesCount}
+      selectedPaths={selectedPaths}
+      onQuickLook={onQuickLook}
+      handlers={{
+        handleSelect: handlers.handleSelect,
+        handleOpen: handlers.handleOpen,
+        handleDrop: handlers.handleDrop,
+        handleCreateFolder: handlers.handleCreateFolder,
+        handleCreateFile: handlers.handleCreateFile,
+        handleRename: handlers.handleRename,
+        handleCopy: handlers.handleCopy,
+        handleCut: handlers.handleCut,
+        handlePaste: handlers.handlePaste,
+        handleDelete: handlers.handleDelete,
+        handleStartNewFolder: handlers.handleStartNewFolder,
+        handleStartNewFile: handlers.handleStartNewFile,
+        handleStartRenameAt: handlers.handleStartRenameAt,
+      }}
+      viewMode={viewSettings.mode}
+      showColumnHeadersInSimpleList={layoutSettings.showColumnHeadersInSimpleList}
+      columnWidths={columnWidths}
+      setColumnWidth={setColumnWidth}
+      performanceThreshold={performanceSettings.virtualListThreshold}
+      // pass settings and sorting down to view
+      displaySettings={displaySettings}
+      appearance={appearance}
+      performanceSettings={{
+        lazyLoadImages: performanceSettings.lazyLoadImages,
+        thumbnailCacheSize: performanceSettings.thumbnailCacheSize,
+      }}
+      sortConfig={sortConfig}
+      onSort={setSortField}
+    />
+  )
 
   return (
     <FileContextMenu
@@ -242,39 +177,40 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       onCopy={handlers.handleCopy}
       onCut={handlers.handleCut}
       onPaste={handlers.handlePaste}
-      onDelete={handleDeleteWithConfirm}
+      onDelete={handleDelete}
       onRename={handlers.handleStartRename}
       onNewFolder={handlers.handleStartNewFolder}
       onNewFile={handlers.handleStartNewFile}
       onRefresh={() => refetch()}
-      onCopyPath={handlers.handleCopyPath}
-      onOpenInExplorer={handlers.handleOpenInExplorer}
-      onOpenInTerminal={handlers.handleOpenInTerminal}
-      canPaste={hasClipboard()}
+      canPaste={clipboardHasContent()}
     >
       <div
         className={cn("flex flex-col h-full", className)}
-        onClick={(e) => {
-          // Clear selection when clicking empty area
-          if (e.target === e.currentTarget) {
-            clearSelection()
-          }
+        data-testid="file-explorer-container"
+        onPointerDown={(e) => {
+          const ev = e as React.PointerEvent
+          // Only clear selection on primary (left) button and when clicking the background itself
+          if (ev.button !== 0) return
+          if (ev.target !== ev.currentTarget) return
+          clearSelection()
         }}
       >
         {/* Quick Filter Bar */}
-        <QuickFilterBar totalCount={files.length} filteredCount={processedFiles.length} />
+        {isQuickFilterActive && (
+          <QuickFilterBar totalCount={processedFilesCount} filteredCount={files.length} />
+        )}
 
         {/* Content */}
-        {renderContent()}
+        {content}
 
         {/* Copy Progress Dialog */}
         <CopyProgressDialog
           open={copyDialogOpen}
+          onCancel={() => setCopyDialogOpen(false)}
           onComplete={() => {
             setCopyDialogOpen(false)
             refetch()
           }}
-          onCancel={() => setCopyDialogOpen(false)}
         />
       </div>
     </FileContextMenu>

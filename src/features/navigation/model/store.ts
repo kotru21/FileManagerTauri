@@ -1,6 +1,8 @@
 import { create } from "zustand"
 import { persist } from "zustand/middleware"
-import { commands } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
+import { setLastNav } from "@/shared/lib/devLogger"
+import { markPerf } from "@/shared/lib/perf"
 
 interface NavigationState {
   currentPath: string | null
@@ -27,6 +29,15 @@ export const useNavigationStore = create<NavigationState>()(
         // Don't navigate to the same path
         if (currentPath === path) {
           return
+        }
+
+        // Mark navigation start for performance debugging
+        try {
+          const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
+          setLastNav({ id, path, t: performance.now() })
+          markPerf("nav:start", { id, path })
+        } catch {
+          /* ignore */
         }
 
         // Truncate forward history if navigating from middle
@@ -67,9 +78,9 @@ export const useNavigationStore = create<NavigationState>()(
         if (!currentPath) return
 
         try {
-          const result = await commands.getParentPath(currentPath)
-          if (result.status === "ok" && result.data) {
-            navigate(result.data)
+          const parent = await tauriClient.getParentPath(currentPath)
+          if (parent) {
+            navigate(parent)
           }
         } catch (error) {
           console.error("Failed to navigate up:", error)

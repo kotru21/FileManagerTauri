@@ -1,6 +1,8 @@
 import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useRef } from "react"
-import { commands, type SearchOptions } from "@/shared/api/tauri"
+import { usePerformanceSettings } from "@/features/settings"
+import type { SearchOptions } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
 import { toast } from "@/shared/ui"
 import { useSearchStore } from "../model/store"
 
@@ -24,7 +26,7 @@ export function useSearchWithProgress() {
     setProgress,
   } = useSearchStore()
 
-  // Очистка слушателя при размонтировании
+  // Cleanup listener on unmount
   useEffect(() => {
     return () => {
       if (unlistenRef.current) {
@@ -34,6 +36,8 @@ export function useSearchWithProgress() {
     }
   }, [])
 
+  const performance = usePerformanceSettings()
+
   const search = useCallback(async () => {
     if (!query.trim() || !searchPath) {
       console.log("Search cancelled: no query or path", { query, searchPath })
@@ -42,7 +46,7 @@ export function useSearchWithProgress() {
 
     console.log("Starting search:", { query, searchPath, searchContent })
 
-    // Удаляем предыдущий слушатель
+    // Remove previous listener
     if (unlistenRef.current) {
       unlistenRef.current()
       unlistenRef.current = null
@@ -53,10 +57,10 @@ export function useSearchWithProgress() {
     setResults([])
 
     try {
-      // Подписываемся на события прогресса с throttle
+      // Subscribe to progress events with throttle
       unlistenRef.current = await listen<SearchProgressEvent>("search-progress", (event) => {
         const now = Date.now()
-        // Throttle: обновляем UI максимум раз в 100ms
+        // Throttle: update UI at most once every 100ms
         if (now - lastUpdateRef.current > 100) {
           lastUpdateRef.current = now
           setProgress({
@@ -72,23 +76,18 @@ export function useSearchWithProgress() {
         search_path: searchPath,
         search_content: searchContent,
         case_sensitive: caseSensitive,
-        max_results: 1000,
+        max_results: performance.maxSearchResults,
         file_extensions: null,
       }
 
       console.log("Calling searchFilesStream with options:", options)
 
-      const result = await commands.searchFilesStream(options)
+      const files = await tauriClient.searchFilesStream(options)
 
-      console.log("Search result:", result)
+      console.log("Search result:", files)
 
-      if (result.status === "ok") {
-        setResults(result.data)
-        toast.success(`Найдено ${result.data.length} файлов`)
-      } else {
-        console.error("Search error:", result.error)
-        toast.error(`Ошибка поиска: ${result.error}`)
-      }
+      setResults(files)
+      toast.success(`Найдено ${files.length} файлов`)
     } catch (error) {
       console.error("Search exception:", error)
       toast.error(`Ошибка поиска: ${String(error)}`)
@@ -96,13 +95,22 @@ export function useSearchWithProgress() {
       setIsSearching(false)
       setProgress(null)
 
-      // Очищаем слушатель
+      // Clear listener
       if (unlistenRef.current) {
         unlistenRef.current()
         unlistenRef.current = null
       }
     }
-  }, [query, searchPath, searchContent, caseSensitive, setIsSearching, setResults, setProgress])
+  }, [
+    query,
+    searchPath,
+    searchContent,
+    caseSensitive,
+    setIsSearching,
+    setResults,
+    setProgress,
+    performance.maxSearchResults,
+  ])
 
   return { search }
 }

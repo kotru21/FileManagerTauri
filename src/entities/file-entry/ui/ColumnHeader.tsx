@@ -1,7 +1,14 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
 import { useCallback, useRef } from "react"
-import { type SortConfig, type SortField, useSortingStore } from "@/features/sorting"
 import { cn } from "@/shared/lib"
+
+// Local types to avoid importing from features
+export type SortField = "name" | "size" | "modified" | "type"
+export type SortDirection = "asc" | "desc"
+export interface SortConfig {
+  field: SortField
+  direction: SortDirection
+}
 
 interface ColumnHeaderProps {
   columnWidths: {
@@ -10,6 +17,13 @@ interface ColumnHeaderProps {
     padding: number
   }
   onColumnResize: (column: "size" | "date" | "padding", width: number) => void
+  // Sorting is provided by higher layer (widgets/pages)
+  sortConfig: SortConfig
+  onSort: (field: SortField) => void
+  displaySettings?: {
+    showFileSizes: boolean
+    showFileDates: boolean
+  }
   className?: string
 }
 
@@ -50,6 +64,18 @@ function SortableHeader({ field, label, sortConfig, onSort, className }: Sortabl
 
 function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
   const startXRef = useRef(0)
+  const pendingDelta = useRef(0)
+  const rafRef = useRef<number | null>(null)
+
+  const flush = useCallback(() => {
+    if (pendingDelta.current !== 0) {
+      onResize(pendingDelta.current)
+      pendingDelta.current = 0
+    }
+    if (rafRef.current !== null) {
+      rafRef.current = null
+    }
+  }, [onResize])
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -59,10 +85,19 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
       const handleMove = (moveEvent: MouseEvent) => {
         const delta = moveEvent.clientX - startXRef.current
         startXRef.current = moveEvent.clientX
-        onResize(delta)
+        // accumulate delta and schedule a single RAF flush per frame
+        pendingDelta.current += delta
+        if (rafRef.current === null) {
+          rafRef.current = window.requestAnimationFrame(flush)
+        }
       }
 
       const handleUp = () => {
+        if (rafRef.current !== null) {
+          window.cancelAnimationFrame(rafRef.current)
+          rafRef.current = null
+        }
+        flush()
         document.removeEventListener("mousemove", handleMove)
         document.removeEventListener("mouseup", handleUp)
       }
@@ -70,7 +105,7 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
       document.addEventListener("mousemove", handleMove)
       document.addEventListener("mouseup", handleUp)
     },
-    [onResize],
+    [flush],
   )
 
   return (
@@ -81,9 +116,14 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
   )
 }
 
-export function ColumnHeader({ columnWidths, onColumnResize, className }: ColumnHeaderProps) {
-  const { sortConfig, setSortField } = useSortingStore()
-
+export function ColumnHeader({
+  columnWidths,
+  onColumnResize,
+  className,
+  sortConfig,
+  onSort,
+  displaySettings,
+}: ColumnHeaderProps) {
   const handleResize = useCallback(
     (column: "size" | "date" | "padding") => (delta: number) => {
       const currentWidth = columnWidths[column]
@@ -93,6 +133,12 @@ export function ColumnHeader({ columnWidths, onColumnResize, className }: Column
     },
     [columnWidths, onColumnResize],
   )
+
+  const showFileSizes = displaySettings?.showFileSizes ?? true
+  const showFileDates = displaySettings?.showFileDates ?? true
+
+  const effectiveSortConfig = sortConfig ?? { field: "name", direction: "asc" }
+  const effectiveOnSort = onSort ?? (() => {})
 
   return (
     <div
@@ -104,31 +150,40 @@ export function ColumnHeader({ columnWidths, onColumnResize, className }: Column
       <span className="w-4.5 mr-3" /> {/* Icon placeholder */}
       {/* Name column */}
       <div className="relative flex-1 min-w-0 pr-2">
-        <SortableHeader field="name" label="Имя" sortConfig={sortConfig} onSort={setSortField} />
+        <SortableHeader
+          field="name"
+          label="Имя"
+          sortConfig={effectiveSortConfig}
+          onSort={effectiveOnSort}
+        />
         <ResizeHandle onResize={handleResize("size")} />
       </div>
       {/* Size column */}
-      <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.size }}>
-        <SortableHeader
-          field="size"
-          label="Размер"
-          sortConfig={sortConfig}
-          onSort={setSortField}
-          className="justify-end"
-        />
-        <ResizeHandle onResize={handleResize("date")} />
-      </div>
+      {showFileSizes && (
+        <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.size }}>
+          <SortableHeader
+            field="size"
+            label="Размер"
+            sortConfig={effectiveSortConfig}
+            onSort={effectiveOnSort}
+            className="justify-end"
+          />
+          <ResizeHandle onResize={handleResize("date")} />
+        </div>
+      )}
       {/* Date column */}
-      <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.date }}>
-        <SortableHeader
-          field="modified"
-          label="Изменён"
-          sortConfig={sortConfig}
-          onSort={setSortField}
-          className="justify-end"
-        />
-        <ResizeHandle onResize={handleResize("padding")} />
-      </div>
+      {showFileDates && (
+        <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.date }}>
+          <SortableHeader
+            field="modified"
+            label="Изменён"
+            sortConfig={effectiveSortConfig}
+            onSort={effectiveOnSort}
+            className="justify-end"
+          />
+          <ResizeHandle onResize={handleResize("padding")} />
+        </div>
+      )}
       {/* Padding column */}
       <div className="shrink-0" style={{ width: columnWidths.padding }} />
     </div>

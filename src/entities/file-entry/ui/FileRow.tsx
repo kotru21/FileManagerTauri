@@ -1,8 +1,22 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import type { FileEntry } from "@/shared/api/tauri"
-import { cn, formatBytes, formatDate } from "@/shared/lib"
+import { cn, formatBytes, formatDate, formatRelativeDate, formatRelativeStrict } from "@/shared/lib"
+import { getPerfLog, setPerfLog } from "@/shared/lib/devLogger"
 import { FileIcon } from "./FileIcon"
 import { FileRowActions } from "./FileRowActions"
+
+// Minimal local types to avoid importing from higher layers
+type FileDisplaySettings = {
+  showFileExtensions: boolean
+  showFileSizes: boolean
+  showFileDates: boolean
+  dateFormat: "relative" | "absolute" | "auto"
+  thumbnailSize: "small" | "medium" | "large"
+}
+
+type AppearanceSettings = {
+  reducedMotion?: boolean
+}
 
 interface FileRowProps {
   file: FileEntry
@@ -25,9 +39,12 @@ interface FileRowProps {
     date: number
     padding: number
   }
+  // New props: pass settings from higher layers (widgets/pages)
+  displaySettings?: FileDisplaySettings
+  appearance?: AppearanceSettings
 }
 
-function FileRowComponent({
+export const FileRow = memo(function FileRow({
   file,
   isSelected,
   isFocused,
@@ -37,28 +54,79 @@ function FileRowComponent({
   onOpen,
   onDrop,
   getSelectedPaths,
-  onCopy,
-  onCut,
-  onRename,
-  onDelete,
   onQuickLook,
   onToggleBookmark,
-  columnWidths,
+  columnWidths = { size: 100, date: 180, padding: 8 },
+  displaySettings: displaySettingsProp,
+  appearance,
 }: FileRowProps) {
+  // Instrument render counts to help diagnose excessive re-renders in large directories
+  try {
+    const rc = (getPerfLog()?.renderCounts as Record<string, number>) ?? { fileRows: 0 }
+    rc.fileRows = (rc.fileRows ?? 0) + 1
+    setPerfLog({ renderCounts: rc })
+  } catch {
+    /* ignore */
+  }
   const rowRef = useRef<HTMLDivElement>(null)
   const [isDragOver, setIsDragOver] = useState(false)
+  const [isHovered, setIsHovered] = useState(false)
 
-  // Scroll into view when focused
+  // Use passed display settings or sensible defaults to avoid depending on higher layers
+  const defaultDisplaySettings: FileDisplaySettings = {
+    showFileExtensions: true,
+    showFileSizes: true,
+    showFileDates: true,
+    dateFormat: "relative",
+    thumbnailSize: "medium",
+  }
+  const displaySettings = displaySettingsProp ?? defaultDisplaySettings
+
+  // Map thumbnailSize setting to icon size for list mode
+  const iconSizeMap: Record<string, number> = { small: 14, medium: 18, large: 22 }
+  const iconSize = iconSizeMap[displaySettings.thumbnailSize] ?? 18
+
+  const defaultAppearance: AppearanceSettings = { reducedMotion: false }
+  const appearanceLocal = appearance ?? defaultAppearance
+
+  // Scroll into view when focused; respect reduced motion setting
   useEffect(() => {
     if (isFocused && rowRef.current) {
-      rowRef.current.scrollIntoView({ block: "nearest" })
+      const behavior: ScrollBehavior = appearanceLocal.reducedMotion ? "auto" : "smooth"
+      rowRef.current.scrollIntoView({ block: "nearest", behavior })
     }
-  }, [isFocused])
+  }, [isFocused, appearanceLocal.reducedMotion])
+
+  // Format the display name based on settings
+  const displayName = displaySettings.showFileExtensions
+    ? file.name
+    : file.is_dir
+      ? file.name
+      : file.name.replace(/\.[^/.]+$/, "")
+
+  // Format date based on settings
+  const formattedDate =
+    displaySettings.dateFormat === "absolute"
+      ? formatDate(file.modified)
+      : displaySettings.dateFormat === "relative"
+        ? formatRelativeStrict(file.modified)
+        : // auto
+          formatRelativeDate(file.modified)
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      const paths = getSelectedPaths?.() ?? [file.path]
+      e.dataTransfer.setData("application/json", JSON.stringify({ paths, action: "move" }))
+      e.dataTransfer.effectAllowed = "copyMove"
+    },
+    [file.path, getSelectedPaths],
+  )
 
   const handleDragOver = useCallback(
     (e: React.DragEvent) => {
       if (!file.is_dir) return
       e.preventDefault()
+      e.dataTransfer.dropEffect = e.ctrlKey ? "copy" : "move"
       setIsDragOver(true)
     },
     [file.is_dir],
@@ -74,116 +142,98 @@ function FileRowComponent({
       setIsDragOver(false)
       if (!file.is_dir || !onDrop) return
 
-      const paths = getSelectedPaths?.() ?? []
-      if (paths.includes(file.path)) return
-
       try {
-        const data = e.dataTransfer.getData("application/json")
-        if (data) {
-          const parsed = JSON.parse(data)
-          onDrop(parsed.paths || paths, file.path)
-        } else {
-          onDrop(paths, file.path)
+        const data = JSON.parse(e.dataTransfer.getData("application/json"))
+        if (data.paths?.length > 0) {
+          onDrop(data.paths, file.path)
         }
       } catch {
-        onDrop(paths, file.path)
+        // Ignore parse errors
       }
     },
-    [file.is_dir, file.path, onDrop, getSelectedPaths],
-  )
-
-  const handleDragStart = useCallback(
-    (e: React.DragEvent) => {
-      const paths = getSelectedPaths?.() ?? [file.path]
-      const dragPaths = paths.includes(file.path) ? paths : [file.path]
-      e.dataTransfer.setData("application/json", JSON.stringify({ paths: dragPaths }))
-      e.dataTransfer.effectAllowed = "copyMove"
-    },
-    [file.path, getSelectedPaths],
-  )
-
-  const handleContextMenu = useCallback(
-    (e: React.MouseEvent) => {
-      if (!isSelected) {
-        onSelect(e)
-      }
-    },
-    [isSelected, onSelect],
+    [file.is_dir, file.path, onDrop],
   )
 
   return (
     <div
       ref={rowRef}
-      data-path={file.path}
+      role="option"
+      aria-selected={isSelected}
+      aria-label={displayName}
       className={cn(
-        "group flex items-center h-8 px-2 cursor-pointer select-none",
-        "hover:bg-accent/50 transition-colors",
+        "group flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none no-drag",
+        // Only show hover background when NOT selected so selection remains visually stable
+        !isSelected && "hover:bg-accent/50 transition-colors duration-(--transition-duration)",
         isSelected && "bg-accent",
         isFocused && "ring-1 ring-primary ring-inset",
-        isDragOver && "bg-accent/80",
+        isDragOver && "bg-accent/70 ring-2 ring-primary",
         isCut && "opacity-50",
       )}
+      data-testid={`file-row-${encodeURIComponent(file.path)}`}
       onClick={onSelect}
+      onContextMenu={onSelect}
       onDoubleClick={onOpen}
-      onContextMenu={handleContextMenu}
-      draggable
       onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragLeave={handleDragLeave}
       onDrop={handleDrop}
+      onPointerEnter={() => setIsHovered(true)}
+      onPointerLeave={() => setIsHovered(false)}
+      onFocus={() => setIsHovered(true)}
+      onBlur={() => setIsHovered(false)}
+      draggable
+      tabIndex={0}
+      data-path={file.path}
     >
-      {/* Icon */}
       <FileIcon
         extension={file.extension}
         isDir={file.is_dir}
-        size={18}
-        className="mr-3 shrink-0"
+        className="shrink-0"
+        size={iconSize}
       />
 
-      {/* Name */}
-      <span className={cn("flex-1 min-w-0 truncate text-sm", isCut && "text-muted-foreground")}>
-        {file.name}
-      </span>
+      <span className="flex-1 truncate text-sm file-name">{displayName}</span>
 
-      {/* Hover Actions */}
-      <div className="opacity-0 group-hover:opacity-100 transition-opacity mr-2">
+      {onQuickLook && (
         <FileRowActions
           isDir={file.is_dir}
           isBookmarked={isBookmarked}
-          onOpen={onOpen}
-          onCopy={onCopy ?? (() => {})}
-          onCut={onCut ?? (() => {})}
-          onRename={onRename ?? (() => {})}
-          onDelete={onDelete ?? (() => {})}
           onQuickLook={onQuickLook}
           onToggleBookmark={onToggleBookmark}
+          className={cn(
+            "no-drag",
+            // show actions when hovered, focused, or selected; keep CSS hover fallback
+            isHovered || isSelected || isFocused
+              ? "opacity-100"
+              : "opacity-0 group-hover:opacity-100",
+          )}
         />
-      </div>
+      )}
 
-      {/* Size */}
-      <span
-        className="text-sm text-muted-foreground text-right shrink-0"
-        style={{ width: columnWidths?.size ?? 80 }}
-      >
-        {file.is_dir ? "--" : formatBytes(file.size)}
-      </span>
+      {displaySettings.showFileSizes && (
+        <span
+          className="text-xs text-muted-foreground tabular-nums shrink-0 text-right"
+          style={{ width: columnWidths.size }}
+        >
+          {file.is_dir ? "" : formatBytes(file.size)}
+        </span>
+      )}
 
-      {/* Date */}
-      <span
-        className="text-sm text-muted-foreground text-right shrink-0 ml-4"
-        style={{ width: columnWidths?.date ?? 140 }}
-      >
-        {formatDate(file.modified)}
-      </span>
+      {displaySettings.showFileDates && (
+        <span
+          className="text-xs text-muted-foreground shrink-0 text-right"
+          style={{ width: columnWidths.date }}
+        >
+          {formattedDate}
+        </span>
+      )}
 
-      {/* Padding for scrollbar */}
-      <div style={{ width: columnWidths?.padding ?? 8 }} className="shrink-0" />
+      <span className="shrink-0" style={{ width: columnWidths.padding }} />
     </div>
   )
-}
+}, arePropsEqual)
 
-// Custom comparison - check all relevant props
-function areEqual(prev: FileRowProps, next: FileRowProps): boolean {
+function arePropsEqual(prev: FileRowProps, next: FileRowProps): boolean {
   return (
     prev.file.path === next.file.path &&
     prev.file.name === next.file.name &&
@@ -195,8 +245,16 @@ function areEqual(prev: FileRowProps, next: FileRowProps): boolean {
     prev.isBookmarked === next.isBookmarked &&
     prev.columnWidths?.size === next.columnWidths?.size &&
     prev.columnWidths?.date === next.columnWidths?.date &&
-    prev.columnWidths?.padding === next.columnWidths?.padding
+    // Compare relevant settings to avoid needless re-renders when they change
+    (prev.displaySettings?.thumbnailSize ?? "medium") ===
+      (next.displaySettings?.thumbnailSize ?? "medium") &&
+    (prev.displaySettings?.showFileExtensions ?? true) ===
+      (next.displaySettings?.showFileExtensions ?? true) &&
+    (prev.displaySettings?.showFileSizes ?? true) ===
+      (next.displaySettings?.showFileSizes ?? true) &&
+    (prev.displaySettings?.showFileDates ?? true) ===
+      (next.displaySettings?.showFileDates ?? true) &&
+    (prev.displaySettings?.dateFormat ?? "auto") === (next.displaySettings?.dateFormat ?? "auto") &&
+    (prev.appearance?.reducedMotion ?? false) === (next.appearance?.reducedMotion ?? false)
   )
 }
-
-export const FileRow = memo(FileRowComponent, areEqual)

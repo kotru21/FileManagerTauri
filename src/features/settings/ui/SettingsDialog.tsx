@@ -1,221 +1,128 @@
-import { RotateCcw } from "lucide-react"
-import { useCallback } from "react"
-import { cn } from "@/shared/lib"
-import {
-  Button,
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  ScrollArea,
-  Separator,
-} from "@/shared/ui"
-import { type AppSettings, useSettingsStore } from "../model/store"
+import { Download, RotateCcw, Upload, X } from "lucide-react"
+import { memo, useCallback, useRef } from "react"
+import { Button, Dialog, DialogContent, DialogHeader, DialogTitle, Separator } from "@/shared/ui"
+import { toast } from "@/shared/ui/toast"
+import { useSettingsStore } from "../model/store"
+import { AppearanceSettings } from "./AppearanceSettings"
+import { BehaviorSettings } from "./BehaviorSettings"
+import { FileDisplaySettings } from "./FileDisplaySettings"
+import { KeyboardSettings } from "./KeyboardSettings"
+import { LayoutSettings } from "./LayoutSettings"
+import { PerformanceSettings } from "./PerformanceSettings"
+import { type SettingsTabId, SettingsTabs } from "./SettingsTabs"
 
-interface SettingItemProps {
-  label: string
-  description?: string
-  children: React.ReactNode
-}
+export const SettingsDialog = memo(function SettingsDialog() {
+  const { isOpen, close, activeTab, setActiveTab, exportSettings, importSettings, resetSettings } =
+    useSettingsStore()
+  const fileInputRef = useRef<HTMLInputElement>(null)
 
-function SettingItem({ label, description, children }: SettingItemProps) {
-  return (
-    <div className="flex items-center justify-between py-3">
-      <div className="space-y-0.5">
-        <div className="text-sm font-medium">{label}</div>
-        {description && <div className="text-xs text-muted-foreground">{description}</div>}
-      </div>
-      <div>{children}</div>
-    </div>
-  )
-}
+  const handleTabChange = useCallback((tab: SettingsTabId) => setActiveTab(tab), [setActiveTab])
 
-interface ToggleSwitchProps {
-  checked: boolean
-  onChange: (checked: boolean) => void
-}
+  const handleExport = useCallback(() => {
+    const json = exportSettings()
+    const blob = new Blob([json], { type: "application/json" })
+    const url = URL.createObjectURL(blob)
+    const a = document.createElement("a")
+    a.href = url
+    a.download = "file-manager-settings.json"
+    a.click()
+    URL.revokeObjectURL(url)
+    toast.success("Настройки экспортированы")
+  }, [exportSettings])
 
-function ToggleSwitch({ checked, onChange }: ToggleSwitchProps) {
-  return (
-    <button
-      type="button"
-      role="switch"
-      aria-checked={checked}
-      onClick={() => onChange(!checked)}
-      className={cn(
-        "relative inline-flex h-6 w-11 shrink-0 cursor-pointer rounded-full border-2 border-transparent",
-        "transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring",
-        checked ? "bg-primary" : "bg-input",
-      )}
-    >
-      <span
-        className={cn(
-          "pointer-events-none block h-5 w-5 rounded-full bg-background shadow-lg ring-0 transition-transform",
-          checked ? "translate-x-5" : "translate-x-0",
-        )}
-      />
-    </button>
-  )
-}
+  const handleImport = useCallback(() => {
+    fileInputRef.current?.click()
+  }, [])
 
-interface SelectProps {
-  value: string
-  options: { value: string; label: string }[]
-  onChange: (value: string) => void
-}
+  const handleFileChange = useCallback(
+    (e: React.ChangeEvent<HTMLInputElement>) => {
+      const file = e.target.files?.[0]
+      if (!file) return
 
-function Select({ value, options, onChange }: SelectProps) {
-  return (
-    <select
-      value={value}
-      onChange={(e) => onChange(e.target.value)}
-      className="h-8 rounded-md border bg-background px-2 text-sm focus:outline-none focus:ring-2 focus:ring-ring"
-    >
-      {options.map((option) => (
-        <option key={option.value} value={option.value}>
-          {option.label}
-        </option>
-      ))}
-    </select>
-  )
-}
-
-export function SettingsDialog() {
-  const { settings, isOpen, close, updateSettings, resetSettings } = useSettingsStore()
-
-  const handleUpdate = useCallback(
-    <K extends keyof AppSettings>(key: K, value: AppSettings[K]) => {
-      updateSettings({ [key]: value })
+      const reader = new FileReader()
+      reader.onload = (event) => {
+        const json = event.target?.result as string
+        if (importSettings(json)) {
+          toast.success("Настройки импортированы")
+        } else {
+          toast.error("Ошибка импорта настроек")
+        }
+      }
+      reader.readAsText(file)
+      e.target.value = ""
     },
-    [updateSettings],
+    [importSettings],
   )
+
+  const handleReset = useCallback(() => {
+    if (confirm("Сбросить все настройки к значениям по умолчанию?")) {
+      resetSettings()
+      toast.success("Настройки сброшены")
+    }
+  }, [resetSettings])
+
+  const renderContent = () => {
+    switch (activeTab) {
+      case "appearance":
+        return <AppearanceSettings />
+      case "layout":
+        return <LayoutSettings />
+      case "behavior":
+        return <BehaviorSettings />
+      case "fileDisplay":
+        return <FileDisplaySettings />
+      case "performance":
+        return <PerformanceSettings />
+      case "keyboard":
+        return <KeyboardSettings />
+      default:
+        return <AppearanceSettings />
+    }
+  }
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && close()}>
-      <DialogContent className="max-w-md max-h-[80vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>Настройки</DialogTitle>
-        </DialogHeader>
-
-        <ScrollArea className="flex-1 -mx-6 px-6">
-          <div className="space-y-6 pb-4">
-            {/* Appearance */}
-            <div>
-              <h3 className="text-sm font-semibold mb-2">Внешний вид</h3>
-              <div className="space-y-1">
-                <SettingItem label="Тема" description="Цветовая схема приложения">
-                  <Select
-                    value={settings.theme}
-                    options={[
-                      { value: "dark", label: "Тёмная" },
-                      { value: "light", label: "Светлая" },
-                      { value: "system", label: "Системная" },
-                    ]}
-                    onChange={(v) => handleUpdate("theme", v as AppSettings["theme"])}
-                  />
-                </SettingItem>
-
-                <SettingItem label="Размер шрифта">
-                  <Select
-                    value={settings.fontSize}
-                    options={[
-                      { value: "small", label: "Маленький" },
-                      { value: "medium", label: "Средний" },
-                      { value: "large", label: "Большой" },
-                    ]}
-                    onChange={(v) => handleUpdate("fontSize", v as AppSettings["fontSize"])}
-                  />
-                </SettingItem>
-
-                <SettingItem label="Анимации" description="Включить анимации интерфейса">
-                  <ToggleSwitch
-                    checked={settings.enableAnimations}
-                    onChange={(v) => handleUpdate("enableAnimations", v)}
-                  />
-                </SettingItem>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Behavior */}
-            <div>
-              <h3 className="text-sm font-semibold mb-2">Поведение</h3>
-              <div className="space-y-1">
-                <SettingItem
-                  label="Подтверждение удаления"
-                  description="Запрашивать подтверждение при удалении файлов"
-                >
-                  <ToggleSwitch
-                    checked={settings.confirmDelete}
-                    onChange={(v) => handleUpdate("confirmDelete", v)}
-                  />
-                </SettingItem>
-
-                <SettingItem
-                  label="Двойной клик для открытия"
-                  description="Открывать файлы двойным кликом"
-                >
-                  <ToggleSwitch
-                    checked={settings.doubleClickToOpen}
-                    onChange={(v) => handleUpdate("doubleClickToOpen", v)}
-                  />
-                </SettingItem>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* File display */}
-            <div>
-              <h3 className="text-sm font-semibold mb-2">Отображение файлов</h3>
-              <div className="space-y-1">
-                <SettingItem label="Показывать расширения файлов">
-                  <ToggleSwitch
-                    checked={settings.showFileExtensions}
-                    onChange={(v) => handleUpdate("showFileExtensions", v)}
-                  />
-                </SettingItem>
-
-                <SettingItem label="Показывать размер файлов">
-                  <ToggleSwitch
-                    checked={settings.showFileSizes}
-                    onChange={(v) => handleUpdate("showFileSizes", v)}
-                  />
-                </SettingItem>
-
-                <SettingItem label="Показывать даты">
-                  <ToggleSwitch
-                    checked={settings.showFileDates}
-                    onChange={(v) => handleUpdate("showFileDates", v)}
-                  />
-                </SettingItem>
-
-                <SettingItem label="Формат даты">
-                  <Select
-                    value={settings.dateFormat}
-                    options={[
-                      { value: "relative", label: "Относительный" },
-                      { value: "absolute", label: "Абсолютный" },
-                    ]}
-                    onChange={(v) => handleUpdate("dateFormat", v as AppSettings["dateFormat"])}
-                  />
-                </SettingItem>
-              </div>
-            </div>
-
-            <Separator />
-
-            {/* Reset */}
-            <div>
-              <Button variant="outline" onClick={resetSettings} className="w-full">
-                <RotateCcw className="h-4 w-4 mr-2" />
-                Сбросить настройки
+      <DialogContent hideDefaultClose className="max-w-3xl h-150 flex flex-col p-0 gap-0">
+        <DialogHeader className="px-6 py-4 border-b border-border">
+          <div className="flex items-center justify-between">
+            <DialogTitle>Настройки</DialogTitle>
+            <div className="flex items-center gap-2">
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept=".json"
+                onChange={handleFileChange}
+                className="hidden"
+              />
+              <Button variant="ghost" size="sm" onClick={handleImport} title="Импорт настроек">
+                <Upload size={16} />
+              </Button>
+              <Button variant="ghost" size="sm" onClick={handleExport} title="Экспорт настроек">
+                <Download size={16} />
+              </Button>
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={handleReset}
+                title="Сбросить все настройки"
+              >
+                <RotateCcw size={16} />
+              </Button>
+              <Separator orientation="vertical" className="h-6" />
+              <Button variant="ghost" size="icon" onClick={close} title="Закрыть настройки">
+                <X size={18} />
               </Button>
             </div>
           </div>
-        </ScrollArea>
+        </DialogHeader>
+
+        <div className="flex flex-1 min-h-0">
+          <div className="py-4 pl-4">
+            <SettingsTabs activeTab={activeTab} onTabChange={handleTabChange} />
+          </div>
+          <div className="flex-1 py-4 px-6 overflow-hidden">{renderContent()}</div>
+        </div>
       </DialogContent>
     </Dialog>
   )
-}
+})
