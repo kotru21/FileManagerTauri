@@ -1,5 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import type { PanelImperativeHandle, PanelSize } from "react-resizable-panels"
 import { fileKeys } from "@/entities/file-entry"
 import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
 import { ConfirmDialog } from "@/features/confirm"
@@ -27,7 +28,6 @@ import {
   TooltipProvider,
   toast,
 } from "@/shared/ui"
-import type { ImperativePanelHandle } from "@/shared/ui/resizable"
 import {
   Breadcrumbs,
   FileExplorer,
@@ -115,8 +115,8 @@ export function FileBrowserPage() {
   const [quickLookFile, setQuickLookFile] = useState<FileEntry | null>(null)
 
   // Panel refs for imperative control
-  const sidebarPanelRef = useRef<ImperativePanelHandle>(null)
-  const previewPanelRef = useRef<ImperativePanelHandle>(null)
+  const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null)
+  const previewPanelRef = useRef<PanelImperativeHandle | null>(null)
 
   // RAF batching refs to throttle high-frequency resize events
   const sidebarPendingRef = useRef<{ size: number } | null>(null)
@@ -341,9 +341,11 @@ export function FileBrowserPage() {
                 maxSize={30}
                 collapsible
                 collapsedSize={4}
-                onResize={(size) => {
+                onResize={(panelSize: PanelSize) => {
                   // allow runtime resizing only when not locked
                   if (!panelLayout.sidebarSizeLocked) {
+                    const size = panelSize.asPercentage
+
                     // Throttle updates to once per animation frame to avoid jank
                     // store pending size in a ref and apply once per RAF
                     if (!sidebarPendingRef.current) sidebarPendingRef.current = { size }
@@ -363,8 +365,6 @@ export function FileBrowserPage() {
                     }
                   }
                 }}
-                onCollapse={() => setLayout({ sidebarCollapsed: true })}
-                onExpand={() => setLayout({ sidebarCollapsed: false })}
               >
                 <Sidebar collapsed={panelLayout.sidebarCollapsed} />
               </ResizablePanel>
@@ -404,8 +404,10 @@ export function FileBrowserPage() {
                 defaultSize={panelLayout.previewPanelSize}
                 minSize={15}
                 maxSize={40}
-                onResize={(size) => {
+                onResize={(panelSize: PanelSize) => {
                   if (!panelLayout.previewSizeLocked) {
+                    const size = panelSize.asPercentage
+
                     if (!previewPendingRef.current) previewPendingRef.current = { size }
                     else previewPendingRef.current.size = size
 
