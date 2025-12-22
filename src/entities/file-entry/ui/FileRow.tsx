@@ -1,6 +1,6 @@
 import { memo, useCallback, useEffect, useRef, useState } from "react"
 import type { FileEntry } from "@/shared/api/tauri"
-import { cn, formatBytes, formatDate, formatRelativeDate } from "@/shared/lib"
+import { cn, formatBytes, formatDate, formatRelativeDate, formatRelativeStrict } from "@/shared/lib"
 import { getPerfLog, setPerfLog } from "@/shared/lib/devLogger"
 import { FileIcon } from "./FileIcon"
 import { FileRowActions } from "./FileRowActions"
@@ -10,7 +10,7 @@ type FileDisplaySettings = {
   showFileExtensions: boolean
   showFileSizes: boolean
   showFileDates: boolean
-  dateFormat: "relative" | "absolute"
+  dateFormat: "relative" | "absolute" | "auto"
   thumbnailSize: "small" | "medium" | "large"
 }
 
@@ -106,9 +106,12 @@ export const FileRow = memo(function FileRow({
 
   // Format date based on settings
   const formattedDate =
-    displaySettings.dateFormat === "relative"
-      ? formatRelativeDate(file.modified)
-      : formatDate(file.modified)
+    displaySettings.dateFormat === "absolute"
+      ? formatDate(file.modified)
+      : displaySettings.dateFormat === "relative"
+        ? formatRelativeStrict(file.modified)
+        : // auto
+          formatRelativeDate(file.modified)
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
@@ -245,10 +248,13 @@ function arePropsEqual(prev: FileRowProps, next: FileRowProps): boolean {
     // Compare relevant settings to avoid needless re-renders when they change
     (prev.displaySettings?.thumbnailSize ?? "medium") ===
       (next.displaySettings?.thumbnailSize ?? "medium") &&
+    (prev.displaySettings?.showFileExtensions ?? true) ===
+      (next.displaySettings?.showFileExtensions ?? true) &&
     (prev.displaySettings?.showFileSizes ?? true) ===
       (next.displaySettings?.showFileSizes ?? true) &&
     (prev.displaySettings?.showFileDates ?? true) ===
       (next.displaySettings?.showFileDates ?? true) &&
+    (prev.displaySettings?.dateFormat ?? "auto") === (next.displaySettings?.dateFormat ?? "auto") &&
     (prev.appearance?.reducedMotion ?? false) === (next.appearance?.reducedMotion ?? false)
   )
 }

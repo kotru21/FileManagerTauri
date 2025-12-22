@@ -2,7 +2,7 @@ import type { ColumnWidths, PanelLayout } from "@/features/layout"
 
 export type Theme = "dark" | "light" | "system"
 export type FontSize = "small" | "medium" | "large"
-export type DateFormat = "relative" | "absolute"
+export type DateFormat = "relative" | "absolute" | "auto"
 export type LayoutPresetId = "compact" | "default" | "wide" | "custom"
 
 export interface LayoutPreset {

@@ -30,3 +30,27 @@ export function formatRelativeDate(timestamp: number | null): string {
 
   return formatDate(timestamp)
 }
+
+// Strict relative formatter: always returns a relative description (no absolute fallback)
+export function formatRelativeStrict(timestamp: number | null): string {
+  if (!timestamp) return "—"
+
+  const now = Date.now()
+  const date = timestamp * 1000
+  const diff = now - date
+
+  const minute = 60 * 1000
+  const hour = 60 * minute
+  const day = 24 * hour
+  const week = 7 * day
+  const month = 30 * day
+  const year = 365 * day
+
+  if (diff < minute) return "только что"
+  if (diff < hour) return `${Math.floor(diff / minute)} мин. назад`
+  if (diff < day) return `${Math.floor(diff / hour)} ч. назад`
+  if (diff < week) return `${Math.floor(diff / day)} дн. назад`
+  if (diff < month) return `${Math.floor(diff / week)} нед. назад`
+  if (diff < year) return `${Math.floor(diff / month)} мес. назад`
+  return `${Math.floor(diff / year)} г. назад`
+}

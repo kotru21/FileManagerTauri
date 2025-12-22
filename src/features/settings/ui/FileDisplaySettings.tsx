@@ -26,13 +26,19 @@ const SettingItem = memo(function SettingItem({ label, description, children }: 
 interface ToggleSwitchProps {
   checked: boolean
   onChange: (checked: boolean) => void
+  ariaLabel?: string
 }
 
-const ToggleSwitch = memo(function ToggleSwitch({ checked, onChange }: ToggleSwitchProps) {
+const ToggleSwitch = memo(function ToggleSwitch({
+  checked,
+  onChange,
+  ariaLabel,
+}: ToggleSwitchProps) {
   return (
     <button
       type="button"
       role="switch"
+      aria-label={ariaLabel}
       aria-checked={checked}
       onClick={() => onChange(!checked)}
       className={cn(
@@ -51,6 +57,7 @@ const ToggleSwitch = memo(function ToggleSwitch({ checked, onChange }: ToggleSwi
 })
 
 const dateFormats: { id: DateFormat; label: string; example: string }[] = [
+  { id: "auto", label: "Автоматический", example: "2 дня назад / 15.01.2024" },
   { id: "relative", label: "Относительная", example: "2 дня назад" },
   { id: "absolute", label: "Абсолютная", example: "15.01.2024" },
 ]
@@ -91,24 +98,28 @@ export const FileDisplaySettings = memo(function FileDisplaySettings() {
             >
               <ToggleSwitch
                 checked={fileDisplay.showFileExtensions}
+                ariaLabel="Расширения файлов"
                 onChange={(v) => updateFileDisplay({ showFileExtensions: v })}
               />
             </SettingItem>
             <SettingItem label="Размеры файлов" description="Показывать размер файлов">
               <ToggleSwitch
                 checked={fileDisplay.showFileSizes}
+                ariaLabel="Размеры файлов"
                 onChange={(v) => updateFileDisplay({ showFileSizes: v })}
               />
             </SettingItem>
             <SettingItem label="Даты изменения" description="Показывать дату изменения файлов">
               <ToggleSwitch
                 checked={fileDisplay.showFileDates}
+                ariaLabel="Даты изменения"
                 onChange={(v) => updateFileDisplay({ showFileDates: v })}
               />
             </SettingItem>
             <SettingItem label="Скрытые файлы" description="Показывать скрытые файлы и папки">
               <ToggleSwitch
                 checked={fileDisplay.showHiddenFiles}
+                ariaLabel="Скрытые файлы"
                 onChange={(v) => updateFileDisplay({ showHiddenFiles: v })}
               />
             </SettingItem>

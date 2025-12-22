@@ -6,6 +6,6 @@ export type {
   Result,
   SearchOptions,
   SearchResult,
-  Thumbnail,
 } from "./bindings"
 export { commands } from "./bindings"
+export type { Thumbnail } from "./client"

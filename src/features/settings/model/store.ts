@@ -45,7 +45,7 @@ const defaultFileDisplay: FileDisplaySettings = {
   showFileSizes: true,
   showFileDates: true,
   showHiddenFiles: false,
-  dateFormat: "relative",
+  dateFormat: "auto",
   thumbnailSize: "medium",
 }
 
