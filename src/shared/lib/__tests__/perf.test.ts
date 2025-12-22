@@ -4,25 +4,47 @@ import { markPerf, withPerf, withPerfSync } from "../perf"
 describe("withPerf", () => {
   it("logs duration and returns value on success", async () => {
     const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {})
-    const result = await withPerf("test", { a: 1 }, async () => {
-      await new Promise((r) => setTimeout(r, 10))
-      return 42
-    })
-    expect(result).toBe(42)
-    expect(debugSpy).toHaveBeenCalled()
-    debugSpy.mockRestore()
+
+    // Ensure perf logs are enabled for this test even if CI disables them via env
+    const g = globalThis as unknown as { __fm_perfEnabled?: boolean }
+    const oldGlobal = g.__fm_perfEnabled
+    g.__fm_perfEnabled = true
+
+    try {
+      const result = await withPerf("test", { a: 1 }, async () => {
+        await new Promise((r) => setTimeout(r, 10))
+        return 42
+      })
+      expect(result).toBe(42)
+      expect(debugSpy).toHaveBeenCalled()
+    } finally {
+      if (oldGlobal === undefined) delete g.__fm_perfEnabled
+      else g.__fm_perfEnabled = oldGlobal
+      debugSpy.mockRestore()
+    }
   })
 
   it("logs duration and error on failure", async () => {
     const debugSpy = vi.spyOn(console, "debug").mockImplementation(() => {})
-    await expect(
-      withPerf("test-err", null, async () => {
-        await new Promise((r) => setTimeout(r, 5))
-        throw new Error("boom")
-      }),
-    ).rejects.toThrow("boom")
-    expect(debugSpy).toHaveBeenCalled()
-    debugSpy.mockRestore()
+
+    // Ensure perf logs are enabled for this test even if CI disables them via env
+    const g = globalThis as unknown as { __fm_perfEnabled?: boolean }
+    const oldGlobal = g.__fm_perfEnabled
+    g.__fm_perfEnabled = true
+
+    try {
+      await expect(
+        withPerf("test-err", null, async () => {
+          await new Promise((r) => setTimeout(r, 5))
+          throw new Error("boom")
+        }),
+      ).rejects.toThrow("boom")
+      expect(debugSpy).toHaveBeenCalled()
+    } finally {
+      if (oldGlobal === undefined) delete g.__fm_perfEnabled
+      else g.__fm_perfEnabled = oldGlobal
+      debugSpy.mockRestore()
+    }
   })
 
   it("does not log when disabled via env", async () => {
