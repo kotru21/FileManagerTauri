@@ -10,11 +10,9 @@ function parseBoolLike(value: unknown): boolean | undefined {
 
 export function isPerfEnabled(): boolean {
   try {
-    // global override (runtime toggle)
     const globalPerf = (globalThis as unknown as { __fm_perfEnabled?: boolean }).__fm_perfEnabled
     if (globalPerf !== undefined) return Boolean(globalPerf)
 
-    // Vite env on the client: import.meta.env.VITE_USE_PERF_LOGS
     const metaEnv =
       typeof import.meta !== "undefined"
         ? (import.meta as unknown as { env?: Record<string, string | undefined> }).env
@@ -23,7 +21,6 @@ export function isPerfEnabled(): boolean {
     const parsedMeta = parseBoolLike(v)
     if (parsedMeta !== undefined) return parsedMeta
 
-    // Node env used in tests/CI
     const proc = (
       globalThis as unknown as { process?: { env?: Record<string, string | undefined> } }
     ).process
@@ -31,7 +28,7 @@ export function isPerfEnabled(): boolean {
     const parsedProc = parseBoolLike(p)
     if (parsedProc !== undefined) return parsedProc
   } catch {
-    // fallthrough
+    void 0
   }
   return true
 }
@@ -49,7 +46,7 @@ export function withPerf<T>(
       try {
         console.debug(`[perf] ${label}`, { ...(payload ?? {}), duration })
       } catch {
-        /* ignore */
+        void 0
       }
       return result
     })
@@ -58,7 +55,7 @@ export function withPerf<T>(
       try {
         console.debug(`[perf] ${label}`, { ...(payload ?? {}), duration, error: String(err) })
       } catch {
-        /* ignore */
+        void 0
       }
       throw err
     })
@@ -73,7 +70,7 @@ export function withPerfSync<T>(label: string, payload: PerfPayload | null, fn: 
     try {
       console.debug(`[perf] ${label}`, { ...(payload ?? {}), duration })
     } catch {
-      /* ignore */
+      void 0
     }
     return result
   } catch (err) {
@@ -81,7 +78,7 @@ export function withPerfSync<T>(label: string, payload: PerfPayload | null, fn: 
     try {
       console.debug(`[perf] ${label}`, { ...(payload ?? {}), duration, error: String(err) })
     } catch {
-      /* ignore */
+      void 0
     }
     throw err
   }
@@ -92,6 +89,6 @@ export function markPerf(label: string, payload: PerfPayload | null) {
   try {
     console.debug(`[perf] ${label}`, payload ?? {})
   } catch {
-    /* ignore */
+    void 0
   }
 }

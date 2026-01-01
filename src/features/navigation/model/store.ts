@@ -25,22 +25,16 @@ export const useNavigationStore = create<NavigationState>()(
 
       navigate: (path: string) => {
         const { currentPath, history, historyIndex } = get()
-
-        // Don't navigate to the same path
         if (currentPath === path) {
           return
         }
-
-        // Mark navigation start for performance debugging
         try {
           const id = `${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 8)}`
           setLastNav({ id, path, t: performance.now() })
           markPerf("nav:start", { id, path })
         } catch {
-          /* ignore */
+          void 0
         }
-
-        // Truncate forward history if navigating from middle
         const newHistory = history.slice(0, historyIndex + 1)
         newHistory.push(path)
 

@@ -23,20 +23,13 @@ export function useKeyboardNavigation({
 }: UseKeyboardNavigationOptions): UseKeyboardNavigationResult {
   const [focusedIndex, setFocusedIndex] = useState(-1)
   const filesRef = useRef(files)
-
-  // Update ref when files change
   useEffect(() => {
     filesRef.current = files
   }, [files])
-
-  // Sync focused index with selection
   useEffect(() => {
-    // Guard against undefined selectedPaths
     if (!selectedPaths || selectedPaths.size === 0) {
       return
     }
-
-    // Find the index of the last selected file
     const lastSelected = Array.from(selectedPaths).pop()
     if (lastSelected) {
       const index = files.findIndex((f) => f.path === lastSelected)
@@ -45,8 +38,6 @@ export function useKeyboardNavigation({
       }
     }
   }, [selectedPaths, files, focusedIndex])
-
-  // Reset focus when files change significantly
   useEffect(() => {
     if (files.length === 0) {
       setFocusedIndex(-1)
@@ -58,8 +49,6 @@ export function useKeyboardNavigation({
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
       if (!enabled) return
-
-      // Ignore if focus is in input
       const target = e.target as HTMLElement
       if (target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable) {
         return

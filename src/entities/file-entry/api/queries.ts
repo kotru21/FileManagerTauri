@@ -32,7 +32,7 @@ export function useDirectoryContents(path: string | null) {
             setPerfLog({ lastRead: { path, duration, ts: Date.now() } })
           }
         } catch {
-          /* ignore */
+          void 0
         }
 
         return entries

@@ -8,18 +8,14 @@ interface FileThumbnailProps {
   isDir: boolean
   size: number
   className?: string
-  // New prop: performance settings passed from higher layer
   performanceSettings?: {
     lazyLoadImages: boolean
     thumbnailCacheSize: number
   }
-  // When true, use object-contain to avoid cropping (useful in grid mode)
   useContain?: boolean
-  // Optional: ask Tauri to generate a small thumbnail (max side px)
   thumbnailGenerator?: { maxSide: number }
 }
 
-// Shared loading pool to limit concurrent image loads
 const loadingPool = {
   active: 0,
   maxConcurrent: 3,
@@ -46,18 +42,15 @@ const loadingPool = {
   },
 }
 
-// Simple LRU cache for thumbnails to respect thumbnailCacheSize setting
 const thumbnailCache = new Map<string, string>()
 function maybeCacheThumbnail(path: string, url: string, maxSize: number) {
   if (thumbnailCache.has(path)) {
-    // Move to newest
     thumbnailCache.delete(path)
     thumbnailCache.set(path, url)
     return
   }
 
   thumbnailCache.set(path, url)
-  // Trim cache if needed
   while (thumbnailCache.size > maxSize) {
     const firstKey = thumbnailCache.keys().next().value
     if (firstKey) {
@@ -90,13 +83,10 @@ export const FileThumbnail = memo(function FileThumbnail({
 
   const performanceDefaults = { lazyLoadImages: true, thumbnailCacheSize: 100 }
   const performance = performanceSettings ?? performanceDefaults
-
-  // Intersection observer for lazy loading (or eager load based on settings)
   useEffect(() => {
     if (!showThumbnail || !containerRef.current) return
 
     if (!performance.lazyLoadImages) {
-      // Eager loading: enqueue load immediately via pool to respect concurrency
       setIsVisible(true)
       loadingPool.acquire(() => setShouldLoad(true))
       return
@@ -110,7 +100,7 @@ export const FileThumbnail = memo(function FileThumbnail({
         }
       },
       {
-        rootMargin: "100px", // Start loading slightly before visible
+        rootMargin: "100px",
         threshold: 0,
       },
     )
@@ -118,35 +108,26 @@ export const FileThumbnail = memo(function FileThumbnail({
     observer.observe(containerRef.current)
     return () => observer.disconnect()
   }, [showThumbnail, performance.lazyLoadImages])
-
-  // Load image when visible (with pool limiting) or ask Tauri to generate thumbnail
   useEffect(() => {
     if (!isVisible || !showThumbnail) return
-    // If we already decided to load (shouldLoad) and there's no thumbnailGenerator, skip
     if (shouldLoad && !thumbnailGenerator) return
 
     if (thumbnailGenerator) {
-      // Ensure the image element is mounted so src/state-driven updates can apply
       setShouldLoad(true)
 
-      // LQIP: request a tiny thumbnail first, show blurred LQIP, then request a larger thumbnail
       ;(async () => {
         try {
           const smallSide = Math.max(16, Math.min(64, Math.floor(thumbnailGenerator.maxSide / 4)))
 
-          // small LQIP
           const tSmall = await import("@/shared/api/tauri/client").then((m) =>
             m.tauriClient.getThumbnail(path, smallSide),
           )
           if (!tSmall) throw new Error("no thumbnail")
           const lqip = `data:${tSmall.mime};base64,${tSmall.base64}`
-          // Use state to drive the rendered src so it works even before the image ref is set
           setLqipSrc(lqip)
 
-          // allow one tick so LQIP can render before we fetch/replace with full thumbnail
           await new Promise((res) => setTimeout(res, 0))
 
-          // Try full thumbnail
           try {
             const tFull = await import("@/shared/api/tauri/client").then((m) =>
               m.tauriClient.getThumbnail(path, thumbnailGenerator.maxSide),
@@ -154,16 +135,13 @@ export const FileThumbnail = memo(function FileThumbnail({
             if (!tFull) throw new Error("no thumbnail")
             const full = `data:${tFull.mime};base64,${tFull.base64}`
             maybeCacheThumbnail(path, full, performance.thumbnailCacheSize)
-            // mark loaded so render switches from lqip to full cached src
             setIsLoaded(true)
             return
           } catch {
-            // If full thumb fails, fallback to pool-load of file://
             loadingPool.acquire(() => setShouldLoad(true))
             return
           }
         } catch {
-          // If LQIP generation fails, fall back to pool-load of file://
           loadingPool.acquire(() => setShouldLoad(true))
           return
         }
@@ -176,7 +154,7 @@ export const FileThumbnail = memo(function FileThumbnail({
     })
 
     return () => {
-      // Don't release here - release when image loads or errors
+      void 0
     }
   }, [
     isVisible,
@@ -186,8 +164,6 @@ export const FileThumbnail = memo(function FileThumbnail({
     path,
     performance.thumbnailCacheSize,
   ])
-
-  // Handle image load complete
   const handleLoad = () => {
     setIsLoaded(true)
     loadingPool.release()
@@ -219,7 +195,7 @@ export const FileThumbnail = memo(function FileThumbnail({
             return
           }
         } catch {
-          // ignore
+          void 0
         }
         setHasError(true)
         loadingPool.release()
@@ -249,10 +225,7 @@ export const FileThumbnail = memo(function FileThumbnail({
       className={className}
       style={{ width: size, height: size, position: "relative" }}
     >
-      {/* Show icon while loading */}
       {!isLoaded && <FileIcon extension={extension} isDir={isDir} size={size} />}
-
-      {/* Thumbnail image - only render when should load */}
       {shouldLoad && (
         <img
           ref={imageRef}
@@ -273,6 +246,5 @@ export const FileThumbnail = memo(function FileThumbnail({
   )
 })
 
-// Test-only exports for verifying LRU cache behavior in unit tests
 export const __thumbnailCache = thumbnailCache
 export const __maybeCacheThumbnail = maybeCacheThumbnail

@@ -27,18 +27,10 @@ export function ResizablePanels({
   const { results: searchResults, isSearching, reset: resetSearch } = useSearchStore()
   const selectFile = useSelectionStore((s) => s.selectFile)
   const navigate = useNavigationStore((s) => s.navigate)
-
-  // Panel refs for imperative control
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null)
   const previewPanelRef = useRef<PanelImperativeHandle | null>(null)
-
-  // Debounce ref for layout persistence
   const layoutSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Show search results when we have results
   const showSearchResults = searchResults.length > 0 || isSearching
-
-  // Handle search result selection
   const handleSearchResultSelect = useCallback(
     async (path: string) => {
       try {
@@ -51,13 +43,11 @@ export function ResizablePanels({
           }, 100)
         }
       } catch {
-        // ignore
+        void 0
       }
     },
     [navigate, resetSearch, selectFile],
   )
-
-  // Register panel refs with the panel controller
   useEffect(() => {
     let mounted = true
     let cleanup = () => {}
@@ -67,13 +57,10 @@ export function ResizablePanels({
       if (!mounted) return
       mod.registerSidebar(sidebarPanelRef)
       mod.registerPreview(previewPanelRef)
-
-      // Ensure current layout state is applied after refs are registered.
-      // This fixes a race where layout sync can run before panels mount.
       try {
         mod.applyLayoutToPanels(useLayoutStore.getState().layout)
       } catch {
-        // ignore
+        void 0
       }
 
       cleanup = () => {
@@ -81,7 +68,7 @@ export function ResizablePanels({
           mod.registerSidebar(null)
           mod.registerPreview(null)
         } catch {
-          /* ignore */
+          void 0
         }
       }
     })()
@@ -98,7 +85,6 @@ export function ResizablePanels({
     return Number.parseFloat(String(v).replace("%", ""))
   }, [])
 
-  // react-resizable-panels: defaultSize is a number (percentage), minSize/maxSize can be CSS strings
   const sidebarDefaultSize = parsePercent(panelLayout.sidebarSize)
   const previewDefaultSize = parsePercent(panelLayout.previewPanelSize)
 
@@ -116,7 +102,6 @@ export function ResizablePanels({
 
   return (
     <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0 min-w-0">
-      {/* Sidebar */}
       {panelLayout.showSidebar && (
         <>
           <ResizablePanel
@@ -168,8 +153,6 @@ export function ResizablePanels({
           <FileExplorer onQuickLook={onQuickLook} onFilesChange={onFilesChange} />
         )}
       </ResizablePanel>
-
-      {/* Preview Panel */}
       {panelLayout.showPreview && (
         <>
           {!panelLayout.previewSizeLocked && <ResizableHandle withHandle />}

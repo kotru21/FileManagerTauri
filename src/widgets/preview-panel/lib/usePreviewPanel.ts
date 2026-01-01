@@ -6,8 +6,6 @@ export function usePreviewPanel(file: FileEntry | null) {
   const [preview, setPreview] = useState<FilePreview | null>(null)
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
-
-  // Local resolved metadata for the file (FileEntry with all fields)
   const [fileEntry, setFileEntry] = useState<FileEntry | null>(null)
 
   const openFilePreview = (entry: FileEntry, p: FilePreview) => {
@@ -55,7 +53,7 @@ export function usePreviewPanel(file: FileEntry | null) {
           return
         }
       } catch {
-        // ignore
+        void 0
       }
 
       if (!cancelled)

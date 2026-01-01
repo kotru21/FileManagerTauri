@@ -25,50 +25,25 @@ import { ResizablePanels } from "./ResizablePanels"
 import { TabBarSection } from "./TabBarSection"
 
 export function FileBrowserPage() {
-  // Navigation
   const currentPath = useNavigationStore((s) => s.currentPath)
-
-  // Tabs
   const { tabs, addTab, updateTabPath, getActiveTab } = useTabsStore()
-
-  // Selection - use atomic selectors
   const selectedPaths = useSelectionStore((s) => s.selectedPaths)
   const lastSelectedPath = useSelectionStore((s) => s.lastSelectedPath)
   const clearSelection = useSelectionStore((s) => s.clearSelection)
-
-  // Layout from settings
   const layoutSettings = useLayoutSettings()
   const { setLayout } = useLayoutStore()
-
-  // Sync layout store with settings
   useSyncLayoutWithSettings()
-
-  // Settings
   const openSettings = useSettingsStore((s) => s.open)
-
-  // Delete confirmation
   const openDeleteConfirm = useDeleteConfirmStore((s) => s.open)
-
-  // Operations history
   const addOperation = useOperationsHistoryStore((s) => s.addOperation)
-
-  // Quick Look state
   const [quickLookFile, setQuickLookFile] = useState<FileEntry | null>(null)
-
-  // Files cache for preview lookup
   const filesRef = useRef<FileEntry[]>([])
-
-  // Query client for invalidation
   const queryClient = useQueryClient()
-
-  // Initialize first tab if none exists
   useEffect(() => {
     if (tabs.length === 0 && currentPath) {
       addTab(currentPath)
     }
   }, [tabs.length, currentPath, addTab])
-
-  // Sync tab path with navigation
   useEffect(() => {
     const activeTab = getActiveTab()
     if (activeTab && currentPath && activeTab.path !== currentPath) {
@@ -84,7 +59,6 @@ export function FileBrowserPage() {
     return null
   }, [quickLookFile, lastSelectedPath])
 
-  // Quick Look handler
   const handleQuickLook = useCallback(
     (file: FileEntry) => {
       setQuickLookFile(file)
@@ -92,8 +66,6 @@ export function FileBrowserPage() {
     },
     [setLayout],
   )
-
-  // Close Quick Look on Escape
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       if (e.key === "Escape" && quickLookFile) {
@@ -108,8 +80,6 @@ export function FileBrowserPage() {
   const handleFilesChange = useCallback((files: FileEntry[]) => {
     filesRef.current = files
   }, [])
-
-  // Handlers
   const handleRefresh = useCallback(() => {
     if (currentPath) {
       queryClient.invalidateQueries({ queryKey: fileKeys.directory(currentPath) })
@@ -138,15 +108,11 @@ export function FileBrowserPage() {
       toast.error(`Ошибка удаления: ${error}`)
     }
   }, [selectedPaths, openDeleteConfirm, addOperation, clearSelection, handleRefresh])
-
-  // Register commands
   useRegisterCommands({
     onRefresh: handleRefresh,
     onDelete: performDelete,
     onOpenSettings: openSettings,
   })
-
-  // Show undo toast for last operation
   useUndoToast((operation) => {
     toast.info(`Отмена: ${operation.description}`)
   })
@@ -159,24 +125,15 @@ export function FileBrowserPage() {
           layoutSettings.compactMode && "compact-mode",
         )}
       >
-        {/* Tab Bar */}
         <TabBarSection className="shrink-0" />
-
-        {/* Header (Breadcrumbs + Toolbar) */}
         <HeaderSection />
-
-        {/* Main Content with Resizable Panels */}
         <ResizablePanels
           onQuickLook={handleQuickLook}
           onFilesChange={handleFilesChange}
           selectedFile={selectedFile}
           onCloseQuickLook={() => setQuickLookFile(null)}
         />
-
-        {/* Status Bar */}
         {layoutSettings.showStatusBar && <StatusBar />}
-
-        {/* Global UI: Command palette, settings dialog, delete confirm */}
         <CommandPalette />
         <SettingsDialog />
         <DeleteConfirmDialog />

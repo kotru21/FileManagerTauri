@@ -45,7 +45,6 @@ type HandlersOverrides = Partial<{
 }>
 
 function setupHandlers(overrides?: HandlersOverrides) {
-  // Reset stores without reading internals
   act(() => {
     useInlineEditStore.setState({ mode: null, targetPath: null, parentPath: null })
     useClipboardStore.setState({ paths: [], action: null })
@@ -67,8 +66,6 @@ function setupHandlers(overrides?: HandlersOverrides) {
       onQuickLook: overrides?.onQuickLook,
     })
     handlers = h
-
-    // Return a stable primitive snapshot: mode|parent|target
     const inlineStr = useInlineEditStore(
       (s) => `${s.mode ?? ""}|${s.parentPath ?? ""}|${s.targetPath ?? ""}`,
     )
@@ -92,12 +89,12 @@ function setupHandlers(overrides?: HandlersOverrides) {
       try {
         cleanup()
       } catch {
-        /* ignore */
+        void 0
       }
       try {
         root?.unmount()
       } catch {
-        /* ignore */
+        void 0
       }
     },
   }
@@ -130,20 +127,14 @@ describe("file explorer handlers", () => {
     const renameMock = vi.fn(async () => {})
     const { getHandlers, getInline, cleanup } = setupHandlers({ renameEntry: renameMock })
     const handlers = getHandlers()
-
-    // Start rename for a path
     act(() => {
       handlers.handleStartRenameAt("/file1.txt")
     })
-
-    // Confirm rename with new name
     await act(async () => {
       await handlers.handleRename("/file1.txt", "newname.txt")
     })
 
     expect(renameMock).toHaveBeenCalledWith({ oldPath: "/file1.txt", newName: "newname.txt" })
-
-    // Inline edit state should be reset
     await waitFor(() => {
       const inline = getInline()
       expect(inline.mode).toBeNull()
