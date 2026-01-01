@@ -1,51 +1,118 @@
-import type { ComponentProps } from "react"
-import { cn } from "@/shared/lib"
-import {
-  ResizableGroup,
-  ResizablePanel as ResizablePrimitivePanel,
-  ResizableSeparator,
-} from "./Resizable"
+/**
+ * Resizable Panels - wrapper around react-resizable-panels v4
+ *
+ * This module provides a thin wrapper with shadcn/ui styling.
+ * Uses the v4 API directly: Group, Panel, Separator with orientation prop.
+ */
 
-function ResizablePanelGroup({
-  className,
+import type { ComponentProps, RefObject } from "react"
+import {
+  Group,
+  type GroupImperativeHandle,
+  Panel,
+  type PanelImperativeHandle,
+  type PanelSize,
+  Separator,
+} from "react-resizable-panels"
+import { cn } from "@/shared/lib"
+
+// Re-export types for consumers
+export type { PanelImperativeHandle, GroupImperativeHandle, PanelSize }
+export type ImperativePanelHandle = PanelImperativeHandle
+
+// ============================================================================
+// ResizablePanelGroup - wrapper around Group
+// ============================================================================
+
+type GroupProps = ComponentProps<typeof Group>
+
+interface ResizablePanelGroupProps extends Omit<GroupProps, "orientation"> {
+  /** Layout direction - maps to orientation in v4 */
+  direction?: "horizontal" | "vertical"
+}
+
+export function ResizablePanelGroup({
   direction = "horizontal",
+  className,
   ...props
-}: ComponentProps<typeof ResizableGroup>) {
+}: ResizablePanelGroupProps) {
   return (
-    <ResizableGroup
-      direction={direction}
-      className={cn("flex h-full w-full data-[panel-group-direction=vertical]:flex-col", className)}
+    <Group
+      orientation={direction}
+      data-panel-group-direction={direction}
+      className={cn("flex h-full w-full", direction === "vertical" && "flex-col", className)}
       {...props}
     />
   )
 }
 
-const ResizablePanel = ResizablePrimitivePanel
+// ============================================================================
+// ResizablePanel - wrapper around Panel
+// ============================================================================
 
-function ResizableHandle({
-  className,
-  withHandle = false,
-  ...props
-}: ComponentProps<typeof ResizableSeparator> & { withHandle?: boolean }) {
+type PanelProps = ComponentProps<typeof Panel>
+
+interface ResizablePanelProps extends PanelProps {
+  /** Ref to imperatively control the panel (overrides library's panelRef type) */
+  panelRef?: RefObject<PanelImperativeHandle | null>
+}
+
+export function ResizablePanel({ className, panelRef, ...props }: ResizablePanelProps) {
+  return <Panel className={cn("overflow-hidden", className)} panelRef={panelRef} {...props} />
+}
+
+// ============================================================================
+// ResizableHandle - wrapper around Separator with visual handle
+// ============================================================================
+
+type SeparatorProps = ComponentProps<typeof Separator>
+
+interface ResizableHandleProps extends SeparatorProps {
+  /** Show a visual grip handle in the center */
+  withHandle?: boolean
+}
+
+export function ResizableHandle({ className, withHandle = false, ...props }: ResizableHandleProps) {
   return (
-    <ResizableSeparator
+    <Separator
       className={cn(
-        "relative flex w-px items-center justify-center bg-border after:absolute after:inset-y-0 after:left-1/2 after:w-1 after:-translate-x-1/2 focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring focus-visible:ring-offset-1 data-[panel-group-direction=vertical]:h-px data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:after:left-0 data-[panel-group-direction=vertical]:after:h-1 data-[panel-group-direction=vertical]:after:w-full data-[panel-group-direction=vertical]:after:-translate-y-1/2 data-[panel-group-direction=vertical]:after:translate-x-0 [&[data-panel-group-direction=vertical]>div]:rotate-90",
-        "hover:bg-accent transition-colors",
+        // Base styling
+        "relative flex items-center justify-center",
+        "bg-border transition-colors select-none",
+        // Prevent text selection and touch scrolling during drag
+        "touch-none",
+        // Horizontal layout: vertical separator bar
+        "w-1 cursor-col-resize",
+        // Vertical layout: horizontal separator bar
+        "data-[orientation=vertical]:h-1 data-[orientation=vertical]:w-full data-[orientation=vertical]:cursor-row-resize",
+        // Hover state
+        "hover:bg-accent",
+        // Focus state
+        "focus-visible:outline-none focus-visible:ring-1 focus-visible:ring-ring",
         className,
       )}
       {...props}
     >
       {withHandle && (
-        <div className="z-10 flex h-4 w-3 items-center justify-center rounded-sm border bg-border">
-          <GripVerticalIcon className="h-2.5 w-2.5" />
+        <div
+          className={cn(
+            "z-10 flex items-center justify-center rounded-sm border bg-border",
+            "h-4 w-3",
+            "data-[orientation=vertical]:h-3 data-[orientation=vertical]:w-4",
+          )}
+        >
+          <GripIcon className="h-2.5 w-2.5 text-muted-foreground" />
         </div>
       )}
-    </ResizableSeparator>
+    </Separator>
   )
 }
 
-function GripVerticalIcon({ className }: { className?: string }) {
+// ============================================================================
+// GripIcon - visual indicator for the handle
+// ============================================================================
+
+function GripIcon({ className }: { className?: string }) {
   return (
     <svg
       xmlns="http://www.w3.org/2000/svg"
@@ -57,11 +124,9 @@ function GripVerticalIcon({ className }: { className?: string }) {
       strokeWidth="2"
       strokeLinecap="round"
       strokeLinejoin="round"
-      role="img"
-      aria-label="Grip vertical"
       className={className}
+      aria-hidden="true"
     >
-      <title>Grip vertical</title>
       <circle cx="9" cy="12" r="1" />
       <circle cx="9" cy="5" r="1" />
       <circle cx="9" cy="19" r="1" />
@@ -71,6 +136,3 @@ function GripVerticalIcon({ className }: { className?: string }) {
     </svg>
   )
 }
-
-export type { ImperativePanelHandle } from "./Resizable"
-export { ResizablePanelGroup, ResizablePanel, ResizableHandle }

@@ -11,6 +11,11 @@ let layoutUnsub: (() => void) | null = null
 let perfUnsub: (() => void) | null = null
 let debounceDelay = 150
 
+/** Check if settings are currently being applied to avoid feedback loops */
+export function isApplyingSettings(): boolean {
+  return applyingSettings
+}
+
 export function initLayoutSync() {
   // Apply current settings -> runtime
   const settingsStateInitial = useSettingsStore.getState().settings
