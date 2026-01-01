@@ -21,11 +21,10 @@ import { FileExplorerView } from "./FileExplorer.view"
 
 interface FileExplorerProps {
   className?: string
-  onQuickLook?: (file: FileEntry) => void
   onFilesChange?: (files: FileEntry[]) => void
 }
 
-export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExplorerProps) {
+export function FileExplorer({ className, onFilesChange }: FileExplorerProps) {
   const { currentPath } = useNavigationStore()
   const { settings: viewSettings } = useViewModeStore()
 
@@ -56,7 +55,7 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     appearance,
     sortConfig,
     setSortField,
-  } = useFileExplorerLogic(currentPath, onQuickLook, onFilesChange)
+  } = useFileExplorerLogic(currentPath, onFilesChange)
 
   const files = useMemo(() => {
     if (!isQuickFilterActive || !quickFilter) return processedFiles
@@ -105,17 +104,6 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     }
   }, [getSelectedPaths, behaviorSettings.confirmDelete, openDeleteConfirm, handlers])
 
-  // Quick Look handler
-  const handleQuickLook = useCallback(() => {
-    const paths = getSelectedPaths()
-    if (paths.length !== 1) return
-
-    const file = files.find((f) => f.path === paths[0])
-    if (file) {
-      onQuickLook?.(file)
-    }
-  }, [getSelectedPaths, files, onQuickLook])
-
   // Keyboard shortcuts
   useFileExplorerKeyboard({
     files,
@@ -126,7 +114,6 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
     onStartNewFolder: handlers.handleStartNewFolder,
     onStartRename: handlers.handleStartRename,
     onRefresh: () => refetch(),
-    onQuickLook: handleQuickLook,
   })
 
   const performanceSettings = usePerformanceSettings()
@@ -143,7 +130,6 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       files={files}
       processedFilesCount={processedFilesCount}
       selectedPaths={selectedPaths}
-      onQuickLook={onQuickLook}
       handlers={{
         handleSelect: handlers.handleSelect,
         handleOpen: handlers.handleOpen,

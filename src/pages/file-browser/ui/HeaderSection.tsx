@@ -2,14 +2,12 @@ import { useQueryClient } from "@tanstack/react-query"
 import { useCallback } from "react"
 import { fileKeys } from "@/entities/file-entry"
 import { useInlineEditStore } from "@/features/inline-edit"
-import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
 import { useLayoutSettings } from "@/features/settings"
 import { Breadcrumbs, Toolbar } from "@/widgets"
 
 export function HeaderSection() {
   const layoutSettings = useLayoutSettings()
-  const { layout: panelLayout, setLayout } = useLayoutStore()
   const currentPath = useNavigationStore((s) => s.currentPath)
   const queryClient = useQueryClient()
 
@@ -34,10 +32,6 @@ export function HeaderSection() {
     }
   }, [currentPath, startNewFile])
 
-  const handleTogglePreview = useCallback(() => {
-    setLayout({ showPreview: !panelLayout.showPreview })
-  }, [panelLayout.showPreview, setLayout])
-
   return (
     <div className="shrink-0">
       {/* Breadcrumbs */}
@@ -53,8 +47,6 @@ export function HeaderSection() {
           onRefresh={handleRefresh}
           onNewFolder={handleNewFolder}
           onNewFile={handleNewFile}
-          onTogglePreview={handleTogglePreview}
-          showPreview={panelLayout.showPreview}
         />
       )}
     </div>

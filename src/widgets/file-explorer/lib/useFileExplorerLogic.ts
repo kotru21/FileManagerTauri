@@ -20,7 +20,6 @@ import { useFileExplorerHandlers } from "./useFileExplorerHandlers"
 
 export function useFileExplorerLogic(
   currentPath: string | null,
-  onQuickLook?: (file: FileEntry) => void,
   onFilesChange?: (files: FileEntry[]) => void,
 ) {
   const displaySettings = useFileDisplaySettings()
@@ -129,7 +128,6 @@ export function useFileExplorerLogic(
       setCopyDestination(destination)
       setCopyDialogOpen(true)
     },
-    onQuickLook,
   })
 
   return {

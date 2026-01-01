@@ -45,7 +45,6 @@ describe("Performance: virtualListThreshold", () => {
           files={files}
           processedFilesCount={files.length}
           selectedPaths={new Set()}
-          onQuickLook={() => {}}
           handlers={defaultHandlers}
           viewMode="list"
           showColumnHeadersInSimpleList={false}
@@ -85,7 +84,6 @@ describe("Performance: virtualListThreshold", () => {
           files={files}
           processedFilesCount={files.length}
           selectedPaths={new Set()}
-          onQuickLook={() => {}}
           handlers={defaultHandlers}
           viewMode="list"
           showColumnHeadersInSimpleList={false}

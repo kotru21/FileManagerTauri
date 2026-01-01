@@ -36,7 +36,6 @@ export interface FileExplorerViewProps {
   files: FileEntry[]
   processedFilesCount: number
   selectedPaths: Set<string>
-  onQuickLook?: (file: FileEntry) => void
   handlers: FileExplorerHandlers
   viewMode: ViewMode
   showColumnHeadersInSimpleList: boolean

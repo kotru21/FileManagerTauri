@@ -3,10 +3,7 @@
 use std::fs::File;
 use std::io::{BufRead, BufReader};
 use std::path::Path;
-use std::sync::atomic::{AtomicBool, AtomicUsize, Ordering};
-use std::sync::Arc;
 
-use rayon::prelude::*;
 use tauri::{async_runtime::spawn_blocking, AppHandle, Emitter};
 use walkdir::WalkDir;
 
@@ -16,6 +13,8 @@ use crate::constants::{
 };
 use crate::error::{FileManagerError, Result};
 use crate::models::{ContentMatch, SearchOptions, SearchProgress, SearchResult};
+
+const SEARCH_RESULT_BATCH_SIZE: usize = 25;
 
 /// Searches for files matching the given options.
 #[tauri::command]
@@ -60,18 +59,10 @@ fn search_files_with_progress(
         .max_results
         .unwrap_or(DEFAULT_MAX_SEARCH_RESULTS as u32) as usize;
 
-    // Collect entries with depth limit
-    let entries: Vec<_> = WalkDir::new(search_path)
-        .max_depth(MAX_SEARCH_DEPTH)
-        .follow_links(false)
-        .into_iter()
-        .filter_map(|e| e.ok())
-        .collect();
-
-    let total_entries = entries.len();
-    let scanned = Arc::new(AtomicUsize::new(0));
-    let found = Arc::new(AtomicUsize::new(0));
-    let should_stop = Arc::new(AtomicBool::new(false));
+    let mut scanned: usize = 0;
+    let mut found: usize = 0;
+    let mut results: Vec<SearchResult> = Vec::new();
+    let mut batch: Vec<SearchResult> = Vec::with_capacity(SEARCH_RESULT_BATCH_SIZE);
 
     // Emit initial progress
     let _ = app.emit(
@@ -83,47 +74,51 @@ fn search_files_with_progress(
         },
     );
 
-    // Parallel processing with rayon
-    let results: Vec<SearchResult> = entries
-        .par_iter()
-        .filter_map(|entry| {
-            if should_stop.load(Ordering::Relaxed) {
-                return None;
+    // Stream results as they are found (batching reduces IPC overhead).
+    for entry in WalkDir::new(search_path)
+        .max_depth(MAX_SEARCH_DEPTH)
+        .follow_links(false)
+        .into_iter()
+        .filter_map(|e| e.ok())
+    {
+        scanned = scanned.saturating_add(1);
+
+        if scanned.is_multiple_of(SEARCH_PROGRESS_INTERVAL) {
+            let _ = app.emit(
+                "search-progress",
+                SearchProgress {
+                    scanned,
+                    found,
+                    current_path: entry.path().to_string_lossy().to_string(),
+                },
+            );
+        }
+
+        if let Some(result) = process_search_entry(&entry, options) {
+            found = found.saturating_add(1);
+            batch.push(result);
+
+            if batch.len() >= SEARCH_RESULT_BATCH_SIZE {
+                let _ = app.emit("search-batch", &batch);
+                results.append(&mut batch);
             }
 
-            let current_scanned = scanned.fetch_add(1, Ordering::Relaxed);
-
-            // Emit progress periodically
-            if current_scanned.is_multiple_of(SEARCH_PROGRESS_INTERVAL) {
-                let _ = app.emit(
-                    "search-progress",
-                    SearchProgress {
-                        scanned: current_scanned,
-                        found: found.load(Ordering::Relaxed),
-                        current_path: entry.path().to_string_lossy().to_string(),
-                    },
-                );
+            if found >= max_results {
+                break;
             }
+        }
+    }
 
-            let result = process_search_entry(entry, options);
-
-            if result.is_some() {
-                let current_found = found.fetch_add(1, Ordering::Relaxed);
-                if current_found >= max_results {
-                    should_stop.store(true, Ordering::Relaxed);
-                }
-            }
-
-            result
-        })
-        .take_any_while(|_| !should_stop.load(Ordering::Relaxed))
-        .collect();
+    if !batch.is_empty() {
+        let _ = app.emit("search-batch", &batch);
+        results.append(&mut batch);
+    }
 
     // Emit final progress
     let _ = app.emit(
         "search-progress",
         SearchProgress {
-            scanned: total_entries,
+            scanned,
             found: results.len(),
             current_path: String::new(),
         },
@@ -147,28 +142,23 @@ fn search_files_sync(options: &SearchOptions) -> Result<Vec<SearchResult>> {
     let max_results = options
         .max_results
         .unwrap_or(DEFAULT_MAX_SEARCH_RESULTS as u32) as usize;
-    let found_count = Arc::new(AtomicUsize::new(0));
+    // Non-streaming search: simple sequential implementation.
+    let mut results: Vec<SearchResult> = Vec::new();
 
-    let results: Vec<SearchResult> = WalkDir::new(search_path)
+    for entry in WalkDir::new(search_path)
         .max_depth(MAX_SEARCH_DEPTH)
         .follow_links(false)
         .into_iter()
-        .par_bridge()
         .filter_map(|e| e.ok())
-        .filter_map(|entry| {
-            let count = found_count.fetch_add(0, Ordering::Relaxed);
-            if count >= max_results {
-                return None;
-            }
+    {
+        if results.len() >= max_results {
+            break;
+        }
 
-            let result = process_search_entry(&entry, options);
-            if result.is_some() {
-                found_count.fetch_add(1, Ordering::Relaxed);
-            }
-            result
-        })
-        .take_any(max_results)
-        .collect();
+        if let Some(result) = process_search_entry(&entry, options) {
+            results.push(result);
+        }
+    }
 
     Ok(results)
 }

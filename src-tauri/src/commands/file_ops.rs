@@ -2,15 +2,82 @@
 
 use std::fs;
 use std::path::Path;
+use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
 use std::sync::Arc;
 
+use serde::Serialize;
 use tauri::{AppHandle, Emitter};
+use tokio::sync::Semaphore;
 use tokio::task::{spawn_blocking, JoinSet};
 
 use crate::constants::DIRECTORY_BATCH_SIZE;
 use crate::error::{FileManagerError, Result};
 use crate::models::{CopyProgress, DriveInfo, FileEntry};
+
+#[derive(Clone, Serialize)]
+struct DirectoryBatchEvent {
+    pub path: String,
+    pub request_id: String,
+    pub entries: Vec<FileEntry>,
+}
+
+#[derive(Clone, Serialize)]
+struct DirectoryCompleteEvent {
+    pub path: String,
+    pub request_id: String,
+}
+
+/// Validates a filename (not a path) for rename operations.
+///
+/// Security: prevents path traversal via `..` and disallows path separators.
+fn validate_new_name(new_name: &str) -> Result<()> {
+    let trimmed = new_name.trim();
+    if trimmed.is_empty() {
+        return Err(FileManagerError::InvalidPath("Empty name".to_string()));
+    }
+
+    // Disallow separators explicitly (covers most cases, including Windows drive-like input)
+    if trimmed.contains('/') || trimmed.contains('\\') {
+        return Err(FileManagerError::InvalidPath(
+            "Name must not contain path separators".to_string(),
+        ));
+    }
+
+    // Disallow traversal and any non-normal components
+    let pb = PathBuf::from(trimmed);
+    for comp in pb.components() {
+        match comp {
+            std::path::Component::Normal(_) => {}
+            _ => {
+                return Err(FileManagerError::InvalidPath(
+                    "Name must be a simple filename".to_string(),
+                ));
+            }
+        }
+    }
+
+    // Windows reserved device names (case-insensitive). Also disallow trailing dots/spaces.
+    // Ref: Windows legacy device names (CON, PRN, AUX, NUL, COM1..COM9, LPT1..LPT9)
+    let upper = trimmed.trim_end_matches(['.', ' ']).to_ascii_uppercase();
+    if upper != trimmed.to_ascii_uppercase() {
+        return Err(FileManagerError::InvalidPath(
+            "Name must not end with '.' or space".to_string(),
+        ));
+    }
+    if matches!(
+        upper.as_str(),
+        "CON" | "PRN" | "AUX" | "NUL" |
+        "COM1" | "COM2" | "COM3" | "COM4" | "COM5" | "COM6" | "COM7" | "COM8" | "COM9" |
+        "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5" | "LPT6" | "LPT7" | "LPT8" | "LPT9"
+    ) {
+        return Err(FileManagerError::InvalidPath(
+            "Name is a reserved device name".to_string(),
+        ));
+    }
+
+    Ok(())
+}
 
 /// Reads the contents of a directory.
 #[tauri::command]
@@ -64,9 +131,11 @@ fn read_directory_sync(path: &str) -> Result<Vec<FileEntry>> {
 #[specta::specta]
 pub async fn read_directory_stream(
     path: String,
+    request_id: String,
     app: AppHandle,
 ) -> std::result::Result<(), String> {
     let path_clone = path.clone();
+    let request_id_clone = request_id.clone();
 
     spawn_blocking(move || -> Result<()> {
         let dir_path = Path::new(&path_clone);
@@ -89,18 +158,44 @@ pub async fn read_directory_stream(
                 batch.push(file_entry);
 
                 if batch.len() >= DIRECTORY_BATCH_SIZE {
-                    let _ = app.emit("directory-batch", &batch);
-                    batch.clear();
+                    // Move the batch out to avoid cloning FileEntry and to avoid
+                    // referencing a buffer that will be mutated after emit.
+                    let mut entries = Vec::new();
+                    std::mem::swap(&mut entries, &mut batch);
+
+                    let _ = app.emit(
+                        "directory-batch",
+                        DirectoryBatchEvent {
+                            path: path_clone.clone(),
+                            request_id: request_id_clone.clone(),
+                            entries,
+                        },
+                    );
                 }
             }
         }
 
         // Emit remaining entries
         if !batch.is_empty() {
-            let _ = app.emit("directory-batch", &batch);
+            let mut entries = Vec::new();
+            std::mem::swap(&mut entries, &mut batch);
+            let _ = app.emit(
+                "directory-batch",
+                DirectoryBatchEvent {
+                    path: path_clone.clone(),
+                    request_id: request_id_clone.clone(),
+                    entries,
+                },
+            );
         }
 
-        let _ = app.emit("directory-complete", &path_clone);
+        let _ = app.emit(
+            "directory-complete",
+            DirectoryCompleteEvent {
+                path: path_clone,
+                request_id: request_id_clone,
+            },
+        );
         Ok(())
     })
     .await
@@ -149,42 +244,56 @@ pub async fn get_drives() -> std::result::Result<Vec<DriveInfo>, String> {
 #[tauri::command]
 #[specta::specta]
 pub async fn create_directory(path: String) -> std::result::Result<(), String> {
-    if path.is_empty() {
-        return Err(FileManagerError::EmptyPath.to_string());
-    }
+    let path_clone = path.clone();
+    spawn_blocking(move || -> Result<()> {
+        if path_clone.is_empty() {
+            return Err(FileManagerError::EmptyPath);
+        }
 
-    let dir_path = Path::new(&path);
-    if !dir_path.is_absolute() {
-        return Err(FileManagerError::NotAbsolutePath(path).to_string());
-    }
+        let dir_path = Path::new(&path_clone);
+        if !dir_path.is_absolute() {
+            return Err(FileManagerError::NotAbsolutePath(path_clone));
+        }
 
-    fs::create_dir_all(dir_path)
-        .map_err(|e| FileManagerError::CreateDirError(format!("{} (path: {})", e, path)))?;
+        fs::create_dir_all(dir_path).map_err(|e| {
+            FileManagerError::CreateDirError(format!("{} (path: {})", e, path_clone))
+        })?;
 
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(Into::into)
 }
 
 /// Creates a new empty file at the specified path.
 #[tauri::command]
 #[specta::specta]
 pub async fn create_file(path: String) -> std::result::Result<(), String> {
-    let file_path = Path::new(&path);
+    let path_clone = path.clone();
+    spawn_blocking(move || -> Result<()> {
+        let file_path = Path::new(&path_clone);
 
-    if !file_path.is_absolute() {
-        return Err(FileManagerError::NotAbsolutePath(path).to_string());
-    }
-
-    if let Some(parent) = file_path.parent() {
-        if !parent.exists() {
-            fs::create_dir_all(parent)
-                .map_err(|e| FileManagerError::CreateDirError(e.to_string()))?;
+        if !file_path.is_absolute() {
+            return Err(FileManagerError::NotAbsolutePath(path_clone));
         }
-    }
 
-    fs::File::create(file_path)
-        .map_err(|e| FileManagerError::CreateFileError(format!("{} (path: {})", e, path)))?;
+        if let Some(parent) = file_path.parent() {
+            if !parent.exists() {
+                fs::create_dir_all(parent)
+                    .map_err(|e| FileManagerError::CreateDirError(e.to_string()))?;
+            }
+        }
 
-    Ok(())
+        fs::File::create(file_path).map_err(|e| {
+            FileManagerError::CreateFileError(format!("{} (path: {})", e, path_clone))
+        })?;
+
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(Into::into)
 }
 
 /// Deletes files or directories.
@@ -194,23 +303,27 @@ pub async fn delete_entries(
     paths: Vec<String>,
     _permanent: bool,
 ) -> std::result::Result<(), String> {
-    for path in paths {
-        let entry_path = Path::new(&path);
+    spawn_blocking(move || -> Result<()> {
+        for path in paths {
+            let entry_path = Path::new(&path);
 
-        if !entry_path.exists() {
-            continue;
+            if !entry_path.exists() {
+                continue;
+            }
+
+            if entry_path.is_dir() {
+                fs::remove_dir_all(entry_path)
+                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
+            } else {
+                fs::remove_file(entry_path)
+                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
+            }
         }
-
-        if entry_path.is_dir() {
-            fs::remove_dir_all(entry_path)
-                .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
-        } else {
-            fs::remove_file(entry_path)
-                .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
-        }
-    }
-
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(Into::into)
 }
 
 /// Renames a file or directory. Returns the new path.
@@ -220,15 +333,22 @@ pub async fn rename_entry(
     old_path: String,
     new_name: String,
 ) -> std::result::Result<String, String> {
-    let old = Path::new(&old_path);
-    let new_path = old
-        .parent()
-        .ok_or_else(|| FileManagerError::InvalidPath(old_path.clone()))?
-        .join(&new_name);
+    validate_new_name(&new_name).map_err(|e| e.to_string())?;
 
-    fs::rename(old, &new_path).map_err(|e| FileManagerError::RenameError(e.to_string()))?;
+    spawn_blocking(move || -> Result<String> {
+        let old = Path::new(&old_path);
+        let new_path = old
+            .parent()
+            .ok_or_else(|| FileManagerError::InvalidPath(old_path.clone()))?
+            .join(&new_name);
 
-    Ok(new_path.to_string_lossy().to_string())
+        fs::rename(old, &new_path).map_err(|e| FileManagerError::RenameError(e.to_string()))?;
+
+        Ok(new_path.to_string_lossy().to_string())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(Into::into)
 }
 
 /// Copies files or directories to a destination.
@@ -238,24 +358,29 @@ pub async fn copy_entries(
     sources: Vec<String>,
     destination: String,
 ) -> std::result::Result<(), String> {
-    let dest_path = Path::new(&destination);
+    spawn_blocking(move || -> Result<()> {
+        let dest_path = Path::new(&destination);
 
-    for source in sources {
-        let src_path = Path::new(&source);
-        let file_name = src_path
-            .file_name()
-            .ok_or(FileManagerError::InvalidSourcePath)?;
-        let target = dest_path.join(file_name);
+        for source in sources {
+            let src_path = Path::new(&source);
+            let file_name = src_path
+                .file_name()
+                .ok_or(FileManagerError::InvalidSourcePath)?;
+            let target = dest_path.join(file_name);
 
-        if src_path.is_dir() {
-            copy_dir_recursive(src_path, &target)?;
-        } else {
-            fs::copy(src_path, &target)
-                .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)))?;
+            if src_path.is_dir() {
+                copy_dir_recursive(src_path, &target)?;
+            } else {
+                fs::copy(src_path, &target)
+                    .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)))?;
+            }
         }
-    }
 
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(Into::into)
 }
 
 /// Recursively copies a directory.
@@ -286,16 +411,29 @@ pub async fn copy_entries_parallel(
     destination: String,
     app: AppHandle,
 ) -> std::result::Result<(), String> {
+    // Prevent spawning unbounded number of tasks for huge selections.
+    // This is mostly IO-bound; a small fixed parallelism keeps the app responsive.
+    const COPY_PARALLELISM: usize = 8;
+
     let total = sources.len();
     let counter = Arc::new(AtomicUsize::new(0));
     let mut set = JoinSet::new();
+    let semaphore = Arc::new(Semaphore::new(COPY_PARALLELISM));
 
     for source in sources {
         let dest = destination.clone();
         let app = app.clone();
         let counter = counter.clone();
+        let semaphore = semaphore.clone();
+
+        // Acquire a permit BEFORE spawning to avoid creating thousands of tasks.
+        let permit = semaphore
+            .acquire_owned()
+            .await
+            .map_err(|e| e.to_string())?;
 
         set.spawn(async move {
+            let _permit = permit;
             let result = copy_single_entry(&source, &dest).await;
             let current = counter.fetch_add(1, Ordering::SeqCst) + 1;
 
@@ -348,40 +486,50 @@ pub async fn move_entries(
     sources: Vec<String>,
     destination: String,
 ) -> std::result::Result<(), String> {
-    let dest_path = Path::new(&destination);
+    spawn_blocking(move || -> Result<()> {
+        let dest_path = Path::new(&destination);
 
-    for source in sources {
-        let src_path = Path::new(&source);
-        let file_name = src_path
-            .file_name()
-            .ok_or(FileManagerError::InvalidSourcePath)?;
-        let target = dest_path.join(file_name);
+        for source in sources {
+            let src_path = Path::new(&source);
+            let file_name = src_path
+                .file_name()
+                .ok_or(FileManagerError::InvalidSourcePath)?;
+            let target = dest_path.join(file_name);
 
-        // Try rename first (fast path for same filesystem)
-        if fs::rename(src_path, &target).is_err() {
-            // Fall back to copy + delete for cross-filesystem moves
-            if src_path.is_dir() {
-                copy_dir_recursive(src_path, &target)?;
-                fs::remove_dir_all(src_path)
-                    .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
-            } else {
-                fs::copy(src_path, &target)
-                    .map_err(|e| FileManagerError::CopyError(e.to_string()))?;
-                fs::remove_file(src_path)
-                    .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
+            // Try rename first (fast path for same filesystem)
+            if fs::rename(src_path, &target).is_err() {
+                // Fall back to copy + delete for cross-filesystem moves
+                if src_path.is_dir() {
+                    copy_dir_recursive(src_path, &target)?;
+                    fs::remove_dir_all(src_path)
+                        .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
+                } else {
+                    fs::copy(src_path, &target)
+                        .map_err(|e| FileManagerError::CopyError(e.to_string()))?;
+                    fs::remove_file(src_path)
+                        .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
+                }
             }
         }
-    }
 
-    Ok(())
+        Ok(())
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(Into::into)
 }
 
 /// Reads the content of a text file.
 #[tauri::command]
 #[specta::specta]
 pub async fn get_file_content(path: String) -> std::result::Result<String, String> {
-    fs::read_to_string(&path)
-        .map_err(|e| FileManagerError::ReadFileError(e.to_string()).to_string())
+    spawn_blocking(move || -> Result<String> {
+        fs::read_to_string(&path)
+            .map_err(|e| FileManagerError::ReadFileError(e.to_string()))
+    })
+    .await
+    .map_err(|e| e.to_string())?
+    .map_err(Into::into)
 }
 
 /// Returns the parent directory of a path.

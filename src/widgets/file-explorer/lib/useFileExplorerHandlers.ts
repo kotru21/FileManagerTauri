@@ -23,7 +23,6 @@ interface UseFileExplorerHandlersOptions {
   copyEntries: (params: { sources: string[]; destination: string }) => Promise<void>
   moveEntries: (params: { sources: string[]; destination: string }) => Promise<void>
   onStartCopyWithProgress: (sources: string[], destination: string) => void
-  onQuickLook?: (file: FileEntry) => void
 }
 
 export function useFileExplorerHandlers({
@@ -35,7 +34,6 @@ export function useFileExplorerHandlers({
   copyEntries,
   moveEntries,
   onStartCopyWithProgress,
-  onQuickLook,
 }: UseFileExplorerHandlersOptions) {
   const { currentPath, navigate } = useNavigationStore()
   const { selectFile, toggleSelection, selectRange, clearSelection, getSelectedPaths } =
@@ -76,11 +74,6 @@ export function useFileExplorerHandlers({
       if (shouldOpen) {
         const file = files.find((f) => f.path === path)
         if (!file) return
-        if (onQuickLook) {
-          onQuickLook(file)
-          clearSelection()
-          return
-        }
         if (file.is_dir) {
           requestAnimationFrame(() => {
             navigate(path)
@@ -104,7 +97,6 @@ export function useFileExplorerHandlers({
       behaviorSettings,
       navigate,
       clearSelection,
-      onQuickLook,
     ],
   )
 

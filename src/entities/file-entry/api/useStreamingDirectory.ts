@@ -3,6 +3,17 @@ import { useCallback, useEffect, useReducer, useRef } from "react"
 import type { FileEntry } from "@/shared/api/tauri"
 import { tauriClient } from "@/shared/api/tauri/client"
 
+interface DirectoryBatchEvent {
+  path: string
+  request_id: string
+  entries: FileEntry[]
+}
+
+interface DirectoryCompleteEvent {
+  path: string
+  request_id: string
+}
+
 interface State {
   entries: FileEntry[]
   isLoading: boolean
@@ -49,11 +60,15 @@ export function useStreamingDirectory(path: string | null) {
   const [state, dispatch] = useReducer(reducer, initialState)
   const pathRef = useRef(path)
   const unlistenRef = useRef<(() => void) | null>(null)
+  const unlistenCompleteRef = useRef<(() => void) | null>(null)
+  const requestIdRef = useRef<string | null>(null)
+  const seenPathsRef = useRef<Set<string>>(new Set())
 
   useEffect(() => {
     // Reset when path changes
     if (pathRef.current !== path) {
       pathRef.current = path
+      seenPathsRef.current = new Set()
       dispatch({ type: "RESET" })
     }
 
@@ -64,39 +79,77 @@ export function useStreamingDirectory(path: string | null) {
     const startStream = async () => {
       dispatch({ type: "START" })
 
+      // New stream id for this run. Used to ignore late events from old streams.
+      requestIdRef.current = `${Date.now()}-${Math.random().toString(16).slice(2)}`
+      seenPathsRef.current = new Set()
+
       // Cleanup previous listener
       if (unlistenRef.current) {
         unlistenRef.current()
         unlistenRef.current = null
       }
+      if (unlistenCompleteRef.current) {
+        unlistenCompleteRef.current()
+        unlistenCompleteRef.current = null
+      }
 
       try {
         // Setup event listener
-        const unlisten = await listen<FileEntry[]>("directory-entries", (event) => {
+        const unlisten = await listen<DirectoryBatchEvent>("directory-batch", (event) => {
           if (cancelled) return
-          if (event.payload.length > 0) {
-            dispatch({ type: "ADD_ENTRIES", payload: event.payload })
+
+          const currentRequestId = requestIdRef.current
+          if (!currentRequestId || event.payload.request_id !== currentRequestId) {
+            return
+          }
+
+          // Extra safety: ignore batches for other paths.
+          if (event.payload.path !== pathRef.current) {
+            return
+          }
+
+          if (event.payload.entries.length > 0) {
+            const seen = seenPathsRef.current
+            const unique = event.payload.entries.filter((e) => {
+              if (seen.has(e.path)) return false
+              seen.add(e.path)
+              return true
+            })
+            if (unique.length > 0) {
+              dispatch({ type: "ADD_ENTRIES", payload: unique })
+            }
           }
         })
         unlistenRef.current = unlisten
 
         // Setup complete listener
-        const unlistenComplete = await listen("directory-complete", () => {
-          if (cancelled) return
-          dispatch({ type: "COMPLETE" })
-        })
+        const unlistenComplete = await listen<DirectoryCompleteEvent>(
+          "directory-complete",
+          (event) => {
+            if (cancelled) return
+
+            const currentRequestId = requestIdRef.current
+            if (!currentRequestId || event.payload.request_id !== currentRequestId) {
+              return
+            }
+
+            if (event.payload.path !== pathRef.current) {
+              return
+            }
+
+            dispatch({ type: "COMPLETE" })
+          },
+        )
+        unlistenCompleteRef.current = unlistenComplete
 
         // Start streaming: client throws on error, keep event listeners for entries/completion
         try {
-          await tauriClient.readDirectoryStream(path)
+          await tauriClient.readDirectoryStream(path, requestIdRef.current)
         } catch (err) {
           if (!cancelled) {
             dispatch({ type: "ERROR", payload: String(err) })
           }
         }
-
-        // Cleanup complete listener on completion
-        unlistenComplete()
       } catch (err) {
         if (!cancelled) {
           dispatch({ type: "ERROR", payload: String(err) })
@@ -111,6 +164,10 @@ export function useStreamingDirectory(path: string | null) {
       if (unlistenRef.current) {
         unlistenRef.current()
         unlistenRef.current = null
+      }
+      if (unlistenCompleteRef.current) {
+        unlistenCompleteRef.current()
+        unlistenCompleteRef.current = null
       }
     }
   }, [path])

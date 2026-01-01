@@ -28,7 +28,6 @@ interface VirtualFileListProps {
   onCopy?: () => void
   onCut?: () => void
   onDelete?: () => void
-  onQuickLook?: (file: FileEntry) => void
   className?: string
 }
 
@@ -45,7 +44,6 @@ export function VirtualFileList({
   onCopy,
   onCut,
   onDelete,
-  onQuickLook,
   className,
 }: VirtualFileListProps) {
   const parentRef = useRef<HTMLDivElement>(null)
@@ -126,13 +124,6 @@ export function VirtualFileList({
       onOpen(path, isDir)
     },
     [onOpen],
-  )
-
-  const handleQuickLook = useCallback(
-    (file: FileEntry) => () => {
-      onQuickLook?.(file)
-    },
-    [onQuickLook],
   )
 
   const handleToggleBookmark = useCallback(
@@ -276,7 +267,6 @@ export function VirtualFileList({
                   onCut={onCut}
                   onRename={() => startRename(file.path)}
                   onDelete={onDelete}
-                  onQuickLook={onQuickLook ? handleQuickLook(file) : undefined}
                   onToggleBookmark={handleToggleBookmark(file.path)}
                   columnWidths={columnWidths}
                   displaySettings={displaySettings}

@@ -1,5 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { useCallback, useEffect, useMemo, useRef, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef } from "react"
 import { fileKeys } from "@/entities/file-entry"
 import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
 import { ConfirmDialog } from "@/features/confirm"
@@ -31,12 +31,12 @@ export function FileBrowserPage() {
   const lastSelectedPath = useSelectionStore((s) => s.lastSelectedPath)
   const clearSelection = useSelectionStore((s) => s.clearSelection)
   const layoutSettings = useLayoutSettings()
+  const showPreview = useLayoutStore((s) => s.layout.showPreview)
   const { setLayout } = useLayoutStore()
   useSyncLayoutWithSettings()
   const openSettings = useSettingsStore((s) => s.open)
   const openDeleteConfirm = useDeleteConfirmStore((s) => s.open)
   const addOperation = useOperationsHistoryStore((s) => s.addOperation)
-  const [quickLookFile, setQuickLookFile] = useState<FileEntry | null>(null)
   const filesRef = useRef<FileEntry[]>([])
   const queryClient = useQueryClient()
   useEffect(() => {
@@ -52,30 +52,18 @@ export function FileBrowserPage() {
   }, [currentPath, getActiveTab, updateTabPath])
 
   const selectedFile = useMemo(() => {
-    if (quickLookFile) return quickLookFile
     if (lastSelectedPath && filesRef.current.length > 0) {
       return filesRef.current.find((f) => f.path === lastSelectedPath) ?? null
     }
     return null
-  }, [quickLookFile, lastSelectedPath])
+  }, [lastSelectedPath])
 
-  const handleQuickLook = useCallback(
-    (file: FileEntry) => {
-      setQuickLookFile(file)
-      setLayout({ showPreview: true })
-    },
-    [setLayout],
-  )
+  // Авто-показ панели предпросмотра при выборе файла/папки.
   useEffect(() => {
-    const handleKeyDown = (e: KeyboardEvent) => {
-      if (e.key === "Escape" && quickLookFile) {
-        setQuickLookFile(null)
-      }
-    }
-
-    document.addEventListener("keydown", handleKeyDown)
-    return () => document.removeEventListener("keydown", handleKeyDown)
-  }, [quickLookFile])
+    if (!lastSelectedPath) return
+    if (showPreview) return
+    setLayout({ showPreview: true })
+  }, [lastSelectedPath, showPreview, setLayout])
 
   const handleFilesChange = useCallback((files: FileEntry[]) => {
     filesRef.current = files
@@ -128,10 +116,9 @@ export function FileBrowserPage() {
         <TabBarSection className="shrink-0" />
         <HeaderSection />
         <ResizablePanels
-          onQuickLook={handleQuickLook}
           onFilesChange={handleFilesChange}
           selectedFile={selectedFile}
-          onCloseQuickLook={() => setQuickLookFile(null)}
+          onClosePreview={() => clearSelection()}
         />
         {layoutSettings.showStatusBar && <StatusBar />}
         <CommandPalette />

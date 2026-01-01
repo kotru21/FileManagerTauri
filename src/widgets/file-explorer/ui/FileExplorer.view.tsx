@@ -11,7 +11,6 @@ export const FileExplorerView = memo(function FileExplorerView({
   isLoading,
   files,
   selectedPaths,
-  onQuickLook,
   handlers,
   viewMode,
   showColumnHeadersInSimpleList,
@@ -36,7 +35,6 @@ export const FileExplorerView = memo(function FileExplorerView({
         className={className}
         files={files}
         selectedPaths={selectedPaths}
-        onQuickLook={onQuickLook}
         handlers={handlers}
       />
     )
@@ -58,7 +56,6 @@ export const FileExplorerView = memo(function FileExplorerView({
         onSort={onSort}
         displaySettings={display}
         appearanceLocal={appearanceLocal}
-        onQuickLook={onQuickLook}
       />
     )
   }
@@ -69,7 +66,6 @@ export const FileExplorerView = memo(function FileExplorerView({
       files={files}
       selectedPaths={selectedPaths}
       handlers={handlers}
-      onQuickLook={onQuickLook}
     />
   )
 })

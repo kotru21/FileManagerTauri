@@ -18,7 +18,6 @@ interface Props {
   onSort?: (field: SortConfig["field"]) => void
   displaySettings: FileDisplaySettings
   appearanceLocal: AppearanceSettings
-  onQuickLook?: (file: FileEntry) => void
 }
 
 export function FileExplorerSimpleList({
@@ -33,7 +32,6 @@ export function FileExplorerSimpleList({
   onSort,
   displaySettings,
   appearanceLocal,
-  onQuickLook,
 }: Props) {
   const mode = useInlineEditStore((s) => s.mode)
   const targetPath = useInlineEditStore((s) => s.targetPath)
@@ -110,7 +108,6 @@ export function FileExplorerSimpleList({
               onCopy={handlers.handleCopy}
               onCut={handlers.handleCut}
               onDelete={handlers.handleDelete}
-              onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
               columnWidths={columnWidths}
               displaySettings={displaySettings}
               appearance={appearanceLocal}

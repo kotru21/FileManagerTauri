@@ -1,5 +1,4 @@
 import { useVirtualizer } from "@tanstack/react-virtual"
-import { Eye } from "lucide-react"
 import { memo, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { FileThumbnail } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
@@ -25,7 +24,6 @@ interface FileGridProps {
   onSelect: (path: string, e: SelectionModifiers) => void
   onOpen: (path: string, isDir: boolean) => void
   onDrop?: (sources: string[], destination: string) => void
-  onQuickLook?: (file: FileEntry) => void
   className?: string
 }
 
@@ -41,7 +39,6 @@ export function FileGrid({
   onSelect,
   onOpen,
   onDrop,
-  onQuickLook,
   className,
 }: FileGridProps) {
   const containerRef = useRef<HTMLDivElement>(null)
@@ -121,7 +118,6 @@ export function FileGrid({
                   showFileExtensions={displaySettings.showFileExtensions}
                   onClick={(e) => handleClick(file, e)}
                   onDoubleClick={() => handleDoubleClick(file)}
-                  onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
                   onDrop={onDrop}
                   getSelectedPaths={() => Array.from(selectedPaths)}
                   performanceSettings={performance}
@@ -145,7 +141,6 @@ interface GridItemProps {
   showFileExtensions: boolean
   onClick: (e: React.MouseEvent) => void
   onDoubleClick: () => void
-  onQuickLook?: () => void
   onDrop?: (sources: string[], destination: string) => void
   getSelectedPaths?: () => string[]
   performanceSettings: PerformanceSettings
@@ -159,7 +154,6 @@ const GridItem = memo(function GridItem({
   showFileExtensions,
   onClick,
   onDoubleClick,
-  onQuickLook,
   onDrop,
   getSelectedPaths,
   performanceSettings,
@@ -250,22 +244,6 @@ const GridItem = memo(function GridItem({
           }}
           thumbnailGenerator={{ maxSide: Math.max(48, Math.floor(gridConfig.thumbnailSize)) }}
         />
-        {/* Quick Look button on hover */}
-        {onQuickLook && (
-          <button
-            type="button"
-            onClick={(e) => {
-              e.stopPropagation()
-              onQuickLook()
-            }}
-            className={cn(
-              "absolute top-1 right-1 p-1 rounded bg-black/50 text-white",
-              "opacity-0 group-hover:opacity-100 transition-opacity",
-            )}
-          >
-            <Eye size={14} />
-          </button>
-        )}{" "}
       </div>
 
       {/* Name */}

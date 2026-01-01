@@ -22,6 +22,7 @@ interface SearchState {
   setCaseSensitive: (value: boolean) => void
   setIsSearching: (value: boolean) => void
   setResults: (results: SearchResult[]) => void
+  appendResults: (results: SearchResult[]) => void
   setProgress: (progress: SearchProgress | null) => void
   cancelSearch: () => void
   reset: () => void
@@ -41,8 +42,14 @@ export const useSearchStore = create<SearchState>((set, _get) => ({
   setSearchPath: (searchPath) => set({ searchPath }),
   setSearchContent: (searchContent) => set({ searchContent }),
   setCaseSensitive: (caseSensitive) => set({ caseSensitive }),
-  setIsSearching: (isSearching) => set({ isSearching }),
+  setIsSearching: (isSearching) =>
+    set((state) =>
+      isSearching
+        ? { ...state, isSearching: true, shouldCancel: false }
+        : { ...state, isSearching: false },
+    ),
   setResults: (results) => set({ results }),
+  appendResults: (results) => set((state) => ({ results: [...state.results, ...results] })),
   setProgress: (progress) => set({ progress }),
 
   cancelSearch: () => set({ shouldCancel: true, isSearching: false }),

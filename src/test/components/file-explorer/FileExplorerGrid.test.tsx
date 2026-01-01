@@ -42,7 +42,6 @@ test("renders the mocked FileGrid", () => {
       className="test"
       files={[file]}
       selectedPaths={new Set()}
-      onQuickLook={undefined}
       handlers={handlers}
     />,
   )

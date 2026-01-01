@@ -7,16 +7,9 @@ interface Props {
   files: FileEntry[]
   selectedPaths: Set<string>
   handlers: FileExplorerHandlers
-  onQuickLook?: (file: FileEntry) => void
 }
 
-export function FileExplorerVirtualList({
-  className,
-  files,
-  selectedPaths,
-  handlers,
-  onQuickLook,
-}: Props) {
+export function FileExplorerVirtualList({ className, files, selectedPaths, handlers }: Props) {
   return (
     <div className={className}>
       <VirtualFileList
@@ -32,7 +25,6 @@ export function FileExplorerVirtualList({
         onCopy={handlers.handleCopy}
         onCut={handlers.handleCut}
         onDelete={handlers.handleDelete}
-        onQuickLook={onQuickLook}
       />
     </div>
   )

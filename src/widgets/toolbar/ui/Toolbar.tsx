@@ -7,7 +7,6 @@ import {
   FilePlus,
   Filter,
   FolderPlus,
-  LayoutGrid,
   RefreshCw,
   Search,
   Settings,
@@ -28,20 +27,10 @@ interface ToolbarProps {
   onNewFolder: () => void
   onNewFile: () => void
   onSearch?: () => void
-  onTogglePreview?: () => void
-  showPreview?: boolean
   className?: string
 }
 
-export function Toolbar({
-  onRefresh,
-  onNewFolder,
-  onNewFile,
-  onSearch,
-  onTogglePreview,
-  showPreview,
-  className,
-}: ToolbarProps) {
+export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className }: ToolbarProps) {
   const currentPath = useNavigationStore((s) => s.currentPath)
   const goBack = useNavigationStore((s) => s.goBack)
   const goForward = useNavigationStore((s) => s.goForward)
@@ -213,22 +202,6 @@ export function Toolbar({
             {displaySettings.showHiddenFiles ? "Скрыть скрытые файлы" : "Показать скрытые файлы"}
           </TooltipContent>
         </Tooltip>
-
-        {onTogglePreview && (
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={onTogglePreview}
-                className={cn("h-8 w-8", showPreview && "bg-accent")}
-              >
-                <LayoutGrid className="h-4 w-4" />
-              </Button>
-            </TooltipTrigger>
-            <TooltipContent>Панель предпросмотра</TooltipContent>
-          </Tooltip>
-        )}
       </div>
 
       <Separator orientation="vertical" className="mx-1 h-6" />

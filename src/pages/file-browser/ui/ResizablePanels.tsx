@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
-import type { PanelImperativeHandle } from "react-resizable-panels"
+import type { PanelImperativeHandle, PanelSize } from "react-resizable-panels"
 import { useSelectionStore } from "@/features/file-selection"
 import { useLayoutStore } from "@/features/layout"
 import { isApplyingSettings } from "@/features/layout/sync"
@@ -11,17 +11,15 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup, ScrollArea } from
 import { FileExplorer, PreviewPanel, Sidebar } from "@/widgets"
 
 interface ResizablePanelsProps {
-  onQuickLook: (file: FileEntry) => void
   onFilesChange: (files: FileEntry[]) => void
   selectedFile: FileEntry | null
-  onCloseQuickLook: () => void
+  onClosePreview?: () => void
 }
 
 export function ResizablePanels({
-  onQuickLook,
   onFilesChange,
   selectedFile,
-  onCloseQuickLook,
+  onClosePreview,
 }: ResizablePanelsProps) {
   const { layout: panelLayout, setLayout } = useLayoutStore()
   const { results: searchResults, isSearching, reset: resetSearch } = useSearchStore()
@@ -85,6 +83,16 @@ export function ResizablePanels({
     return Number.parseFloat(String(v).replace("%", ""))
   }, [])
 
+  const panelSizeToPercent = useCallback((s: PanelSize) => {
+    if (typeof s === "number") return s
+    // react-resizable-panels uses an object for richer sizes
+    if (typeof s === "object" && s !== null && "asPercentage" in s) {
+      const asPercentage = (s as { asPercentage?: unknown }).asPercentage
+      if (typeof asPercentage === "number") return asPercentage
+    }
+    return 0
+  }, [])
+
   const sidebarDefaultSize = parsePercent(panelLayout.sidebarSize)
   const previewDefaultSize = parsePercent(panelLayout.previewPanelSize)
 
@@ -113,10 +121,10 @@ export function ResizablePanels({
             maxSize="400px"
             collapsible
             collapsedSize="56px"
-            onResize={(size) => {
+            onResize={(panelSize: PanelSize) => {
               if (isApplyingSettings()) return
 
-              const sizeNum = typeof size === "object" ? size.asPercentage : size
+              const sizeNum = panelSizeToPercent(panelSize)
               const isCollapsed = sidebarPanelRef.current?.isCollapsed() ?? false
 
               if (layoutSaveTimeoutRef.current) {
@@ -150,7 +158,7 @@ export function ResizablePanels({
             </div>
           </ScrollArea>
         ) : (
-          <FileExplorer onQuickLook={onQuickLook} onFilesChange={onFilesChange} />
+          <FileExplorer onFilesChange={onFilesChange} />
         )}
       </ResizablePanel>
       {panelLayout.showPreview && (
@@ -165,8 +173,8 @@ export function ResizablePanels({
             defaultSize={previewDefaultSize}
             minSize="10%"
             maxSize="400px"
-            onResize={(size) => {
-              const sizeNum = typeof size === "object" ? size.asPercentage : size
+            onResize={(panelSize: PanelSize) => {
+              const sizeNum = panelSizeToPercent(panelSize)
 
               if (isApplyingSettings()) return
 
@@ -178,7 +186,7 @@ export function ResizablePanels({
               }, 150)
             }}
           >
-            <PreviewPanel file={selectedFile} onClose={onCloseQuickLook} />
+            <PreviewPanel file={selectedFile} onClose={onClosePreview} />
           </ResizablePanel>
         </>
       )}

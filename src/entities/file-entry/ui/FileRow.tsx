@@ -39,7 +39,6 @@ interface FileRowProps {
   onCut?: () => void
   onRename?: () => void
   onDelete?: () => void
-  onQuickLook?: () => void
   onToggleBookmark?: () => void
   columnWidths?: {
     size: number
@@ -60,7 +59,6 @@ export const FileRow = memo(function FileRow({
   onOpen,
   onDrop,
   getSelectedPaths,
-  onQuickLook,
   onToggleBookmark,
   columnWidths = { size: 100, date: 180, padding: 8 },
   displaySettings: displaySettingsProp,
@@ -105,6 +103,8 @@ export const FileRow = memo(function FileRow({
     if (displaySettings.dateFormat === "relative") return formatRelativeStrict(file.modified)
     return formatRelativeDate(file.modified)
   })()
+
+  const hasActions = file.is_dir && typeof onToggleBookmark === "function"
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
@@ -182,16 +182,15 @@ export const FileRow = memo(function FileRow({
         size={iconSize}
       />
       <div className="relative flex-1 min-w-0">
-        <span className={cn("block truncate text-sm file-name", onQuickLook && "pr-16")}>
+        <span className={cn("block truncate text-sm file-name", hasActions && "pr-16")}>
           {displayName}
         </span>
 
-        {onQuickLook && (
+        {hasActions && (
           <div className="absolute right-0 top-1/2 -translate-y-1/2">
             <FileRowActions
               isDir={file.is_dir}
               isBookmarked={isBookmarked}
-              onQuickLook={onQuickLook}
               onToggleBookmark={onToggleBookmark}
               className={cn(
                 "no-drag",
