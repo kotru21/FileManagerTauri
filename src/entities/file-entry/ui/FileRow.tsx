@@ -2,6 +2,13 @@ import { memo, useCallback, useEffect, useRef, useState } from "react"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, formatBytes, formatDate, formatRelativeDate, formatRelativeStrict } from "@/shared/lib"
 import { getPerfLog, setPerfLog } from "@/shared/lib/devLogger"
+import {
+  createDragData,
+  DRAG_DATA_TYPE,
+  getDragAction,
+  parseDragData,
+  setDragImage,
+} from "@/shared/lib/drag-drop"
 import { FileIcon } from "./FileIcon"
 import { FileRowActions } from "./FileRowActions"
 
@@ -102,8 +109,12 @@ export const FileRow = memo(function FileRow({
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
       const paths = getSelectedPaths?.() ?? [file.path]
-      e.dataTransfer.setData("application/json", JSON.stringify({ paths, action: "move" }))
+      const action = getDragAction(e)
+      const payload = createDragData(paths, action)
+      e.dataTransfer.setData(DRAG_DATA_TYPE, payload)
+      e.dataTransfer.setData("application/json", payload)
       e.dataTransfer.effectAllowed = "copyMove"
+      setDragImage(e, paths.length)
     },
     [file.path, getSelectedPaths],
   )
@@ -128,14 +139,8 @@ export const FileRow = memo(function FileRow({
       setIsDragOver(false)
       if (!file.is_dir || !onDrop) return
 
-      try {
-        const data = JSON.parse(e.dataTransfer.getData("application/json"))
-        if (data.paths?.length > 0) {
-          onDrop(data.paths, file.path)
-        }
-      } catch {
-        void 0
-      }
+      const data = parseDragData(e.dataTransfer)
+      if (data?.paths.length) onDrop(data.paths, file.path)
     },
     [file.is_dir, file.path, onDrop],
   )
