@@ -17,52 +17,6 @@ import { layoutPresets } from "../model/layoutPresets"
 import { useLayoutSettings, useSettingsStore } from "../model/store"
 import type { LayoutPresetId } from "../model/types"
 
-interface SliderProps {
-  label: string
-  value: number
-  min: number
-  max: number
-  step?: number
-  unit?: string
-  disabled?: boolean
-  onChange: (value: number) => void
-}
-
-const Slider = memo(function Slider({
-  label,
-  value,
-  min,
-  max,
-  step = 1,
-  unit = "",
-  disabled = false,
-  onChange,
-}: SliderProps) {
-  return (
-    <div className="flex items-center gap-4">
-      <span className="text-sm text-muted-foreground w-28 shrink-0">{label}</span>
-      <input
-        aria-label={label}
-        type="range"
-        min={min}
-        max={max}
-        step={step}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        disabled={disabled}
-        className={cn(
-          "flex-1 h-2 bg-secondary rounded-lg appearance-none cursor-pointer accent-primary",
-          disabled && "opacity-50 pointer-events-none",
-        )}
-      />
-      <span className="text-sm text-muted-foreground w-16 text-right">
-        {value}
-        {unit}
-      </span>
-    </div>
-  )
-})
-
 interface ToggleProps {
   label: string
   description?: string
@@ -159,7 +113,6 @@ export const LayoutSettings = memo(function LayoutSettings() {
   const {
     setLayoutPreset,
     updateLayout,
-    updateColumnWidths,
     saveCustomLayout,
     deleteCustomLayout,
     applyCustomLayout,
@@ -254,31 +207,6 @@ export const LayoutSettings = memo(function LayoutSettings() {
               checked={layout.showColumnHeadersInSimpleList}
               onChange={(v) => updateLayout({ showColumnHeadersInSimpleList: v })}
               icon={<Columns size={16} className="text-muted-foreground" />}
-            />
-          </div>
-        </section>
-
-        <Separator />
-
-        {/* Column Widths */}
-        <section>
-          <h3 className="text-sm font-medium mb-4">Ширина колонок</h3>
-          <div className="space-y-3">
-            <Slider
-              label="Размер"
-              value={layout.columnWidths.size}
-              min={50}
-              max={150}
-              unit="px"
-              onChange={(v) => updateColumnWidths({ size: v })}
-            />
-            <Slider
-              label="Дата"
-              value={layout.columnWidths.date}
-              min={80}
-              max={200}
-              unit="px"
-              onChange={(v) => updateColumnWidths({ date: v })}
             />
           </div>
         </section>

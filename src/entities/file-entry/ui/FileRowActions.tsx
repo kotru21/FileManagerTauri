@@ -39,7 +39,11 @@ export const FileRowActions = memo(function FileRowActions({
   }, [])
 
   return (
-    <div className={cn("flex items-center gap-1 mr-2", className)} onClick={stopPropagation}>
+    <div
+      className={cn("flex items-center gap-1", className)}
+      onClick={stopPropagation}
+      data-testid="file-actions"
+    >
       {/* Quick actions */}
       {onQuickLook && !isDir && (
         <Tooltip>

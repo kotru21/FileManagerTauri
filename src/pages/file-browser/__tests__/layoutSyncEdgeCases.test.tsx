@@ -16,15 +16,16 @@ describe("Layout sync edge cases", () => {
     useLayoutStore.getState().resetLayout()
   })
 
-  it("updateColumnWidths updates runtime column widths", () => {
+  it("setColumnWidth updates column widths in layoutStore", () => {
     render(<TestHarness />)
 
-    const newWidths = { size: 130, date: 170, padding: 14 }
-    useSettingsStore.getState().updateColumnWidths(newWidths)
+    useLayoutStore.getState().setColumnWidth("size", 130)
+    useLayoutStore.getState().setColumnWidth("date", 170)
+    useLayoutStore.getState().setColumnWidth("padding", 14)
 
     const cw = useLayoutStore.getState().layout.columnWidths
-    expect(cw.size).toBe(newWidths.size)
-    expect(cw.date).toBe(newWidths.date)
-    expect(cw.padding).toBe(newWidths.padding)
+    expect(cw.size).toBe(130)
+    expect(cw.date).toBe(170)
+    expect(cw.padding).toBe(14)
   })
 })

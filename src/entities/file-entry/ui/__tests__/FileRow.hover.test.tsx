@@ -36,7 +36,7 @@ describe("FileRow hover behavior", () => {
         <FileRow {...props} />
       </TooltipProvider>,
     )
-    const actions = container.querySelector(".mr-2")
+    const actions = container.querySelector('[data-testid="file-actions"]')
     expect(actions).toBeTruthy()
     expect(actions?.classList.contains("opacity-0")).toBe(true)
 

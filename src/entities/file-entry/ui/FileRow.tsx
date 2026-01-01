@@ -192,27 +192,41 @@ export const FileRow = memo(function FileRow({
         size={iconSize}
       />
 
-      <span className="flex-1 truncate text-sm file-name">{displayName}</span>
-
-      {onQuickLook && (
-        <FileRowActions
-          isDir={file.is_dir}
-          isBookmarked={isBookmarked}
-          onQuickLook={onQuickLook}
-          onToggleBookmark={onToggleBookmark}
+      {/* Name cell: keep layout stable by rendering quick actions absolutely
+          so fixed-width columns (size/date) always line up with the header. */}
+      <div className="relative flex-1 min-w-0">
+        <span
           className={cn(
-            "no-drag",
-            // show actions when hovered, focused, or selected; keep CSS hover fallback
-            isHovered || isSelected || isFocused
-              ? "opacity-100"
-              : "opacity-0 group-hover:opacity-100",
+            "block truncate text-sm file-name",
+            // Reserve space so text doesn't sit under the action buttons when enabled
+            onQuickLook && "pr-16",
           )}
-        />
-      )}
+        >
+          {displayName}
+        </span>
+
+        {onQuickLook && (
+          <div className="absolute right-0 top-1/2 -translate-y-1/2">
+            <FileRowActions
+              isDir={file.is_dir}
+              isBookmarked={isBookmarked}
+              onQuickLook={onQuickLook}
+              onToggleBookmark={onToggleBookmark}
+              className={cn(
+                "no-drag",
+                // show actions when hovered, focused, or selected; keep CSS hover fallback
+                isHovered || isSelected || isFocused
+                  ? "opacity-100"
+                  : "opacity-0 group-hover:opacity-100",
+              )}
+            />
+          </div>
+        )}
+      </div>
 
       {displaySettings.showFileSizes && (
         <span
-          className="text-xs text-muted-foreground tabular-nums shrink-0 text-right"
+          className="text-xs text-muted-foreground tabular-nums shrink-0 text-right pr-2"
           style={{ width: columnWidths.size }}
         >
           {file.is_dir ? "" : formatBytes(file.size)}
@@ -221,7 +235,7 @@ export const FileRow = memo(function FileRow({
 
       {displaySettings.showFileDates && (
         <span
-          className="text-xs text-muted-foreground shrink-0 text-right"
+          className="text-xs text-muted-foreground shrink-0 text-right pr-2"
           style={{ width: columnWidths.date }}
         >
           {formattedDate}

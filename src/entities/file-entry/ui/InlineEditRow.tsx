@@ -105,11 +105,11 @@ export function InlineEditRow({
   return (
     <div
       className={cn(
-        "flex items-center h-7 px-2 text-sm",
+        "flex items-center gap-2 h-7 px-3 text-sm",
         "bg-accent border border-primary rounded",
       )}
     >
-      <Icon size={18} className="mr-3 shrink-0 text-muted-foreground" />
+      <Icon size={18} className="shrink-0 text-muted-foreground" />
 
       <div className="flex-1 min-w-0 flex items-center">
         <input
@@ -135,13 +135,13 @@ export function InlineEditRow({
       </div>
 
       <span
-        className="text-muted-foreground text-right shrink-0"
+        className="text-muted-foreground text-right shrink-0 pr-2"
         style={{ width: columnWidths.size }}
       >
         —
       </span>
       <span
-        className="text-muted-foreground text-right shrink-0"
+        className="text-muted-foreground text-right shrink-0 pr-2"
         style={{ width: columnWidths.date }}
       >
         —
