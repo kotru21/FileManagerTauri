@@ -1,5 +1,6 @@
 import { create, type StateCreator } from "zustand"
 import { persist } from "zustand/middleware"
+import { toForwardSlashes } from "@/shared/lib"
 
 export interface RecentFolder {
   path: string
@@ -17,7 +18,7 @@ interface RecentFoldersState {
 }
 
 const getNameFromPath = (path: string): string => {
-  const normalized = path.replace(/\\/g, "/").replace(/\/$/, "")
+  const normalized = toForwardSlashes(path).replace(/\/$/, "")
   const parts = normalized.split("/")
   return parts[parts.length - 1] || path
 }

@@ -1,4 +1,4 @@
-import { AlertTriangle, Trash2 } from "lucide-react"
+import { AlertTriangle } from "lucide-react"
 import { useMemo } from "react"
 import { getBasename } from "@/shared/lib"
 import {
@@ -13,27 +13,21 @@ import {
 import { useDeleteConfirmStore } from "../model/store"
 
 export function DeleteConfirmDialog() {
-  const { isOpen, paths, permanent, confirm, cancel } = useDeleteConfirmStore()
+  const { isOpen, paths, confirm, cancel } = useDeleteConfirmStore()
 
   const fileNames = useMemo(() => {
     return paths.map((p) => getBasename(p))
   }, [paths])
 
-  const title = permanent ? "Удалить навсегда?" : "Переместить в корзину?"
-  const description = permanent
-    ? "Эти файлы будут удалены безвозвратно. Это действие нельзя отменить."
-    : "Файлы будут перемещены в корзину. Вы сможете восстановить их позже."
+  const title = "Удалить выбранные элементы?"
+  const description = "Эти файлы и папки будут удалены. Это действие нельзя отменить."
 
   return (
     <Dialog open={isOpen} onOpenChange={(open) => !open && cancel()}>
       <DialogContent className="max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            {permanent ? (
-              <AlertTriangle className="h-5 w-5 text-destructive" />
-            ) : (
-              <Trash2 className="h-5 w-5 text-muted-foreground" />
-            )}
+            <AlertTriangle className="h-5 w-5 text-destructive" />
             {title}
           </DialogTitle>
         </DialogHeader>
@@ -70,8 +64,8 @@ export function DeleteConfirmDialog() {
           <Button variant="outline" onClick={cancel}>
             Отмена
           </Button>
-          <Button variant={permanent ? "destructive" : "default"} onClick={confirm}>
-            {permanent ? "Удалить навсегда" : "В корзину"}
+          <Button variant="destructive" onClick={confirm}>
+            Удалить
           </Button>
         </DialogFooter>
       </DialogContent>

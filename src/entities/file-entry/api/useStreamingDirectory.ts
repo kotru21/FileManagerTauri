@@ -1,18 +1,7 @@
-import { listen } from "@tauri-apps/api/event"
-import { useCallback, useEffect, useReducer, useRef } from "react"
+import { useCallback, useEffect, useReducer, useRef, useState } from "react"
 import type { FileEntry } from "@/shared/api/tauri"
+import { tauriEvents } from "@/shared/api/tauri"
 import { tauriClient } from "@/shared/api/tauri/client"
-
-interface DirectoryBatchEvent {
-  path: string
-  request_id: string
-  entries: FileEntry[]
-}
-
-interface DirectoryCompleteEvent {
-  path: string
-  request_id: string
-}
 
 interface State {
   entries: FileEntry[]
@@ -58,12 +47,14 @@ const initialState: State = {
 
 export function useStreamingDirectory(path: string | null) {
   const [state, dispatch] = useReducer(reducer, initialState)
+  const [refreshToken, setRefreshToken] = useState(0)
   const pathRef = useRef(path)
   const unlistenRef = useRef<(() => void) | null>(null)
   const unlistenCompleteRef = useRef<(() => void) | null>(null)
   const requestIdRef = useRef<string | null>(null)
   const seenPathsRef = useRef<Set<string>>(new Set())
 
+  // biome-ignore lint/correctness/useExhaustiveDependencies: refreshToken is a deliberate trigger to restart streaming even when path doesn't change.
   useEffect(() => {
     // Reset when path changes
     if (pathRef.current !== path) {
@@ -95,7 +86,7 @@ export function useStreamingDirectory(path: string | null) {
 
       try {
         // Setup event listener
-        const unlisten = await listen<DirectoryBatchEvent>("directory-batch", (event) => {
+        const unlisten = await tauriEvents.directoryBatch((event) => {
           if (cancelled) return
 
           const currentRequestId = requestIdRef.current
@@ -123,23 +114,20 @@ export function useStreamingDirectory(path: string | null) {
         unlistenRef.current = unlisten
 
         // Setup complete listener
-        const unlistenComplete = await listen<DirectoryCompleteEvent>(
-          "directory-complete",
-          (event) => {
-            if (cancelled) return
+        const unlistenComplete = await tauriEvents.directoryComplete((event) => {
+          if (cancelled) return
 
-            const currentRequestId = requestIdRef.current
-            if (!currentRequestId || event.payload.request_id !== currentRequestId) {
-              return
-            }
+          const currentRequestId = requestIdRef.current
+          if (!currentRequestId || event.payload.request_id !== currentRequestId) {
+            return
+          }
 
-            if (event.payload.path !== pathRef.current) {
-              return
-            }
+          if (event.payload.path !== pathRef.current) {
+            return
+          }
 
-            dispatch({ type: "COMPLETE" })
-          },
-        )
+          dispatch({ type: "COMPLETE" })
+        })
         unlistenCompleteRef.current = unlistenComplete
 
         // Start streaming: client throws on error, keep event listeners for entries/completion
@@ -170,13 +158,15 @@ export function useStreamingDirectory(path: string | null) {
         unlistenCompleteRef.current = null
       }
     }
-  }, [path])
+  }, [path, refreshToken])
 
   const refresh = useCallback(() => {
-    if (path) {
-      dispatch({ type: "RESET" })
-      // Trigger re-fetch by updating a dep - use a key or similar pattern
-    }
+    if (!path) return
+
+    // Force restart of streaming even if path didn't change.
+    // Important for immediate UI updates after create/rename/delete/copy/move.
+    dispatch({ type: "RESET" })
+    setRefreshToken((x) => x + 1)
   }, [path])
 
   return {

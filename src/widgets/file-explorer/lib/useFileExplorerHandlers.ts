@@ -19,7 +19,7 @@ interface UseFileExplorerHandlersOptions {
   createDirectory: (path: string) => Promise<void>
   createFile: (path: string) => Promise<void>
   renameEntry: (params: { oldPath: string; newName: string }) => Promise<void>
-  deleteEntries: (params: { paths: string[]; permanent: boolean }) => Promise<void>
+  deleteEntries: (params: { paths: string[] }) => Promise<void>
   copyEntries: (params: { sources: string[]; destination: string }) => Promise<void>
   moveEntries: (params: { sources: string[]; destination: string }) => Promise<void>
   onStartCopyWithProgress: (sources: string[], destination: string) => void
@@ -254,7 +254,7 @@ export function useFileExplorerHandlers({
     if (selected.length === 0) return
 
     try {
-      await deleteEntries({ paths: selected, permanent: false })
+      await deleteEntries({ paths: selected })
       toast.success(`Удалено ${selected.length} элементов`)
       clearSelection()
     } catch (error) {

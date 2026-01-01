@@ -1,6 +1,5 @@
 import { useMutation, useQueryClient } from "@tanstack/react-query"
-import { commands } from "@/shared/api/tauri"
-import { unwrapResult } from "@/shared/api/tauri/client"
+import { tauriClient } from "@/shared/api/tauri/client"
 import { fileKeys } from "./keys"
 
 export function useCreateDirectory() {
@@ -8,8 +7,7 @@ export function useCreateDirectory() {
 
   return useMutation({
     mutationFn: async (path: string) => {
-      const result = await commands.createDirectory(path)
-      unwrapResult(result)
+      await tauriClient.createDirectory(path)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -22,8 +20,7 @@ export function useCreateFile() {
 
   return useMutation({
     mutationFn: async (path: string) => {
-      const result = await commands.createFile(path)
-      unwrapResult(result)
+      await tauriClient.createFile(path)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -35,9 +32,8 @@ export function useDeleteEntries() {
   const queryClient = useQueryClient()
 
   return useMutation({
-    mutationFn: async ({ paths, permanent }: { paths: string[]; permanent: boolean }) => {
-      const result = await commands.deleteEntries(paths, permanent)
-      unwrapResult(result)
+    mutationFn: async ({ paths }: { paths: string[] }) => {
+      await tauriClient.deleteEntries(paths)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -50,8 +46,7 @@ export function useRenameEntry() {
 
   return useMutation({
     mutationFn: async ({ oldPath, newName }: { oldPath: string; newName: string }) => {
-      const result = await commands.renameEntry(oldPath, newName)
-      unwrapResult(result)
+      await tauriClient.renameEntry(oldPath, newName)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -64,8 +59,7 @@ export function useCopyEntries() {
 
   return useMutation({
     mutationFn: async ({ sources, destination }: { sources: string[]; destination: string }) => {
-      const result = await commands.copyEntries(sources, destination)
-      unwrapResult(result)
+      await tauriClient.copyEntries(sources, destination)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -78,8 +72,7 @@ export function useCopyEntriesParallel() {
 
   return useMutation({
     mutationFn: async ({ sources, destination }: { sources: string[]; destination: string }) => {
-      const result = await commands.copyEntriesParallel(sources, destination)
-      unwrapResult(result)
+      await tauriClient.copyEntriesParallel(sources, destination)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })
@@ -92,8 +85,7 @@ export function useMoveEntries() {
 
   return useMutation({
     mutationFn: async ({ sources, destination }: { sources: string[]; destination: string }) => {
-      const result = await commands.moveEntries(sources, destination)
-      unwrapResult(result)
+      await tauriClient.moveEntries(sources, destination)
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: fileKeys.all })

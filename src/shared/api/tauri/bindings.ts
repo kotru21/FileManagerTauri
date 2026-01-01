@@ -65,9 +65,9 @@ async createFile(path: string) : Promise<Result<null, string>> {
 /**
  * Deletes files or directories.
  */
-async deleteEntries(paths: string[], permanent: boolean) : Promise<Result<null, string>> {
+async deleteEntries(paths: string[]) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("delete_entries", { paths, permanent }) };
+    return { status: "ok", data: await TAURI_INVOKE("delete_entries", { paths }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };
@@ -206,6 +206,17 @@ async getFilePreview(path: string) : Promise<Result<FilePreview, string>> {
 }
 },
 /**
+ * Generates a thumbnail (resized image) as base64 with given max side length.
+ */
+async getThumbnail(path: string, maxSide: number) : Promise<Result<Thumbnail, string>> {
+    try {
+    return { status: "ok", data: await TAURI_INVOKE("get_thumbnail", { path, maxSide }) };
+} catch (e) {
+    if(e instanceof Error) throw e;
+    else return { status: "error", error: e  as any };
+}
+},
+/**
  * Starts watching a directory for filesystem changes.
  */
 async watchDirectory(path: string) : Promise<Result<null, string>> {
@@ -271,6 +282,10 @@ export type SearchOptions = { query: string; search_path: string; search_content
  * A search result entry.
  */
 export type SearchResult = { path: string; name: string; is_dir: boolean; matches: ContentMatch[] }
+/**
+ * File preview content types.
+ */
+export type Thumbnail = { base64: string; mime: string; type: "Thumbnail" }
 
 /** tauri-specta globals **/
 

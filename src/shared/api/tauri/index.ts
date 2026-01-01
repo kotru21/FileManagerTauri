@@ -6,6 +6,15 @@ export type {
   Result,
   SearchOptions,
   SearchResult,
+  Thumbnail,
 } from "./bindings"
-export { commands } from "./bindings"
-export type { Thumbnail } from "./client"
+export type {
+  CopyProgressEvent,
+  DirectoryBatchEvent,
+  DirectoryCompleteEvent,
+  FsChangeEvent,
+  SearchBatchEvent,
+  SearchCompleteEvent,
+  SearchProgressEvent,
+} from "./events"
+export { tauriEvents } from "./events"

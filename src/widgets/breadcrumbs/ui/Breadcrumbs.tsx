@@ -2,7 +2,7 @@ import { ChevronRight, Home } from "lucide-react"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { useNavigationStore } from "@/features/navigation"
 import { tauriClient } from "@/shared/api/tauri/client"
-import { cn } from "@/shared/lib"
+import { cn, toForwardSlashes } from "@/shared/lib"
 import { Input } from "@/shared/ui"
 
 interface BreadcrumbsProps {
@@ -21,7 +21,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
     if (!currentPath) return []
 
     // Windows drive letter handling
-    const normalized = currentPath.replace(/\\/g, "/")
+    const normalized = toForwardSlashes(currentPath)
     const parts = normalized.split("/").filter(Boolean)
 
     // Reconstruct paths for each segment

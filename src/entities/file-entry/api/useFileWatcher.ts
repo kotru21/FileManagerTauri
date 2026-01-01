@@ -1,13 +1,10 @@
 import { useQueryClient } from "@tanstack/react-query"
-import { listen, type UnlistenFn } from "@tauri-apps/api/event"
+import type { UnlistenFn } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useRef } from "react"
-import { commands } from "@/shared/api/tauri"
+import { tauriEvents } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
+import { normalizePathForComparison } from "@/shared/lib"
 import { fileKeys } from "./queries"
-
-interface FsChangeEvent {
-  kind: string
-  paths: string[]
-}
 
 export function useFileWatcher(currentPath: string | null) {
   const queryClient = useQueryClient()
@@ -32,7 +29,7 @@ export function useFileWatcher(currentPath: string | null) {
   useEffect(() => {
     if (!currentPath) {
       if (currentPathRef.current) {
-        commands.unwatchDirectory(currentPathRef.current).catch(() => {})
+        tauriClient.unwatchDirectory(currentPathRef.current).catch(() => {})
       }
       currentPathRef.current = null
       return
@@ -44,7 +41,7 @@ export function useFileWatcher(currentPath: string | null) {
     const setupWatcher = async () => {
       if (currentPathRef.current) {
         try {
-          await commands.unwatchDirectory(currentPathRef.current)
+          await tauriClient.unwatchDirectory(currentPathRef.current)
         } catch {
           void 0
         }
@@ -55,16 +52,23 @@ export function useFileWatcher(currentPath: string | null) {
       }
 
       currentPathRef.current = currentPath
-      unlistenRef.current = await listen<FsChangeEvent>("fs-change", (event) => {
+      unlistenRef.current = await tauriEvents.fsChange((event) => {
         const { kind, paths } = event.payload
         if (kind.includes("Access")) {
           return
         }
+        const normalizedCurrent = normalizePathForComparison(currentPath)
+        const currentPrefix = normalizedCurrent.endsWith("/")
+          ? normalizedCurrent
+          : `${normalizedCurrent}/`
+
         const isRelevant = paths.some((changedPath) => {
-          const normalizedChanged = changedPath.replace(/\\/g, "/")
-          const normalizedCurrent = currentPath.replace(/\\/g, "/")
-          const changedDir = normalizedChanged.substring(0, normalizedChanged.lastIndexOf("/"))
-          return changedDir === normalizedCurrent || normalizedChanged === normalizedCurrent
+          const normalizedChanged = normalizePathForComparison(changedPath)
+          return (
+            normalizedChanged === normalizedCurrent ||
+            (currentPrefix !== "/" && normalizedChanged.startsWith(currentPrefix)) ||
+            (currentPrefix === "/" && normalizedChanged.startsWith("/"))
+          )
         })
 
         if (isRelevant) {
@@ -72,7 +76,7 @@ export function useFileWatcher(currentPath: string | null) {
         }
       })
       try {
-        await commands.watchDirectory(currentPath)
+        await tauriClient.watchDirectory(currentPath)
       } catch (error) {
         console.error("Failed to watch directory:", error)
       }
@@ -88,7 +92,7 @@ export function useFileWatcher(currentPath: string | null) {
         unlistenRef.current = null
       }
       if (currentPathRef.current) {
-        commands.unwatchDirectory(currentPathRef.current).catch(() => {})
+        tauriClient.unwatchDirectory(currentPathRef.current).catch(() => {})
         currentPathRef.current = null
       }
     }

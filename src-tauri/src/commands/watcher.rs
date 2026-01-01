@@ -7,7 +7,72 @@ use std::sync::Mutex;
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
 use tauri::{AppHandle, Emitter, Manager};
 
+use crate::error::FileManagerError;
 use crate::models::FsChangeEvent;
+
+fn normalize_watch_key(raw: &str) -> String {
+    let trimmed = raw.trim();
+    let mut s = trimmed.replace('\\', "/");
+
+    // Strip Windows extended-length prefixes to avoid duplicate keys.
+    // Examples:
+    // - \\?\C:\\Path -> C:\\Path
+    // - \\?\UNC\\server\\share -> \\server\\share
+    #[cfg(windows)]
+    {
+        if let Some(rest) = s.strip_prefix("\\\\?\\UNC\\") {
+            s = format!("\\\\{}", rest);
+        } else if let Some(rest) = s.strip_prefix("\\\\?\\") {
+            s = rest.to_string();
+        }
+    }
+
+    // Collapse repeated slashes (preserve UNC prefix).
+    if s.starts_with("//") {
+        let tail = s[2..].to_string();
+        s = format!(
+            "//{}",
+            tail.split('/')
+                .filter(|p| !p.is_empty())
+                .collect::<Vec<_>>()
+                .join("/")
+        );
+    } else {
+        s = s
+            .split('/')
+            .filter(|p| !p.is_empty())
+            .collect::<Vec<_>>()
+            .join("/");
+        // Keep a leading slash for POSIX absolute paths.
+        if trimmed.starts_with('/') {
+            s = format!("/{}", s);
+        }
+    }
+
+    // Trim trailing separators, but keep drive roots like "c:/".
+    while s.ends_with('/') {
+        #[cfg(windows)]
+        {
+            let bytes = s.as_bytes();
+            if bytes.len() == 3 && bytes[1] == b':' && bytes[2] == b'/' {
+                break;
+            }
+        }
+
+        if s == "/" {
+            break;
+        }
+        s.pop();
+    }
+
+    // Windows is typically case-insensitive; normalize to lower-case to avoid duplicate watcher keys.
+    #[cfg(windows)]
+    {
+        s = s.to_ascii_lowercase();
+    }
+
+    s
+}
 
 /// Global state for managing filesystem watchers.
 pub struct WatcherState {
@@ -32,7 +97,23 @@ impl Default for WatcherState {
 #[tauri::command]
 #[specta::specta]
 pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Result<(), String> {
+    if path.trim().is_empty() {
+        return Err(FileManagerError::EmptyPath.to_string());
+    }
+
     let watch_path = path.clone();
+    let key = normalize_watch_key(&watch_path);
+
+    let watch_path_ref = Path::new(&watch_path);
+    if !watch_path_ref.is_absolute() {
+        return Err(FileManagerError::NotAbsolutePath(watch_path).to_string());
+    }
+    if !watch_path_ref.exists() {
+        return Err(FileManagerError::DirectoryNotFound(watch_path).to_string());
+    }
+    if !watch_path_ref.is_dir() {
+        return Err(FileManagerError::NotADirectory(watch_path).to_string());
+    }
 
     // Get watcher state
     let state = app.state::<WatcherState>();
@@ -40,7 +121,7 @@ pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Resul
     // Check if already watching this path
     {
         let watchers = state.watchers.lock().map_err(|e| e.to_string())?;
-        if watchers.contains_key(&path) {
+        if watchers.contains_key(&key) {
             return Ok(()); // Already watching
         }
     }
@@ -79,7 +160,7 @@ pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Resul
     // Store watcher in state
     {
         let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
-        watchers.insert(path, watcher);
+        watchers.insert(key, watcher);
     }
 
     Ok(())
@@ -92,7 +173,9 @@ pub async fn unwatch_directory(path: String, app: AppHandle) -> std::result::Res
     let state = app.state::<WatcherState>();
     let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
 
-    if let Some(mut watcher) = watchers.remove(&path) {
+    let key = normalize_watch_key(&path);
+
+    if let Some(mut watcher) = watchers.remove(&key) {
         let _ = watcher.unwatch(Path::new(&path));
     }
 

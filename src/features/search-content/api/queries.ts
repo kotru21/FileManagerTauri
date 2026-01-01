@@ -1,8 +1,6 @@
 import { useQuery } from "@tanstack/react-query"
-import { commands, type SearchOptions } from "@/shared/api/tauri"
-
-// Helper to unwrap Result from tauri-specta
-import { unwrapResult } from "@/shared/api/tauri/client"
+import type { SearchOptions } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
 
 export const searchKeys = {
   all: ["search"] as const,
@@ -14,8 +12,7 @@ export const searchKeys = {
 export function useSearchByName(searchPath: string, query: string, maxResults?: number) {
   return useQuery({
     queryKey: searchKeys.byName(searchPath, query),
-    queryFn: async () =>
-      unwrapResult(await commands.searchByName(searchPath, query, maxResults ?? null)),
+    queryFn: async () => tauriClient.searchByName(searchPath, query, maxResults ?? null),
     enabled: !!searchPath && query.length >= 2,
     staleTime: 10_000,
   })
@@ -30,9 +27,7 @@ export function useSearchContent(
   return useQuery({
     queryKey: searchKeys.byContent(searchPath, query),
     queryFn: async () =>
-      unwrapResult(
-        await commands.searchContent(searchPath, query, extensions ?? null, maxResults ?? null),
-      ),
+      tauriClient.searchContent(searchPath, query, extensions ?? null, maxResults ?? null),
     enabled: !!searchPath && query.length >= 2,
     staleTime: 10_000,
   })
@@ -41,7 +36,7 @@ export function useSearchContent(
 export function useSearch(options: SearchOptions, enabled: boolean) {
   return useQuery({
     queryKey: searchKeys.full(options),
-    queryFn: async () => unwrapResult(await commands.searchFiles(options)),
+    queryFn: async () => tauriClient.searchFiles(options),
     enabled: enabled && options.query.length >= 2,
     staleTime: 10_000,
   })

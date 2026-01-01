@@ -6,6 +6,20 @@ pub const MAX_SEARCH_FILE_SIZE: u64 = 4 * 1024 * 1024;
 /// Maximum file size for preview (5 MB).
 pub const MAX_PREVIEW_FILE_SIZE: usize = 5_000_000;
 
+/// Maximum file size allowed for thumbnail generation (25 MB).
+///
+/// This is a safety and performance limit to avoid decoding extremely large files.
+pub const MAX_THUMBNAIL_FILE_SIZE: u64 = 25 * 1024 * 1024;
+
+/// Maximum pixel count allowed for thumbnail generation (100 MP).
+///
+/// This is a safety limit against decompression bombs / pathological images.
+pub const MAX_THUMBNAIL_PIXELS: u64 = 100_000_000;
+
+/// Minimum and maximum allowed thumbnail side requested by the UI.
+pub const MIN_THUMBNAIL_SIDE: u32 = 16;
+pub const MAX_THUMBNAIL_SIDE: u32 = 512;
+
 /// Maximum text preview length in characters.
 pub const MAX_TEXT_PREVIEW_LENGTH: usize = 10_000;
 

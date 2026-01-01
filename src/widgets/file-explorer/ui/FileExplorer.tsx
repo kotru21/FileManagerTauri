@@ -93,7 +93,7 @@ export function FileExplorer({ className, onFilesChange }: FileExplorerProps) {
 
     // Use confirmDelete from behaviorSettings
     if (behaviorSettings.confirmDelete) {
-      const confirmed = await openDeleteConfirm(paths, false)
+      const confirmed = await openDeleteConfirm(paths)
       if (!confirmed) return
     }
 

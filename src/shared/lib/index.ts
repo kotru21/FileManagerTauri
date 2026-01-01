@@ -13,3 +13,4 @@ export { type FileType, getBasename, getExtension, getFileType, joinPath } from 
 export { formatBytes } from "./format-bytes"
 export { formatDate, formatRelativeDate, formatRelativeStrict } from "./format-date"
 export { canShowThumbnail, getLocalImageUrl, THUMBNAIL_EXTENSIONS } from "./image-utils"
+export { normalizePathForComparison, toForwardSlashes } from "./path/normalizePath"
