@@ -10,7 +10,13 @@ import {
 } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
-import { parseDragData } from "@/shared/lib/drag-drop"
+import {
+  createDragData,
+  DRAG_DATA_TYPE,
+  getDragAction,
+  parseDragData,
+  setDragImage,
+} from "@/shared/lib/drag-drop"
 import type { SelectionModifiers } from "./types"
 
 interface FileGridProps {
@@ -117,6 +123,7 @@ export function FileGrid({
                   onDoubleClick={() => handleDoubleClick(file)}
                   onQuickLook={onQuickLook ? () => onQuickLook(file) : undefined}
                   onDrop={onDrop}
+                  getSelectedPaths={() => Array.from(selectedPaths)}
                   performanceSettings={performance}
                 />
               ))}
@@ -140,6 +147,7 @@ interface GridItemProps {
   onDoubleClick: () => void
   onQuickLook?: () => void
   onDrop?: (sources: string[], destination: string) => void
+  getSelectedPaths?: () => string[]
   performanceSettings: PerformanceSettings
 }
 
@@ -153,6 +161,7 @@ const GridItem = memo(function GridItem({
   onDoubleClick,
   onQuickLook,
   onDrop,
+  getSelectedPaths,
   performanceSettings,
 }: GridItemProps) {
   const [isDragOver, setIsDragOver] = useState(false)
@@ -170,6 +179,21 @@ const GridItem = memo(function GridItem({
       setIsDragOver(true)
     },
     [file.is_dir],
+  )
+
+  const handleDragStart = useCallback(
+    (e: React.DragEvent) => {
+      const selected = getSelectedPaths?.()
+      const paths = isSelected && selected && selected.length > 0 ? selected : [file.path]
+      const action = getDragAction(e)
+      const payload = createDragData(paths, action)
+
+      e.dataTransfer.setData(DRAG_DATA_TYPE, payload)
+      e.dataTransfer.setData("application/json", payload)
+      e.dataTransfer.effectAllowed = "copyMove"
+      setDragImage(e, paths.length)
+    },
+    [file.path, getSelectedPaths, isSelected],
   )
 
   const handleDrop = useCallback(
@@ -201,6 +225,8 @@ const GridItem = memo(function GridItem({
       onClick={onClick}
       onContextMenu={onClick}
       onDoubleClick={onDoubleClick}
+      draggable
+      onDragStart={handleDragStart}
       onDragOver={handleDragOver}
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}

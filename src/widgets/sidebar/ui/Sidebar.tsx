@@ -8,6 +8,7 @@ import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
 import { RecentFoldersList, useRecentFoldersStore } from "@/features/recent-folders"
 import { cn } from "@/shared/lib"
+import { parseDragData } from "@/shared/lib/drag-drop"
 import { ScrollArea, Separator, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
 
 interface SidebarProps {
@@ -91,17 +92,9 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
 
   const handleDrop = (e: React.DragEvent) => {
     e.preventDefault()
-    try {
-      const data = e.dataTransfer.getData("application/json")
-      if (data) {
-        const parsed = JSON.parse(data)
-        if (parsed.paths?.length > 0) {
-          addBookmark(parsed.paths[0])
-        }
-      }
-    } catch {
-      void 0
-    }
+    const data = parseDragData(e.dataTransfer)
+    const first = data?.paths?.[0]
+    if (first) addBookmark(first)
   }
 
   const handleDragOver = (e: React.DragEvent) => {

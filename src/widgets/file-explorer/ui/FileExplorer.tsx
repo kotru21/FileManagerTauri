@@ -1,6 +1,8 @@
+import { getCurrentWindow } from "@tauri-apps/api/window"
 import { useCallback, useEffect, useMemo } from "react"
 import { filterEntries, useFileWatcher } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
+import { useConfirmStore } from "@/features/confirm"
 import { FileContextMenu } from "@/features/context-menu"
 import { useDeleteConfirmStore } from "@/features/delete-confirm"
 import { useSelectionStore } from "@/features/file-selection"
@@ -10,6 +12,7 @@ import { QuickFilterBar, useQuickFilterStore } from "@/features/quick-filter"
 import { useBehaviorSettings, useLayoutSettings, usePerformanceSettings } from "@/features/settings"
 import { useViewModeStore } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
 import { cn } from "@/shared/lib"
 import { toast } from "@/shared/ui"
 import { CopyProgressDialog } from "@/widgets/progress-dialog"
@@ -79,6 +82,8 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
   }, [behaviorSettings.autoRefreshOnFocus, refetch])
 
   // handlers provided by useFileExplorerLogic
+
+  const openConfirm = useConfirmStore((s) => s.open)
 
   const openDeleteConfirm = useDeleteConfirmStore((s) => s.open)
 
@@ -170,6 +175,81 @@ export function FileExplorer({ className, onQuickLook, onFilesChange }: FileExpl
       onSort={setSortField}
     />
   )
+
+  useEffect(() => {
+    const win = getCurrentWindow()
+
+    const unlisten = win.onDragDropEvent(async (event) => {
+      const payload = (event as unknown as { payload?: unknown }).payload as
+        | {
+            type?: string
+            paths?: unknown
+            position?: { x?: unknown; y?: unknown }
+          }
+        | undefined
+
+      if (!payload || payload.type !== "drop") return
+      const paths = Array.isArray(payload.paths)
+        ? payload.paths.filter((p): p is string => typeof p === "string" && p.length > 0)
+        : []
+
+      if (paths.length === 0) return
+      if (!currentPath) {
+        toast.info("Сначала выберите папку назначения")
+        return
+      }
+
+      let destination = currentPath
+      const x = payload.position?.x
+      const y = payload.position?.y
+      if (typeof x === "number" && typeof y === "number") {
+        const el = document.elementFromPoint(x, y)
+        const targetPath = el?.closest?.("[data-path]")?.getAttribute?.("data-path")
+        if (targetPath) {
+          const f = files.find((it) => it.path === targetPath)
+          if (f?.is_dir) destination = f.path
+        }
+      }
+
+      const destinationNames = files.map((f) => f.name)
+      const conflictNames = paths
+        .map((p) => p.split(/[\\/]/).pop() || p)
+        .filter((name) => destinationNames.includes(name))
+
+      if (conflictNames.length > 0 && behaviorSettings.confirmOverwrite) {
+        const message = `В целевой папке уже существуют файлы: ${conflictNames.join(", ")}. Перезаписать?`
+        const ok = await openConfirm("Перезаписать файлы?", message)
+        if (!ok) return
+      }
+
+      const useProgress = paths.length > 5
+      if (useProgress) setCopyDialogOpen(true)
+
+      try {
+        if (useProgress) {
+          await tauriClient.copyEntriesParallel(paths, destination)
+        } else {
+          await tauriClient.copyEntries(paths, destination)
+        }
+        toast.success(`Скопировано ${paths.length} элементов`)
+        refetch()
+      } catch (error) {
+        toast.error(`Ошибка копирования: ${error}`)
+        if (useProgress) setCopyDialogOpen(false)
+      }
+    })
+
+    return () => {
+      unlisten.then((fn) => fn())
+    }
+  }, [
+    behaviorSettings.confirmOverwrite,
+    currentPath,
+    files,
+    openConfirm,
+    refetch,
+    setCopyDialogOpen,
+  ])
 
   return (
     <FileContextMenu
