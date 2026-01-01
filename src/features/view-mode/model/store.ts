@@ -38,15 +38,7 @@ export const useViewModeStore = create<ViewModeState>()(
       },
 
       toggleHidden: () => {
-        useSettingsStore.setState((s) => ({
-          settings: {
-            ...s.settings,
-            fileDisplay: {
-              ...s.settings.fileDisplay,
-              showHiddenFiles: !s.settings.fileDisplay.showHiddenFiles,
-            },
-          },
-        }))
+        useSettingsStore.getState().toggleHiddenFiles()
       },
 
       setGridSize: (size: "small" | "medium" | "large") => {
