@@ -2,8 +2,16 @@ import { openPath } from "@tauri-apps/plugin-opener"
 import { useEffect, useState } from "react"
 import type { FileEntry, FilePreview } from "@/shared/api/tauri"
 import { tauriClient } from "@/shared/api/tauri/client"
+
+/**
+ * Extended FileEntry with optional preview data for inline display.
+ */
+export interface FileEntryWithPreview extends FileEntry {
+  _preview?: FilePreview
+}
+
 export type UseFolderPreviewReturn = {
-  entries: FileEntry[] | null
+  entries: FileEntryWithPreview[] | null
   isLoadingEntries: boolean
   error: string | null
   pathStack: string[]
@@ -21,7 +29,7 @@ export function useFolderPreview(
     onOpenFolder?: (entry: FileEntry) => void
   },
 ) {
-  const [entries, setEntries] = useState<FileEntry[] | null>(null)
+  const [entries, setEntries] = useState<FileEntryWithPreview[] | null>(null)
   const [isLoadingEntries, setIsLoadingEntries] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
@@ -74,7 +82,7 @@ export function useFolderPreview(
       const preview = await tauriClient.getFilePreview(entry.path)
       if (opts?.onOpenFile) return opts.onOpenFile(entry, preview)
       // attach preview inline
-      setEntries([{ ...entry, _preview: preview } as unknown as FileEntry])
+      setEntries([{ ...entry, _preview: preview }])
     } catch (err) {
       setError(String(err))
     } finally {

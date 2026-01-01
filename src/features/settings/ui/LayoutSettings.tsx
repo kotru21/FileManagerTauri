@@ -5,8 +5,6 @@ import {
   EyeOff,
   Layout,
   Monitor,
-  PanelLeft,
-  PanelRight,
   Plus,
   RotateCcw,
   Save,
@@ -160,7 +158,6 @@ export const LayoutSettings = memo(function LayoutSettings() {
   const layout = useLayoutSettings()
   const {
     setLayoutPreset,
-    updatePanelLayout,
     updateLayout,
     updateColumnWidths,
     saveCustomLayout,
@@ -213,85 +210,6 @@ export const LayoutSettings = memo(function LayoutSettings() {
                 onSelect={handlePresetSelect(id)}
               />
             ))}
-          </div>
-        </section>
-
-        <Separator />
-
-        {/* Panel Settings */}
-        <section>
-          <h3 className="text-sm font-medium mb-4 flex items-center gap-2">
-            <Columns size={16} />
-            Настройки панелей
-          </h3>
-          <div className="space-y-4">
-            <Toggle
-              label="Боковая панель"
-              description="Показывать панель навигации"
-              checked={layout.panelLayout.showSidebar}
-              onChange={(v) => updatePanelLayout({ showSidebar: v })}
-              icon={<PanelLeft size={16} className="text-muted-foreground" />}
-            />
-
-            {layout.panelLayout.showSidebar && (
-              <>
-                <Toggle
-                  label="Свёрнутый режим"
-                  description="Компактный вид боковой панели"
-                  checked={layout.panelLayout.sidebarCollapsed ?? false}
-                  onChange={(v) => updatePanelLayout({ sidebarCollapsed: v })}
-                  icon={<PanelLeft size={16} className="text-muted-foreground" />}
-                />
-
-                <Toggle
-                  label="Закрепить ширину"
-                  description="Фиксировать ширину сайдбара и управлять ею через ползунок"
-                  checked={layout.panelLayout.sidebarSizeLocked ?? false}
-                  onChange={(v) => updatePanelLayout({ sidebarSizeLocked: v })}
-                  icon={<PanelLeft size={16} className="text-muted-foreground" />}
-                />
-
-                <Slider
-                  label="Ширина сайдбара"
-                  value={layout.panelLayout.sidebarSize}
-                  min={10}
-                  max={40}
-                  unit="%"
-                  onChange={(v) => updatePanelLayout({ sidebarSize: v })}
-                  disabled={!layout.panelLayout.sidebarSizeLocked}
-                />
-              </>
-            )}
-
-            <Toggle
-              label="Панель превью"
-              description="Показывать превью выбранного файла"
-              checked={layout.panelLayout.showPreview}
-              onChange={(v) => updatePanelLayout({ showPreview: v })}
-              icon={<PanelRight size={16} className="text-muted-foreground" />}
-            />
-
-            {layout.panelLayout.showPreview && (
-              <>
-                <Toggle
-                  label="Закрепить ширину"
-                  description="Фиксировать ширину превью и управлять ею через ползунок"
-                  checked={layout.panelLayout.previewSizeLocked ?? false}
-                  onChange={(v) => updatePanelLayout({ previewSizeLocked: v })}
-                  icon={<PanelRight size={16} className="text-muted-foreground" />}
-                />
-
-                <Slider
-                  label="Ширина превью"
-                  value={layout.panelLayout.previewPanelSize}
-                  min={15}
-                  max={50}
-                  unit="%"
-                  onChange={(v) => updatePanelLayout({ previewPanelSize: v })}
-                  disabled={!layout.panelLayout.previewSizeLocked}
-                />
-              </>
-            )}
           </div>
         </section>
 

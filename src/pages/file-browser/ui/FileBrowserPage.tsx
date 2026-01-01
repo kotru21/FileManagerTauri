@@ -1,48 +1,32 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { PanelImperativeHandle } from "react-resizable-panels"
 import { fileKeys } from "@/entities/file-entry"
 import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
 import { ConfirmDialog } from "@/features/confirm"
 import { DeleteConfirmDialog, useDeleteConfirmStore } from "@/features/delete-confirm"
 import { useSelectionStore } from "@/features/file-selection"
-import { useInlineEditStore } from "@/features/inline-edit"
 import { useLayoutStore } from "@/features/layout"
-import { isApplyingSettings } from "@/features/layout/sync"
 import { useNavigationStore } from "@/features/navigation"
 import {
   createOperationDescription,
   useOperationsHistoryStore,
   useUndoToast,
 } from "@/features/operations-history"
-import { SearchResultItem, useSearchStore } from "@/features/search-content"
 import { SettingsDialog, useLayoutSettings, useSettingsStore } from "@/features/settings"
-import { TabBar, useTabsStore } from "@/features/tabs"
+import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
 import { tauriClient } from "@/shared/api/tauri/client"
 import { cn } from "@/shared/lib"
-import {
-  ResizableHandle,
-  ResizablePanel,
-  ResizablePanelGroup,
-  ScrollArea,
-  TooltipProvider,
-  toast,
-} from "@/shared/ui"
-import {
-  Breadcrumbs,
-  FileExplorer,
-  PreviewPanel,
-  Sidebar,
-  StatusBar,
-  Toolbar,
-  WindowControls,
-} from "@/widgets"
+import { TooltipProvider, toast } from "@/shared/ui"
+import { StatusBar } from "@/widgets"
 import { useSyncLayoutWithSettings } from "../hooks/useSyncLayoutWithSettings"
+import { HeaderSection } from "./HeaderSection"
+import { ResizablePanels } from "./ResizablePanels"
+import { TabBarSection } from "./TabBarSection"
 
 export function FileBrowserPage() {
   // Navigation
-  const { currentPath, navigate } = useNavigationStore()
+  const currentPath = useNavigationStore((s) => s.currentPath)
 
   // Tabs
   const { tabs, addTab, updateTabPath, getActiveTab } = useTabsStore()
@@ -54,40 +38,10 @@ export function FileBrowserPage() {
 
   // Layout from settings
   const layoutSettings = useLayoutSettings()
-  const { layout: panelLayout, setLayout } = useLayoutStore()
+  const { setLayout } = useLayoutStore()
 
-  // Sync layout store with settings (encapsulated in a hook)
-  // This handles initial sync, applying presets/custom layouts, column widths and persisting
-  // back to settings when changes occur.
-  // The hook avoids DOM operations so it's safe to unit-test in isolation.
+  // Sync layout store with settings
   useSyncLayoutWithSettings()
-
-  // Register panel refs with the panel controller so DOM imperative calls are centralized
-  useEffect(() => {
-    let mounted = true
-    let cleanup = () => {}
-
-    ;(async () => {
-      const mod = await import("@/features/layout/panelController")
-      if (!mounted) return
-      mod.registerSidebar(sidebarPanelRef)
-      mod.registerPreview(previewPanelRef)
-
-      cleanup = () => {
-        try {
-          mod.registerSidebar(null)
-          mod.registerPreview(null)
-        } catch {
-          /* ignore */
-        }
-      }
-    })()
-
-    return () => {
-      mounted = false
-      cleanup()
-    }
-  }, [])
 
   // Settings
   const openSettings = useSettingsStore((s) => s.open)
@@ -98,18 +52,8 @@ export function FileBrowserPage() {
   // Operations history
   const addOperation = useOperationsHistoryStore((s) => s.addOperation)
 
-  // Search
-  const { results: searchResults, isSearching, reset: resetSearch } = useSearchStore()
-
   // Quick Look state
   const [quickLookFile, setQuickLookFile] = useState<FileEntry | null>(null)
-
-  // Panel refs for imperative control
-  const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null)
-  const previewPanelRef = useRef<PanelImperativeHandle | null>(null)
-
-  // Debounce ref for layout persistence (to avoid blocking during resize)
-  const layoutSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Files cache for preview lookup
   const filesRef = useRef<FileEntry[]>([])
@@ -132,58 +76,18 @@ export function FileBrowserPage() {
     }
   }, [currentPath, getActiveTab, updateTabPath])
 
-  // Handle tab changes
-  const handleTabChange = useCallback(
-    (path: string) => {
-      navigate(path)
-      resetSearch()
-    },
-    [navigate, resetSearch],
-  )
-
   const selectedFile = useMemo(() => {
-    // Quick look takes priority
     if (quickLookFile) return quickLookFile
-
-    // Find file by lastSelectedPath
     if (lastSelectedPath && filesRef.current.length > 0) {
       return filesRef.current.find((f) => f.path === lastSelectedPath) ?? null
     }
     return null
   }, [quickLookFile, lastSelectedPath])
 
-  // Show search results when we have results
-  const showSearchResults = searchResults.length > 0 || isSearching
-
-  const selectFile = useSelectionStore((s) => s.selectFile)
-
-  // Handle search result selection
-  const handleSearchResultSelect = useCallback(
-    async (path: string) => {
-      // Navigate to parent directory
-      try {
-        const parentPath = await tauriClient.getParentPath(path)
-        if (parentPath) {
-          navigate(parentPath)
-          resetSearch()
-
-          // Select the file after navigation
-          setTimeout(() => {
-            selectFile(path)
-          }, 100)
-        }
-      } catch {
-        // ignore
-      }
-    },
-    [navigate, resetSearch, selectFile],
-  )
-
   // Quick Look handler
   const handleQuickLook = useCallback(
     (file: FileEntry) => {
       setQuickLookFile(file)
-      // Show preview panel if hidden
       setLayout({ showPreview: true })
     },
     [setLayout],
@@ -211,21 +115,6 @@ export function FileBrowserPage() {
       queryClient.invalidateQueries({ queryKey: fileKeys.directory(currentPath) })
     }
   }, [currentPath, queryClient])
-
-  const startNewFolder = useInlineEditStore((s) => s.startNewFolder)
-  const startNewFile = useInlineEditStore((s) => s.startNewFile)
-
-  const handleNewFolder = useCallback(() => {
-    if (currentPath) {
-      startNewFolder(currentPath)
-    }
-  }, [currentPath, startNewFolder])
-
-  const handleNewFile = useCallback(() => {
-    if (currentPath) {
-      startNewFile(currentPath)
-    }
-  }, [currentPath, startNewFile])
 
   const performDelete = useCallback(async () => {
     const paths = Array.from(selectedPaths)
@@ -259,26 +148,8 @@ export function FileBrowserPage() {
 
   // Show undo toast for last operation
   useUndoToast((operation) => {
-    // Handle undo based on operation type
     toast.info(`Отмена: ${operation.description}`)
   })
-
-  // Toggle preview
-  const handleTogglePreview = useCallback(() => {
-    setLayout({ showPreview: !panelLayout.showPreview })
-  }, [panelLayout.showPreview, setLayout])
-
-  const mainDefaultSize = (() => {
-    const sidebar = panelLayout.showSidebar ? panelLayout.sidebarSize : 0
-    const preview = panelLayout.showPreview ? panelLayout.previewPanelSize : 0
-
-    if (panelLayout.showSidebar && panelLayout.showPreview) {
-      return Math.max(10, 100 - sidebar - preview)
-    }
-    if (panelLayout.showSidebar) return Math.max(30, 100 - sidebar)
-    if (panelLayout.showPreview) return Math.max(30, 100 - preview)
-    return 100
-  })()
 
   return (
     <TooltipProvider>
@@ -289,125 +160,18 @@ export function FileBrowserPage() {
         )}
       >
         {/* Tab Bar */}
-        <TabBar onTabChange={handleTabChange} className="shrink-0" controls={<WindowControls />} />
+        <TabBarSection className="shrink-0" />
 
-        {/* Header */}
-        <div className="shrink-0">
-          {/* Breadcrumbs */}
-          {layoutSettings.showBreadcrumbs && (
-            <div className="px-3 py-2 border-b">
-              <Breadcrumbs />
-            </div>
-          )}
+        {/* Header (Breadcrumbs + Toolbar) */}
+        <HeaderSection />
 
-          {/* Toolbar */}
-          {layoutSettings.showToolbar && (
-            <Toolbar
-              onRefresh={handleRefresh}
-              onNewFolder={handleNewFolder}
-              onNewFile={handleNewFile}
-              onTogglePreview={handleTogglePreview}
-              showPreview={panelLayout.showPreview}
-            />
-          )}
-        </div>
-
-        {/* Main Content */}
-        <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0 min-w-0">
-          {/* Sidebar */}
-          {panelLayout.showSidebar && (
-            <>
-              <ResizablePanel
-                id="sidebar"
-                key={
-                  panelLayout.sidebarSizeLocked ? `sidebar-${panelLayout.sidebarSize}` : undefined
-                }
-                panelRef={sidebarPanelRef}
-                defaultSize={panelLayout.sidebarSize}
-                minSize={5}
-                maxSize={200}
-                collapsible
-                collapsedSize={4}
-                onResize={(size) => {
-                  // Skip store update if settings are being applied (avoid feedback loop)
-                  if (isApplyingSettings()) return
-
-                  const sizeNum = typeof size === "object" ? size.asPercentage : size
-
-                  // Check collapsed state via imperative API
-                  const isCollapsed = sidebarPanelRef.current?.isCollapsed() ?? false
-
-                  // Debounce store update to avoid blocking
-                  if (layoutSaveTimeoutRef.current) {
-                    clearTimeout(layoutSaveTimeoutRef.current)
-                  }
-                  layoutSaveTimeoutRef.current = setTimeout(() => {
-                    setLayout({
-                      sidebarSize: isCollapsed ? panelLayout.sidebarSize : sizeNum,
-                      sidebarCollapsed: isCollapsed,
-                    })
-                  }, 200)
-                }}
-              >
-                <Sidebar collapsed={panelLayout.sidebarCollapsed} />
-              </ResizablePanel>
-              {!panelLayout.sidebarSizeLocked && <ResizableHandle withHandle />}
-            </>
-          )}
-
-          <ResizablePanel id="main" defaultSize={mainDefaultSize} minSize={10}>
-            {showSearchResults ? (
-              <ScrollArea className="h-full">
-                <div className="p-2 space-y-1">
-                  {searchResults.map((result) => (
-                    <SearchResultItem
-                      key={result.path}
-                      result={result}
-                      onSelect={handleSearchResultSelect}
-                    />
-                  ))}
-                </div>
-              </ScrollArea>
-            ) : (
-              <FileExplorer onQuickLook={handleQuickLook} onFilesChange={handleFilesChange} />
-            )}
-          </ResizablePanel>
-
-          {/* Preview Panel */}
-          {panelLayout.showPreview && (
-            <>
-              {!panelLayout.previewSizeLocked && <ResizableHandle withHandle />}
-              <ResizablePanel
-                id="preview"
-                key={
-                  panelLayout.previewSizeLocked
-                    ? `preview-${panelLayout.previewPanelSize}`
-                    : undefined
-                }
-                panelRef={previewPanelRef}
-                defaultSize={panelLayout.previewPanelSize}
-                minSize={5}
-                maxSize={280}
-                onResize={(size) => {
-                  const sizeNum = typeof size === "object" ? size.asPercentage : size
-
-                  // Skip store update if settings are being applied (avoid feedback loop)
-                  if (isApplyingSettings()) return
-
-                  // Debounce layout save
-                  if (layoutSaveTimeoutRef.current) {
-                    clearTimeout(layoutSaveTimeoutRef.current)
-                  }
-                  layoutSaveTimeoutRef.current = setTimeout(() => {
-                    setLayout({ previewPanelSize: sizeNum })
-                  }, 150)
-                }}
-              >
-                <PreviewPanel file={selectedFile} onClose={() => setQuickLookFile(null)} />
-              </ResizablePanel>
-            </>
-          )}
-        </ResizablePanelGroup>
+        {/* Main Content with Resizable Panels */}
+        <ResizablePanels
+          onQuickLook={handleQuickLook}
+          onFilesChange={handleFilesChange}
+          selectedFile={selectedFile}
+          onCloseQuickLook={() => setQuickLookFile(null)}
+        />
 
         {/* Status Bar */}
         {layoutSettings.showStatusBar && <StatusBar />}

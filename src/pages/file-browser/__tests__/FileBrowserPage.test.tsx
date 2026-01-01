@@ -39,29 +39,6 @@ describe("FileBrowserPage layout sync", () => {
     useLayoutStore.getState().resetLayout()
   })
 
-  it("applies panelLayout changes from settings to layout store", async () => {
-    const { container } = renderWithProviders(<TestHarness />)
-
-    // initial
-    expect(useLayoutStore.getState().layout.showSidebar).toBe(true)
-
-    act(() => {
-      useSettingsStore.getState().updateLayout({
-        panelLayout: {
-          ...useSettingsStore.getState().settings.layout.panelLayout,
-          showSidebar: false,
-        },
-      })
-    })
-
-    await waitFor(() => {
-      expect(useLayoutStore.getState().layout.showSidebar).toBe(false)
-    })
-
-    // cleanup (not strictly necessary because of beforeEach)
-    container.remove()
-  })
-
   it("syncs column widths from settings into layout store", async () => {
     const { container } = renderWithProviders(<TestHarness />)
 
