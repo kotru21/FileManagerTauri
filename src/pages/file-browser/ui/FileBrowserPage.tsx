@@ -1,6 +1,6 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef, useState } from "react"
-import type { PanelImperativeHandle, PanelSize } from "react-resizable-panels"
+import type { PanelImperativeHandle } from "react-resizable-panels"
 import { fileKeys } from "@/entities/file-entry"
 import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
 import { ConfirmDialog } from "@/features/confirm"
@@ -8,6 +8,7 @@ import { DeleteConfirmDialog, useDeleteConfirmStore } from "@/features/delete-co
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useLayoutStore } from "@/features/layout"
+import { isApplyingSettings } from "@/features/layout/sync"
 import { useNavigationStore } from "@/features/navigation"
 import {
   createOperationDescription,
@@ -85,17 +86,6 @@ export function FileBrowserPage() {
     return () => {
       mounted = false
       cleanup()
-      // cancel any outstanding RAFs
-      if (sidebarRafRef.current !== null) {
-        window.cancelAnimationFrame(sidebarRafRef.current)
-        sidebarRafRef.current = null
-        sidebarPendingRef.current = null
-      }
-      if (previewRafRef.current !== null) {
-        window.cancelAnimationFrame(previewRafRef.current)
-        previewRafRef.current = null
-        previewPendingRef.current = null
-      }
     }
   }, [])
 
@@ -118,11 +108,8 @@ export function FileBrowserPage() {
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null)
   const previewPanelRef = useRef<PanelImperativeHandle | null>(null)
 
-  // RAF batching refs to throttle high-frequency resize events
-  const sidebarPendingRef = useRef<{ size: number } | null>(null)
-  const sidebarRafRef = useRef<number | null>(null)
-  const previewPendingRef = useRef<{ size: number } | null>(null)
-  const previewRafRef = useRef<number | null>(null)
+  // Debounce ref for layout persistence (to avoid blocking during resize)
+  const layoutSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
 
   // Files cache for preview lookup
   const filesRef = useRef<FileEntry[]>([])
@@ -331,39 +318,35 @@ export function FileBrowserPage() {
           {panelLayout.showSidebar && (
             <>
               <ResizablePanel
-                // When size is locked, remount panel on size change so defaultSize is applied
+                id="sidebar"
                 key={
                   panelLayout.sidebarSizeLocked ? `sidebar-${panelLayout.sidebarSize}` : undefined
                 }
-                ref={sidebarPanelRef}
+                panelRef={sidebarPanelRef}
                 defaultSize={panelLayout.sidebarSize}
-                minSize={10}
-                maxSize={30}
+                minSize={5}
+                maxSize={200}
                 collapsible
                 collapsedSize={4}
-                onResize={(panelSize: PanelSize) => {
-                  // allow runtime resizing only when not locked
-                  if (!panelLayout.sidebarSizeLocked) {
-                    const size = panelSize.asPercentage
+                onResize={(size) => {
+                  // Skip store update if settings are being applied (avoid feedback loop)
+                  if (isApplyingSettings()) return
 
-                    // Throttle updates to once per animation frame to avoid jank
-                    // store pending size in a ref and apply once per RAF
-                    if (!sidebarPendingRef.current) sidebarPendingRef.current = { size }
-                    else sidebarPendingRef.current.size = size
-                    if (sidebarRafRef.current === null) {
-                      sidebarRafRef.current = window.requestAnimationFrame(() => {
-                        const pending = sidebarPendingRef.current
-                        sidebarPendingRef.current = null
-                        sidebarRafRef.current = null
-                        if (pending) {
-                          setLayout({
-                            sidebarSize: pending.size,
-                            sidebarCollapsed: pending.size <= 4.1,
-                          })
-                        }
-                      })
-                    }
+                  const sizeNum = typeof size === "object" ? size.asPercentage : size
+
+                  // Check collapsed state via imperative API
+                  const isCollapsed = sidebarPanelRef.current?.isCollapsed() ?? false
+
+                  // Debounce store update to avoid blocking
+                  if (layoutSaveTimeoutRef.current) {
+                    clearTimeout(layoutSaveTimeoutRef.current)
                   }
+                  layoutSaveTimeoutRef.current = setTimeout(() => {
+                    setLayout({
+                      sidebarSize: isCollapsed ? panelLayout.sidebarSize : sizeNum,
+                      sidebarCollapsed: isCollapsed,
+                    })
+                  }, 200)
                 }}
               >
                 <Sidebar collapsed={panelLayout.sidebarCollapsed} />
@@ -372,7 +355,7 @@ export function FileBrowserPage() {
             </>
           )}
 
-          <ResizablePanel defaultSize={mainDefaultSize} minSize={30}>
+          <ResizablePanel id="main" defaultSize={mainDefaultSize} minSize={10}>
             {showSearchResults ? (
               <ScrollArea className="h-full">
                 <div className="p-2 space-y-1">
@@ -395,31 +378,29 @@ export function FileBrowserPage() {
             <>
               {!panelLayout.previewSizeLocked && <ResizableHandle withHandle />}
               <ResizablePanel
+                id="preview"
                 key={
                   panelLayout.previewSizeLocked
                     ? `preview-${panelLayout.previewPanelSize}`
                     : undefined
                 }
-                ref={previewPanelRef}
+                panelRef={previewPanelRef}
                 defaultSize={panelLayout.previewPanelSize}
-                minSize={15}
-                maxSize={40}
-                onResize={(panelSize: PanelSize) => {
-                  if (!panelLayout.previewSizeLocked) {
-                    const size = panelSize.asPercentage
+                minSize={5}
+                maxSize={280}
+                onResize={(size) => {
+                  const sizeNum = typeof size === "object" ? size.asPercentage : size
 
-                    if (!previewPendingRef.current) previewPendingRef.current = { size }
-                    else previewPendingRef.current.size = size
+                  // Skip store update if settings are being applied (avoid feedback loop)
+                  if (isApplyingSettings()) return
 
-                    if (previewRafRef.current === null) {
-                      previewRafRef.current = window.requestAnimationFrame(() => {
-                        const pending = previewPendingRef.current
-                        previewPendingRef.current = null
-                        previewRafRef.current = null
-                        if (pending) setLayout({ previewPanelSize: pending.size })
-                      })
-                    }
+                  // Debounce layout save
+                  if (layoutSaveTimeoutRef.current) {
+                    clearTimeout(layoutSaveTimeoutRef.current)
                   }
+                  layoutSaveTimeoutRef.current = setTimeout(() => {
+                    setLayout({ previewPanelSize: sizeNum })
+                  }, 150)
                 }}
               >
                 <PreviewPanel file={selectedFile} onClose={() => setQuickLookFile(null)} />

@@ -22,6 +22,8 @@ export {
 } from "./dialog"
 export { Input } from "./input"
 export {
+  type ImperativePanelHandle,
+  type PanelSize,
   ResizableHandle,
   ResizablePanel,
   ResizablePanelGroup,

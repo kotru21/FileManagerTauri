@@ -1,5 +1,9 @@
 import { type ComponentProps, type ForwardedRef, forwardRef, type Ref } from "react"
-import type { GroupImperativeHandle, PanelImperativeHandle } from "react-resizable-panels"
+import type {
+  GroupImperativeHandle,
+  PanelImperativeHandle,
+  PanelSize,
+} from "react-resizable-panels"
 import * as ResizablePrimitive from "react-resizable-panels"
 import { cn } from "@/shared/lib"
 
@@ -8,6 +12,9 @@ export type PrimitivePanelRef = PanelImperativeHandle
 export type PrimitiveGroupRef = GroupImperativeHandle
 
 export type ImperativePanelHandle = PanelImperativeHandle
+
+// Re-export PanelSize for consumers
+export type { PanelSize }
 
 function toPercentString(v?: number | string | null) {
   if (v === undefined || v === null) return undefined
@@ -39,15 +46,32 @@ export const ResizableGroup = forwardRef<
   )
 })
 
-export const ResizablePanel = forwardRef<
-  PrimitivePanelRef | null,
-  ComponentProps<typeof ResizablePrimitive.Panel> & {
-    defaultSize?: number | string
-    minSize?: number | string
-    maxSize?: number | string
-    collapsedSize?: number | string
-  }
->(function ResizablePanel({ defaultSize, minSize, maxSize, collapsedSize, ...props }, ref) {
+// Panel props - properly typed for v4 API
+// In v4, Panel does not use forwardRef - panelRef is a direct prop
+type ResizablePanelProps = Omit<
+  ComponentProps<typeof ResizablePrimitive.Panel>,
+  "onResize" | "defaultSize" | "minSize" | "maxSize" | "collapsedSize" | "panelRef"
+> & {
+  defaultSize?: number | string
+  minSize?: number | string
+  maxSize?: number | string
+  collapsedSize?: number | string
+  // v4 onResize signature: (panelSize: PanelSize, id: string | number | undefined) => void
+  onResize?: (panelSize: PanelSize) => void
+  // panelRef is a direct prop in v4, not via forwardRef
+  panelRef?: Ref<PanelImperativeHandle>
+}
+
+// NOTE: In v4, Panel uses panelRef prop directly, not forwardRef
+export function ResizablePanel({
+  defaultSize,
+  minSize,
+  maxSize,
+  collapsedSize,
+  onResize,
+  panelRef,
+  ...props
+}: ResizablePanelProps) {
   return (
     <ResizablePrimitive.Panel
       {...props}
@@ -55,10 +79,11 @@ export const ResizablePanel = forwardRef<
       minSize={toPercentString(minSize) ?? undefined}
       maxSize={toPercentString(maxSize) ?? undefined}
       collapsedSize={toPercentString(collapsedSize) ?? undefined}
-      panelRef={ref as ForwardedRef<PrimitivePanelRef | null>}
+      onResize={onResize}
+      panelRef={panelRef}
     />
   )
-})
+}
 
 export function ResizableSeparator({
   className,
@@ -69,7 +94,14 @@ export function ResizableSeparator({
     <ResizablePrimitive.Separator
       {...props}
       className={cn(
-        "relative flex w-px items-center justify-center bg-border hover:bg-accent transition-colors",
+        // Base styles: visible width for drag, touch-none to prevent scroll
+        "relative flex items-center justify-center bg-border touch-none",
+        // Horizontal separator: vertical line 4px wide
+        "w-1 cursor-col-resize",
+        // Vertical separator: horizontal line
+        "data-[panel-group-direction=vertical]:h-1 data-[panel-group-direction=vertical]:w-full data-[panel-group-direction=vertical]:cursor-row-resize",
+        // Hover effect
+        "hover:bg-accent transition-colors",
         className,
       )}
       data-separator

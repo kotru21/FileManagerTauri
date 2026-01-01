@@ -219,26 +219,3 @@ export const usePreviewLayout = () =>
   }))
 
 export const useColumnWidths = () => useLayoutStore((s) => s.layout.columnWidths)
-
-// Ensure persisted representation uses percent-strings for sizes: subscribe and rewrite storage when layout updates
-const LAYOUT_KEY = "layout-storage"
-useLayoutStore.subscribe(
-  (s) => s.layout,
-  (newLayout) => {
-    try {
-      const toPercent = (v?: number | string) => (typeof v === "number" ? `${v}%` : v)
-      const payload = {
-        state: {
-          layout: {
-            sidebarSize: toPercent(newLayout.sidebarSize),
-            mainPanelSize: toPercent(newLayout.mainPanelSize),
-            previewPanelSize: toPercent(newLayout.previewPanelSize),
-          },
-        },
-      }
-      localStorage.setItem(LAYOUT_KEY, JSON.stringify(payload))
-    } catch {
-      /* ignore */
-    }
-  },
-)
