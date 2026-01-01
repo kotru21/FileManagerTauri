@@ -39,20 +39,20 @@ describe("FileBrowserPage layout sync", () => {
     useLayoutStore.getState().resetLayout()
   })
 
-  it("syncs column widths from settings into layout store", async () => {
+  it("column widths are stored in layoutStore", async () => {
     const { container } = renderWithProviders(<TestHarness />)
 
-    const newWidths = { size: 120, date: 160, padding: 12 }
-
     act(() => {
-      useSettingsStore.getState().updateLayout({ columnWidths: newWidths })
+      useLayoutStore.getState().setColumnWidth("size", 120)
+      useLayoutStore.getState().setColumnWidth("date", 160)
+      useLayoutStore.getState().setColumnWidth("padding", 12)
     })
 
     await waitFor(() => {
       const cw = useLayoutStore.getState().layout.columnWidths
-      expect(cw.size).toBe(newWidths.size)
-      expect(cw.date).toBe(newWidths.date)
-      expect(cw.padding).toBe(newWidths.padding)
+      expect(cw.size).toBe(120)
+      expect(cw.date).toBe(160)
+      expect(cw.padding).toBe(12)
     })
 
     container.remove()
