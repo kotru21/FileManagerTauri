@@ -111,6 +111,7 @@ interface SettingsState {
   updateAppearance: (updates: Partial<AppearanceSettings>) => void
   updateBehavior: (updates: Partial<BehaviorSettings>) => void
   updateFileDisplay: (updates: Partial<FileDisplaySettings>) => void
+  toggleHiddenFiles: () => void
   updateLayout: (updates: Partial<LayoutSettings>) => void
   updatePerformance: (updates: Partial<PerformanceSettings>) => void
   updateKeyboard: (updates: Partial<KeyboardSettings>) => void
@@ -206,6 +207,19 @@ export const useSettingsStore = create<SettingsState>()(
             fileDisplay: { ...state.settings.fileDisplay, ...updates },
           },
         })),
+
+      toggleHiddenFiles: () => {
+        const current = get().settings.fileDisplay.showHiddenFiles
+        set((state) => ({
+          settings: {
+            ...state.settings,
+            fileDisplay: {
+              ...state.settings.fileDisplay,
+              showHiddenFiles: !current,
+            },
+          },
+        }))
+      },
 
       updateLayout: (updates) =>
         set((state) => ({

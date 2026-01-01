@@ -147,6 +147,105 @@
       }
     },
     {
+      "includes": ["**/src/shared/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": [
+                      "@/entities/*",
+                      "src/entities/*",
+                      "./src/entities/*",
+                      "*src/entities/*"
+                    ],
+                    "message": "Importing from higher FSD layers into 'shared' is forbidden. Move shared primitives down or invert dependency via adapters."
+                  },
+                  {
+                    "group": [
+                      "@/features/*",
+                      "src/features/*",
+                      "./src/features/*",
+                      "*src/features/*"
+                    ],
+                    "message": "Importing from higher FSD layers into 'shared' is forbidden. Move shared primitives down or invert dependency via adapters."
+                  },
+                  {
+                    "group": ["@/widgets/*", "src/widgets/*", "./src/widgets/*", "*src/widgets/*"],
+                    "message": "Importing from higher FSD layers into 'shared' is forbidden."
+                  },
+                  {
+                    "group": ["@/pages/*", "src/pages/*", "./src/pages/*", "*src/pages/*"],
+                    "message": "Importing from higher FSD layers into 'shared' is forbidden."
+                  },
+                  {
+                    "group": ["@/app/*", "src/app/*", "./src/app/*", "*src/app/*"],
+                    "message": "Importing from higher FSD layers into 'shared' is forbidden."
+                  },
+                  {
+                    "group": [
+                      "@/shared/api/tauri/bindings",
+                      "src/shared/api/tauri/bindings",
+                      "./src/shared/api/tauri/bindings",
+                      "*src/shared/api/tauri/bindings"
+                    ],
+                    "message": "Do not import generated Tauri bindings/commands directly. Use '@/shared/api/tauri/client' (tauriClient) instead so errors/results are handled consistently."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/src/widgets/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@/pages/*", "src/pages/*", "./src/pages/*", "*src/pages/*"],
+                    "message": "Importing from pages into widgets is forbidden. Use composition at the page level."
+                  },
+                  {
+                    "group": ["@/app/*", "src/app/*", "./src/app/*", "*src/app/*"],
+                    "message": "Importing from app into widgets is forbidden."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["**/src/pages/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@/app/*", "src/app/*", "./src/app/*", "*src/app/*"],
+                    "message": "Importing from app into pages is forbidden. Pages should be composed from widgets/features/entities/shared."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["src/shared/api/tauri/client.ts", "src/test/shared/tauri/client.test.ts"],
       "linter": {
         "rules": {
