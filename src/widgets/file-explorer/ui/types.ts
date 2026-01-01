@@ -4,8 +4,18 @@ import type { AppearanceSettings, FileDisplaySettings } from "@/features/setting
 import type { ViewMode } from "@/features/view-mode"
 import type { FileEntry } from "@/shared/api/tauri"
 
+/**
+ * Common modifier keys interface for selection events.
+ * Compatible with both MouseEvent and KeyboardEvent.
+ */
+export interface SelectionModifiers {
+  ctrlKey?: boolean
+  shiftKey?: boolean
+  metaKey?: boolean
+}
+
 export type FileExplorerHandlers = {
-  handleSelect: (path: string, e: React.MouseEvent) => void
+  handleSelect: (path: string, e: SelectionModifiers) => void
   handleOpen: (path: string, isDir: boolean) => void
   handleDrop: (sources: string[], destination: string) => void
   handleCreateFolder: (name: string) => void

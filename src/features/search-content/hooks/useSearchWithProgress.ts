@@ -40,11 +40,8 @@ export function useSearchWithProgress() {
 
   const search = useCallback(async () => {
     if (!query.trim() || !searchPath) {
-      console.log("Search cancelled: no query or path", { query, searchPath })
       return
     }
-
-    console.log("Starting search:", { query, searchPath, searchContent })
 
     // Remove previous listener
     if (unlistenRef.current) {
@@ -80,16 +77,11 @@ export function useSearchWithProgress() {
         file_extensions: null,
       }
 
-      console.log("Calling searchFilesStream with options:", options)
-
       const files = await tauriClient.searchFilesStream(options)
-
-      console.log("Search result:", files)
 
       setResults(files)
       toast.success(`Найдено ${files.length} файлов`)
     } catch (error) {
-      console.error("Search exception:", error)
       toast.error(`Ошибка поиска: ${String(error)}`)
     } finally {
       setIsSearching(false)

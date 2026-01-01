@@ -1,15 +1,31 @@
 import type { BehaviorSettings } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
+import type { SelectionModifiers } from "../ui/types"
 
-export function isContextMenuEvent(e: React.MouseEvent | React.PointerEvent | MouseEvent) {
+/**
+ * Selection event type - accepts both React events and our custom SelectionModifiers
+ */
+type SelectionEvent = React.MouseEvent | React.PointerEvent | MouseEvent | SelectionModifiers
+
+function hasButton(e: SelectionEvent): e is React.MouseEvent | React.PointerEvent | MouseEvent {
+  return "button" in e
+}
+
+function hasType(e: SelectionEvent): e is React.MouseEvent | React.PointerEvent | MouseEvent {
+  return "type" in e
+}
+
+export function isContextMenuEvent(e: SelectionEvent) {
   // React synthetic events have type and possibly button; native contextmenu event has type 'contextmenu'
   // button === 2 is right mouse button
-  return e.type === "contextmenu" || (e as MouseEvent).button === 2
+  if (hasType(e) && e.type === "contextmenu") return true
+  if (hasButton(e) && e.button === 2) return true
+  return false
 }
 
 export function handleSelectionEvent(options: {
   path: string
-  e: React.MouseEvent | React.PointerEvent | MouseEvent
+  e: SelectionEvent
   files: FileEntry[]
   behaviorSettings: BehaviorSettings
   selectFile: (path: string) => void
@@ -55,23 +71,17 @@ export function handleSelectionEvent(options: {
   }
 
   // When doubleClickToOpen is enabled, single click should only select
-  if (e instanceof MouseEvent || (e as React.MouseEvent)) {
-    const me = e as React.MouseEvent
-    if (me.shiftKey && files.length > 0) {
-      const allPaths = files.map((f) => f.path)
-      const lastSelected = getSelectedPaths()[0] || allPaths[0]
-      selectRange(lastSelected, path, allPaths)
-      return { shouldOpen: false }
-    } else if (me.ctrlKey || me.metaKey) {
-      toggleSelection(path)
-      return { shouldOpen: false }
-    } else {
-      selectFile(path)
-      return { shouldOpen: false }
-    }
+  // Check for shift/ctrl/meta key modifiers
+  if (e.shiftKey && files.length > 0) {
+    const allPaths = files.map((f) => f.path)
+    const lastSelected = getSelectedPaths()[0] || allPaths[0]
+    selectRange(lastSelected, path, allPaths)
+    return { shouldOpen: false }
+  } else if (e.ctrlKey || e.metaKey) {
+    toggleSelection(path)
+    return { shouldOpen: false }
+  } else {
+    selectFile(path)
+    return { shouldOpen: false }
   }
-
-  // default fallback
-  selectFile(path)
-  return { shouldOpen: false }
 }

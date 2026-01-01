@@ -3,6 +3,7 @@ import { useInlineEditStore } from "@/features/inline-edit"
 import type { ColumnWidths } from "@/features/layout"
 import type { AppearanceSettings, FileDisplaySettings } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
+import { findLastIndex } from "@/shared/lib"
 import type { FileExplorerHandlers } from "./types"
 
 interface Props {
@@ -37,14 +38,6 @@ export function FileExplorerSimpleList({
   const mode = useInlineEditStore((s) => s.mode)
   const targetPath = useInlineEditStore((s) => s.targetPath)
   const inlineCancel = useInlineEditStore((s) => s.cancel)
-
-  // Helper to find insertion index for new items (after last folder)
-  function findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {
-    for (let i = arr.length - 1; i >= 0; i--) {
-      if (predicate(arr[i])) return i
-    }
-    return -1
-  }
 
   const lastFolderIndex = findLastIndex(files, (f) => f.is_dir)
   const newItemIndex = lastFolderIndex + 1

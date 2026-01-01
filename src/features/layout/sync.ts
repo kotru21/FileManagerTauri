@@ -1,55 +1,31 @@
 import { useSettingsStore } from "@/features/settings"
-import type { LayoutSettings } from "@/features/settings/model/types"
-import type { PanelLayout } from "./model/layoutStore"
 import { useLayoutStore } from "./model/layoutStore"
 import { applyLayoutToPanels } from "./panelController"
 
-let applyingSettings = false
-let settingsUnsub: (() => void) | null = null
 let columnUnsub: (() => void) | null = null
-let layoutUnsub: (() => void) | null = null
-let perfUnsub: (() => void) | null = null
-let debounceDelay = 150
+let presetUnsub: (() => void) | null = null
+let applyingPreset = false
 
 /** Check if settings are currently being applied to avoid feedback loops */
 export function isApplyingSettings(): boolean {
-  return applyingSettings
+  return applyingPreset
 }
 
 export function initLayoutSync() {
-  // Apply current settings -> runtime
-  const settingsStateInitial = useSettingsStore.getState().settings
-  const settingsPanel = settingsStateInitial.layout.panelLayout
-  const cw = settingsStateInitial.layout.columnWidths
-  debounceDelay = settingsStateInitial.performance.debounceDelay ?? 150
+  // Apply current layout from layoutStore (restored from localStorage)
+  const currentLayout = useLayoutStore.getState().layout
+  applyLayoutToPanels(currentLayout)
 
-  useLayoutStore.getState().applyLayout(settingsPanel)
-  // Clamp incoming settings to sensible minimums to avoid zero-width columns
+  // Sync column widths from settings (these are still managed in settings)
+  const settingsStateInitial = useSettingsStore.getState().settings
+  const cw = settingsStateInitial.layout.columnWidths
+
   const clamp = (v: number | undefined, min: number) => Math.max(min, Math.floor(v ?? min))
   useLayoutStore.getState().setColumnWidth("size", clamp(cw.size, 50))
   useLayoutStore.getState().setColumnWidth("date", clamp(cw.date, 80))
   useLayoutStore.getState().setColumnWidth("padding", clamp(cw.padding, 0))
 
-  applyLayoutToPanels(settingsPanel)
-
-  // Subscribe to settings.panelLayout changes and apply to runtime
-  settingsUnsub = useSettingsStore.subscribe(
-    (s) => s.settings.layout.panelLayout,
-    (newPanel: PanelLayout, oldPanel: PanelLayout | undefined) => {
-      // Basic reference check
-      if (newPanel === oldPanel) return
-      applyingSettings = true
-      try {
-        useLayoutStore.getState().applyLayout(newPanel)
-        // reflect in panels
-        applyLayoutToPanels(newPanel)
-      } finally {
-        applyingSettings = false
-      }
-    },
-  )
-
-  // Subscribe to settings.columnWidths and apply to runtime
+  // Subscribe to settings.columnWidths changes and apply to runtime
   columnUnsub = useSettingsStore.subscribe(
     (s) => s.settings.layout.columnWidths,
     (newCW, oldCW) => {
@@ -61,104 +37,34 @@ export function initLayoutSync() {
     },
   )
 
-  // Subscribe to runtime layout changes and persist into settings (two-way sync)
-  // Use a debounce to batch frequent updates (e.g., during column resize)
-  let layoutDebounceTimer: ReturnType<typeof setTimeout> | null = null
-  let pendingLayoutForSync: PanelLayout | null = null
-
-  // Subscribe to performance debounce setting so we react to updates without
-  // repeatedly querying getState inside the timeout handler.
-  perfUnsub = useSettingsStore.subscribe(
-    (s) => s.settings.performance.debounceDelay,
-    (d) => {
-      debounceDelay = d ?? 150
-    },
-  )
-
-  const scheduleFlush = () => {
-    if (layoutDebounceTimer) clearTimeout(layoutDebounceTimer)
-    const delay = debounceDelay
-    layoutDebounceTimer = setTimeout(() => {
-      const toSync = pendingLayoutForSync
-      pendingLayoutForSync = null
-      layoutDebounceTimer = null
-      if (!toSync) return
-
-      // Read settings once to avoid multiple getState() calls and races
-      const settingsState = useSettingsStore.getState().settings
-      const settingsPanelNow = settingsState.layout.panelLayout
-      const updates: Partial<LayoutSettings> = {}
-
-      // Panel layout fields to compare
-      const parseSize = (v: number | string | undefined) =>
-        typeof v === "number" ? v : v ? parseFloat(String(v).replace("%", "")) : 0
-
-      const samePanel =
-        settingsPanelNow.showSidebar === toSync.showSidebar &&
-        settingsPanelNow.showPreview === toSync.showPreview &&
-        parseSize(settingsPanelNow.sidebarSize) === parseSize(toSync.sidebarSize) &&
-        parseSize(settingsPanelNow.previewPanelSize) === parseSize(toSync.previewPanelSize) &&
-        (settingsPanelNow.sidebarCollapsed ?? false) === (toSync.sidebarCollapsed ?? false)
-
-      if (!samePanel) updates.panelLayout = toSync
-
-      const settingsCW = settingsState.layout.columnWidths
-      if (
-        settingsCW.size !== toSync.columnWidths.size ||
-        settingsCW.date !== toSync.columnWidths.date ||
-        settingsCW.padding !== toSync.columnWidths.padding
-      ) {
-        updates.columnWidths = toSync.columnWidths
+  // Subscribe to preset changes (when user selects a preset, apply it to layoutStore)
+  presetUnsub = useSettingsStore.subscribe(
+    (s) => s.settings.layout.currentPreset,
+    (newPreset, oldPreset) => {
+      if (newPreset === oldPreset) return
+      // When preset changes, apply the panelLayout from settings to layoutStore
+      const panelLayout = useSettingsStore.getState().settings.layout.panelLayout
+      applyingPreset = true
+      try {
+        useLayoutStore.getState().applyLayout(panelLayout)
+        applyLayoutToPanels(panelLayout)
+      } finally {
+        applyingPreset = false
       }
-
-      if (Object.keys(updates).length > 0) {
-        // Apply updates to settings via setState to avoid getState() call and keep a single source of truth
-        useSettingsStore.setState((s) => ({
-          settings: {
-            ...s.settings,
-            layout: {
-              ...s.settings.layout,
-              ...updates,
-            },
-          },
-        }))
-      }
-    }, delay)
-  }
-
-  layoutUnsub = useLayoutStore.subscribe(
-    (s) => s.layout,
-    (newLayout) => {
-      if (applyingSettings) return
-
-      // schedule a debounced sync
-      pendingLayoutForSync = newLayout
-      scheduleFlush()
     },
   )
 
   return () => {
-    settingsUnsub?.()
     columnUnsub?.()
-    layoutUnsub?.()
-    perfUnsub?.()
-    if (layoutDebounceTimer) {
-      clearTimeout(layoutDebounceTimer)
-      layoutDebounceTimer = null
-      pendingLayoutForSync = null
-    }
-    settingsUnsub = null
-    layoutUnsub = null
-    perfUnsub = null
+    presetUnsub?.()
+    columnUnsub = null
+    presetUnsub = null
   }
 }
 
 export function stopLayoutSync() {
-  settingsUnsub?.()
   columnUnsub?.()
-  layoutUnsub?.()
-  perfUnsub?.()
-  settingsUnsub = null
-  layoutUnsub = null
-  perfUnsub = null
+  presetUnsub?.()
+  columnUnsub = null
+  presetUnsub = null
 }

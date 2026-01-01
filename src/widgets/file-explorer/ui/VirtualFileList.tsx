@@ -10,14 +10,15 @@ import { RubberBandOverlay } from "@/features/rubber-band"
 import { useAppearanceSettings, useFileDisplaySettings } from "@/features/settings"
 import { useSortingStore } from "@/features/sorting"
 import type { FileEntry } from "@/shared/api/tauri"
-import { cn } from "@/shared/lib"
+import { cn, findLastIndex } from "@/shared/lib"
 import { setPerfLog } from "@/shared/lib/devLogger"
 import { withPerfSync } from "@/shared/lib/perf"
+import type { SelectionModifiers } from "./types"
 
 interface VirtualFileListProps {
   files: FileEntry[]
   selectedPaths: Set<string>
-  onSelect: (path: string, e: React.MouseEvent) => void
+  onSelect: (path: string, e: SelectionModifiers) => void
   onOpen: (path: string, isDir: boolean) => void
   onDrop?: (sources: string[], destination: string) => void
   getSelectedPaths?: () => string[]
@@ -29,13 +30,6 @@ interface VirtualFileListProps {
   onDelete?: () => void
   onQuickLook?: (file: FileEntry) => void
   className?: string
-}
-
-function findLastIndex<T>(arr: T[], predicate: (item: T) => boolean): number {
-  for (let i = arr.length - 1; i >= 0; i--) {
-    if (predicate(arr[i])) return i
-  }
-  return -1
 }
 
 export function VirtualFileList({
@@ -115,9 +109,7 @@ export function VirtualFileList({
   const { focusedIndex } = useKeyboardNavigation({
     files,
     selectedPaths: safeSelectedPaths,
-    onSelect: (path, e) => {
-      onSelect(path, e as unknown as React.MouseEvent)
-    },
+    onSelect,
     onOpen,
     enabled: !mode, // Disable when editing
   })
@@ -130,7 +122,7 @@ export function VirtualFileList({
 
   // Memoize handlers
   const handleSelect = useCallback(
-    (path: string) => (e: React.MouseEvent) => {
+    (path: string) => (e: SelectionModifiers) => {
       onSelect(path, e)
     },
     [onSelect],

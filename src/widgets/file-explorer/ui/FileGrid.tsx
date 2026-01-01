@@ -11,11 +11,12 @@ import {
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
 import { parseDragData } from "@/shared/lib/drag-drop"
+import type { SelectionModifiers } from "./types"
 
 interface FileGridProps {
   files: FileEntry[]
   selectedPaths: Set<string>
-  onSelect: (path: string, e: React.MouseEvent) => void
+  onSelect: (path: string, e: SelectionModifiers) => void
   onOpen: (path: string, isDir: boolean) => void
   onDrop?: (sources: string[], destination: string) => void
   onQuickLook?: (file: FileEntry) => void

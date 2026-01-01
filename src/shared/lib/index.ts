@@ -1,3 +1,4 @@
+export { findLastIndex, generateId } from "./array-utils"
 export { cn } from "./cn"
 export {
   createDragData,

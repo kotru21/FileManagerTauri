@@ -11,6 +11,7 @@ import type { FileEntry } from "@/shared/api/tauri"
 import { joinPath } from "@/shared/lib"
 
 import { toast } from "@/shared/ui"
+import type { SelectionModifiers } from "../ui/types"
 import { handleSelectionEvent } from "./selectionHandlers"
 
 interface UseFileExplorerHandlersOptions {
@@ -53,7 +54,7 @@ export function useFileExplorerHandlers({
 
   // Selection handlers
   const handleSelect = useCallback(
-    (path: string, e: React.MouseEvent) => {
+    (path: string, e: SelectionModifiers) => {
       // Ctrl+Click + setting => open folder in new tab (preserve existing behavior)
       if ((e.ctrlKey || e.metaKey) && behaviorSettings.openFoldersInNewTab) {
         const file = files.find((f) => f.path === path)

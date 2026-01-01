@@ -154,6 +154,64 @@ export const useLayoutStore = create<LayoutState>()(
     {
       name: "layout-storage",
       partialize: (state) => ({ layout: state.layout }),
+      // Restore full layout from localStorage to ensure panel sizes survive page reload.
+      // The settingsStore (app-settings) is the canonical source, but initLayoutSync runs
+      // asynchronously after first render. By restoring sizes here, panels render with
+      // correct dimensions immediately, and initLayoutSync will overwrite if settings differ.
+      merge: (persistedState, currentState) => {
+        try {
+          const persisted = persistedState as Partial<LayoutState> | undefined
+          const persistedLayout = persisted?.layout
+          if (!persistedLayout) return currentState
+
+          // Parse size values to numbers (could be stored as "15%" or 15)
+          const parseSize = (v: number | string | undefined, fallback: number): number => {
+            if (typeof v === "number") return v
+            if (typeof v === "string") {
+              const num = Number.parseFloat(v.replace("%", ""))
+              return Number.isNaN(num) ? fallback : num
+            }
+            return fallback
+          }
+
+          return {
+            ...currentState,
+            layout: {
+              ...currentState.layout,
+              // Restore panel sizes
+              sidebarSize: parseSize(persistedLayout.sidebarSize, currentState.layout.sidebarSize),
+              mainPanelSize: parseSize(
+                persistedLayout.mainPanelSize,
+                currentState.layout.mainPanelSize,
+              ),
+              previewPanelSize: parseSize(
+                persistedLayout.previewPanelSize,
+                currentState.layout.previewPanelSize,
+              ),
+              // Restore visibility and collapse state
+              showSidebar: persistedLayout.showSidebar ?? currentState.layout.showSidebar,
+              showPreview: persistedLayout.showPreview ?? currentState.layout.showPreview,
+              sidebarCollapsed:
+                persistedLayout.sidebarCollapsed ?? currentState.layout.sidebarCollapsed,
+              // Restore lock flags
+              sidebarSizeLocked:
+                persistedLayout.sidebarSizeLocked ?? currentState.layout.sidebarSizeLocked,
+              previewSizeLocked:
+                persistedLayout.previewSizeLocked ?? currentState.layout.previewSizeLocked,
+              // Restore expanded sections
+              expandedSections:
+                persistedLayout.expandedSections ?? currentState.layout.expandedSections,
+              // Restore column widths
+              columnWidths: {
+                ...currentState.layout.columnWidths,
+                ...(persistedLayout.columnWidths ?? {}),
+              },
+            },
+          }
+        } catch {
+          return currentState
+        }
+      },
       // onRehydrateStorage will migrate legacy numeric persisted values into percent-strings
       onRehydrateStorage: () => () => {
         const key = "layout-storage"
