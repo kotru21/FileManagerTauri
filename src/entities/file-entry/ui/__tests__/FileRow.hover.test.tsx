@@ -6,7 +6,7 @@ import { FileRow } from "../FileRow"
 const baseFile = {
   name: "file.txt",
   path: "/file.txt",
-  is_dir: false,
+  is_dir: true,
   is_hidden: false,
   size: 1024,
   modified: Date.now(),
@@ -18,7 +18,7 @@ describe("FileRow hover behavior", () => {
   it("shows actions on pointerEnter and hides on pointerLeave", async () => {
     const onSelect = vi.fn()
     const onOpen = vi.fn()
-    const onQuickLook = vi.fn()
+    const onToggleBookmark = vi.fn()
     const props = {
       file: baseFile,
       isSelected: false,
@@ -28,7 +28,7 @@ describe("FileRow hover behavior", () => {
       onCut: () => {},
       onRename: () => {},
       onDelete: () => {},
-      onQuickLook,
+      onToggleBookmark,
     }
 
     const { container } = rtl.render(
@@ -57,11 +57,15 @@ describe("FileRow hover behavior", () => {
     const moreBtn = actions?.querySelector("button[aria-label='More actions']")
     expect(moreBtn).toBeNull()
 
-    // Quick Look button should exist and call handler
+    // Quick Look button should not exist anymore
     const quickLookBtn = actions?.querySelector("button[aria-label='Quick Look']") as Element
-    expect(quickLookBtn).toBeTruthy()
-    rtl.fireEvent.click(quickLookBtn)
-    expect(onQuickLook).toHaveBeenCalled()
+    expect(quickLookBtn).toBeNull()
+
+    // Bookmark button should exist and call handler
+    const bookmarkBtn = actions?.querySelector("button[aria-label='Add bookmark']") as Element
+    expect(bookmarkBtn).toBeTruthy()
+    rtl.fireEvent.click(bookmarkBtn)
+    expect(onToggleBookmark).toHaveBeenCalled()
 
     rtl.fireEvent.pointerLeave(row)
     expect(actions?.classList.contains("opacity-0")).toBe(true)

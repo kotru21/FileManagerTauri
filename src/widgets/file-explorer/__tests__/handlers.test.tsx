@@ -41,7 +41,6 @@ type HandlersOverrides = Partial<{
   copyEntries: (arg: { sources: string[]; destination: string }) => Promise<void>
   moveEntries: (arg: { sources: string[]; destination: string }) => Promise<void>
   onStartCopyWithProgress: (sources: string[], destination: string) => void
-  onQuickLook: (file: FileEntry) => void
 }>
 
 function setupHandlers(overrides?: HandlersOverrides) {
@@ -63,7 +62,6 @@ function setupHandlers(overrides?: HandlersOverrides) {
       copyEntries: overrides?.copyEntries ?? (async () => {}),
       moveEntries: overrides?.moveEntries ?? (async () => {}),
       onStartCopyWithProgress: overrides?.onStartCopyWithProgress ?? (() => {}),
-      onQuickLook: overrides?.onQuickLook,
     })
     handlers = h
     const inlineStr = useInlineEditStore(
@@ -223,15 +221,24 @@ describe("file explorer handlers", () => {
     cleanup()
   })
 
-  it("handleSelect with onQuickLook calls onQuickLook", async () => {
-    const onQuickLook = vi.fn()
+  it("handleSelect navigates into directory when single-click-open is enabled", async () => {
+    // Make requestAnimationFrame synchronous for deterministic tests
+    const raf = globalThis.requestAnimationFrame
+    const stubRaf: typeof globalThis.requestAnimationFrame = (cb) => {
+      cb(0)
+      return 0
+    }
+    Object.defineProperty(globalThis, "requestAnimationFrame", {
+      value: stubRaf,
+      configurable: true,
+    })
 
     // Ensure single click opens (disable doubleClickToOpen) for this test
     act(() => {
       useSettingsStore.getState().updateBehavior({ doubleClickToOpen: false })
     })
 
-    const { getHandlers, cleanup } = setupHandlers({ onQuickLook })
+    const { getHandlers, cleanup } = setupHandlers()
     const handlers = getHandlers()
 
     act(() =>
@@ -243,7 +250,13 @@ describe("file explorer handlers", () => {
     )
 
     await waitFor(() => {
-      expect(onQuickLook).toHaveBeenCalled()
+      expect(useNavigationStore.getState().currentPath).toBe("/dir1")
+    })
+
+    // restore
+    Object.defineProperty(globalThis, "requestAnimationFrame", {
+      value: raf,
+      configurable: true,
     })
 
     cleanup()

@@ -6,17 +6,10 @@ interface Props {
   className?: string
   files: FileEntry[]
   selectedPaths: Set<string>
-  onQuickLook?: (file: FileEntry) => void
   handlers: FileExplorerHandlers
 }
 
-export function FileExplorerGrid({
-  className,
-  files,
-  selectedPaths,
-  onQuickLook,
-  handlers,
-}: Props) {
+export function FileExplorerGrid({ className, files, selectedPaths, handlers }: Props) {
   return (
     <div className={className}>
       <FileGrid
@@ -25,7 +18,6 @@ export function FileExplorerGrid({
         onSelect={handlers.handleSelect}
         onOpen={handlers.handleOpen}
         onDrop={handlers.handleDrop}
-        onQuickLook={onQuickLook}
       />
     </div>
   )

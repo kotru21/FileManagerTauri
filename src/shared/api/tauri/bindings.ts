@@ -21,9 +21,9 @@ async readDirectory(path: string) : Promise<Result<FileEntry[], string>> {
 /**
  * Streams directory contents in batches for large directories.
  */
-async readDirectoryStream(path: string) : Promise<Result<null, string>> {
+async readDirectoryStream(path: string, requestId: string) : Promise<Result<null, string>> {
     try {
-    return { status: "ok", data: await TAURI_INVOKE("read_directory_stream", { path }) };
+    return { status: "ok", data: await TAURI_INVOKE("read_directory_stream", { path, requestId }) };
 } catch (e) {
     if(e instanceof Error) throw e;
     else return { status: "error", error: e  as any };

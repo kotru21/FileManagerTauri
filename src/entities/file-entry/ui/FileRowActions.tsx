@@ -1,4 +1,4 @@
-import { Eye, Star } from "lucide-react"
+import { Star } from "lucide-react"
 import { memo, useCallback } from "react"
 import { cn } from "@/shared/lib"
 import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
@@ -6,7 +6,6 @@ import { Button, Tooltip, TooltipContent, TooltipTrigger } from "@/shared/ui"
 interface FileRowActionsProps {
   isDir: boolean
   isBookmarked?: boolean
-  onQuickLook?: () => void
   onToggleBookmark?: () => void
   className?: string
 }
@@ -14,7 +13,6 @@ interface FileRowActionsProps {
 export const FileRowActions = memo(function FileRowActions({
   isDir,
   isBookmarked = false,
-  onQuickLook,
   onToggleBookmark,
   className,
 }: FileRowActionsProps) {
@@ -24,14 +22,6 @@ export const FileRowActions = memo(function FileRowActions({
       onToggleBookmark?.()
     },
     [onToggleBookmark],
-  )
-
-  const handleQuickLook = useCallback(
-    (e: React.MouseEvent) => {
-      e.stopPropagation()
-      onQuickLook?.()
-    },
-    [onQuickLook],
   )
 
   const stopPropagation = useCallback((e: React.MouseEvent) => {
@@ -44,25 +34,6 @@ export const FileRowActions = memo(function FileRowActions({
       onClick={stopPropagation}
       data-testid="file-actions"
     >
-      {/* Quick actions */}
-      {onQuickLook && !isDir && (
-        <Tooltip>
-          <TooltipTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-6 w-6"
-              onClick={handleQuickLook}
-              aria-label="Quick Look"
-              title="Quick Look"
-            >
-              <Eye className="h-3.5 w-3.5" />
-            </Button>
-          </TooltipTrigger>
-          <TooltipContent>Quick Look</TooltipContent>
-        </Tooltip>
-      )}
-
       {isDir && onToggleBookmark && (
         <Tooltip>
           <TooltipTrigger asChild>

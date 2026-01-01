@@ -43,7 +43,6 @@ test("renders the mocked VirtualFileList", () => {
       files={[file]}
       selectedPaths={new Set()}
       handlers={handlers}
-      onQuickLook={undefined}
     />,
   )
 

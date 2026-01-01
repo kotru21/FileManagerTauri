@@ -21,8 +21,8 @@ export const tauriClient = {
     return unwrapResult(await commands.readDirectory(path))
   },
 
-  async readDirectoryStream(path: string): Promise<null> {
-    return unwrapResult(await commands.readDirectoryStream(path))
+  async readDirectoryStream(path: string, requestId: string): Promise<null> {
+    return unwrapResult(await commands.readDirectoryStream(path, requestId))
   },
 
   async getDrives(): Promise<DriveInfo[]> {
