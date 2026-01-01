@@ -12,15 +12,9 @@
   --color-destructive: oklch(0.396 0.141 25.768);
   --color-border: oklch(0.269 0 0);
   --color-ring: oklch(0.439 0 0);
-
-  /* Custom properties for settings */
   --transition-duration: 150ms;
   --accent-color: #3b82f6;
 }
-
-/* Theme overrides applied via html.dark / html.light classes. This makes class-based
-   theme switching effective even if Tailwind is configured to use media-based dark
-   mode. We set the main color variables so components relying on CSS variables update. */
 html.dark {
   --color-background: oklch(0.145 0 0);
   --color-foreground: oklch(0.985 0 0);
@@ -33,7 +27,6 @@ html.dark {
 }
 
 html.light {
-  /* Invert background/foreground for light mode */
   --color-background: oklch(0.985 0 0);
   --color-foreground: oklch(0.145 0 0);
   --color-muted: oklch(0.7 0 0);
@@ -41,9 +34,6 @@ html.light {
   --accent-color-foreground: oklch(0.145 0 0);
   --color-primary-foreground: oklch(0.985 0 0);
 }
-
-/* Ensure Tailwind utility-like classes reflect CSS variables for accent/primary
-   to make dynamic user-selected accent colors apply immediately at runtime. */
 .bg-accent {
   background-color: var(--accent-color);
 }
@@ -59,7 +49,6 @@ html.light {
 .text-accent-foreground {
   color: var(--accent-color-foreground, var(--color-primary-foreground, #fff));
 }
-/* Icon helpers: ensure icon elements can be colored by accent variables */
 .icon-accent {
   color: var(--accent-color);
   stroke: var(--accent-color);
@@ -68,25 +57,19 @@ html.light {
   color: var(--accent-color-foreground, var(--color-primary-foreground, #fff));
   stroke: var(--accent-color-foreground, var(--color-primary-foreground, #fff));
 }
-/* Make SVG icons follow current text color by default. Do not fill by default so outlined icons remain outlined. */
 svg {
   color: inherit;
   stroke: currentColor;
-  fill: none; /* default: no fill; use .icon-fill-current or inline fill prop to fill */
+  fill: none;
 }
-
-/* Utility to fill icon with currentColor when needed */
 .icon-fill-current {
   fill: currentColor;
 }
-
-/* Utility to fill icon explicitly with accent color */
 .icon-fill-accent {
   fill: var(--accent-color);
   color: var(--accent-color);
 }
 .ring-primary {
-  /* Fallback ring using accent color */
   box-shadow: 0 0 0 2px var(--accent-color);
 }
 .border-primary {
@@ -103,8 +86,6 @@ body {
   font-family: system-ui, -apple-system, sans-serif;
   overflow: hidden;
 }
-
-/* Reduce motion when enabled - use specific selectors instead of !important */
 .reduce-motion,
 .reduce-motion *,
 .reduce-motion *::before,
@@ -114,8 +95,6 @@ body {
   transition-duration: 0ms;
   transition-delay: 0ms;
 }
-
-/* Animations OFF: explicit global toggle that disables animations and transitions */
 .animations-off,
 .animations-off *,
 .animations-off *::before,
@@ -125,13 +104,9 @@ body {
   transition-duration: 0ms;
   transition-delay: 0ms;
 }
-
-/* Font sizes */
 :root {
-  font-size: 16px; /* Default, overridden by settings */
+  font-size: 16px;
 }
-
-/* Accent color application */
 .accent-primary {
   color: var(--accent-color);
 }
@@ -139,13 +114,9 @@ body {
 .bg-accent-primary {
   background-color: var(--accent-color);
 }
-
-/* Dynamic transitions */
 .transition-colors {
   transition-duration: var(--transition-duration);
 }
-
-/* Hide scrollbar for tabs */
 .scrollbar-none {
   scrollbar-width: none;
   -ms-overflow-style: none;
@@ -154,8 +125,6 @@ body {
 .scrollbar-none::-webkit-scrollbar {
   display: none;
 }
-
-/* Custom scrollbar */
 ::-webkit-scrollbar {
   width: 8px;
   height: 8px;
@@ -173,14 +142,10 @@ body {
 ::-webkit-scrollbar-thumb:hover {
   background: var(--color-muted-foreground);
 }
-
-/* Prevent text selection during drag */
 .no-select {
   user-select: none;
   -webkit-user-select: none;
 }
-
-/* Contain for performance */
 .contain-strict {
   contain: strict;
 }
@@ -188,8 +153,6 @@ body {
 .contain-layout {
   contain: layout;
 }
-
-/* Tauri: frameless window drag region */
 [data-tauri-drag-region] {
   -webkit-app-region: drag;
 }
@@ -199,13 +162,9 @@ body {
 [data-tauri-drag-region] a {
   -webkit-app-region: no-drag;
 }
-
-/* Utility to mark element as non-draggable (clickable inside drag regions) */
 .no-drag {
   -webkit-app-region: no-drag;
 }
-
-/* Cut file indication */
 .cut-file {
   opacity: 0.5;
 }
@@ -213,8 +172,6 @@ body {
 .cut-file .file-name {
   font-style: italic;
 }
-
-/* Quick filter animation */
 .quick-filter-enter {
   animation: slideDown var(--transition-duration) ease-out;
 }
@@ -229,19 +186,13 @@ body {
     transform: translateY(0);
   }
 }
-
-/* Path input focus state - use outline instead of ring */
 .path-input:focus {
   outline: 2px solid var(--color-ring);
   outline-offset: 0;
 }
-
-/* Quick look overlay */
 .quick-look-active {
   box-shadow: 0 0 0 2px var(--accent-color);
 }
-
-/* Popover surface: centralized translucent background with blur for menus/tooltips */
 :root {
   --popover-bg: rgba(17, 17, 19, 0.6);
   --popover-border: rgba(255, 255, 255, 0.06);
@@ -257,25 +208,17 @@ html.light {
 }
 
 .popover-surface {
-  /* Use theme-aware popover color; `--popover-bg` is set for dark/light by default or by appearance hook */
   background-color: var(--popover-bg);
   -webkit-backdrop-filter: blur(var(--popover-blur));
   backdrop-filter: blur(var(--popover-blur));
-  /* keep border color consistent with theme */
   border-color: var(--popover-border);
 }
-
-/* Breadcrumb hover state */
 .breadcrumb-segment:hover {
   background-color: var(--accent-color);
 }
-
-/* Filter bar transition */
 .filter-bar {
   transition: all var(--transition-duration) ease-out;
 }
-
-/* Compact mode */
 .compact-mode .file-row {
   padding-top: 0.25rem;
   padding-bottom: 0.25rem;

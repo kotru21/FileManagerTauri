@@ -1,5 +1,3 @@
-// src/entities/file-entry/api/useFileWatcher.ts
-
 import { useQueryClient } from "@tanstack/react-query"
 import { listen, type UnlistenFn } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useRef } from "react"
@@ -16,16 +14,12 @@ export function useFileWatcher(currentPath: string | null) {
   const unlistenRef = useRef<UnlistenFn | null>(null)
   const currentPathRef = useRef<string | null>(null)
   const debounceTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null)
-
-  // Use useCallback with currentPath captured via ref
   const invalidateDirectoryQueries = useCallback(() => {
     const path = currentPathRef.current
     if (path) {
       queryClient.invalidateQueries({ queryKey: fileKeys.directory(path) })
     }
   }, [queryClient])
-
-  // Debounced invalidation to avoid rapid re-fetches
   const debouncedInvalidate = useCallback(() => {
     if (debounceTimerRef.current) {
       clearTimeout(debounceTimerRef.current)
@@ -36,7 +30,6 @@ export function useFileWatcher(currentPath: string | null) {
   }, [invalidateDirectoryQueries])
 
   useEffect(() => {
-    // Cleanup if path becomes null
     if (!currentPath) {
       if (currentPathRef.current) {
         commands.unwatchDirectory(currentPathRef.current).catch(() => {})
@@ -44,40 +37,29 @@ export function useFileWatcher(currentPath: string | null) {
       currentPathRef.current = null
       return
     }
-
-    // Skip if same path
     if (currentPathRef.current === currentPath) {
       return
     }
 
     const setupWatcher = async () => {
-      // Cleanup previous watcher
       if (currentPathRef.current) {
         try {
           await commands.unwatchDirectory(currentPathRef.current)
         } catch {
-          // Ignore cleanup errors
+          void 0
         }
       }
-
-      // Cleanup previous listener
       if (unlistenRef.current) {
         unlistenRef.current()
         unlistenRef.current = null
       }
 
       currentPathRef.current = currentPath
-
-      // Setup event listener first
       unlistenRef.current = await listen<FsChangeEvent>("fs-change", (event) => {
         const { kind, paths } = event.payload
-
-        // Skip access events
         if (kind.includes("Access")) {
           return
         }
-
-        // Check if any changed path is in current directory
         const isRelevant = paths.some((changedPath) => {
           const normalizedChanged = changedPath.replace(/\\/g, "/")
           const normalizedCurrent = currentPath.replace(/\\/g, "/")
@@ -89,8 +71,6 @@ export function useFileWatcher(currentPath: string | null) {
           debouncedInvalidate()
         }
       })
-
-      // Start watching
       try {
         await commands.watchDirectory(currentPath)
       } catch (error) {
@@ -99,8 +79,6 @@ export function useFileWatcher(currentPath: string | null) {
     }
 
     setupWatcher()
-
-    // Cleanup on unmount
     return () => {
       if (debounceTimerRef.current) {
         clearTimeout(debounceTimerRef.current)
@@ -116,7 +94,6 @@ export function useFileWatcher(currentPath: string | null) {
     }
   }, [currentPath, debouncedInvalidate])
 
-  // Force refresh function
   const refresh = useCallback(() => {
     invalidateDirectoryQueries()
   }, [invalidateDirectoryQueries])

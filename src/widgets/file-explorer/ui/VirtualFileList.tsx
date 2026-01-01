@@ -59,8 +59,6 @@ export function VirtualFileList({
 
   const cutPaths = useClipboardStore((s) => s.paths)
   const isCut = useClipboardStore((s) => s.isCut)
-
-  // Get bookmarks state
   const isBookmarked = useBookmarksStore((s) => s.isBookmarked)
   const addBookmark = useBookmarksStore((s) => s.addBookmark)
   const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
@@ -83,11 +81,7 @@ export function VirtualFileList({
     }
     return -1
   }, [mode, targetPath, files])
-
-  // Calculate total rows
   const totalRows = files.length + (mode && mode !== "rename" ? 1 : 0)
-
-  // Virtualizer
   const rowVirtualizer = useVirtualizer({
     count: totalRows,
     getScrollElement: () => parentRef.current,
@@ -102,7 +96,7 @@ export function VirtualFileList({
         setPerfLog({ virtualizer: { totalRows, overscan: 10, ts: now } })
       })
     } catch {
-      /* ignore */
+      void 0
     }
   }, [totalRows])
 
@@ -120,7 +114,6 @@ export function VirtualFileList({
     }
   }, [inlineEditIndex, rowVirtualizer])
 
-  // Memoize handlers
   const handleSelect = useCallback(
     (path: string) => (e: SelectionModifiers) => {
       onSelect(path, e)
@@ -153,13 +146,9 @@ export function VirtualFileList({
     },
     [isBookmarked, addBookmark, removeBookmark, getBookmarkByPath],
   )
-
-  // Memoize file path getter
   const handleGetSelectedPaths = useCallback(() => {
     return getSelectedPaths?.() ?? Array.from(safeSelectedPaths)
   }, [getSelectedPaths, safeSelectedPaths])
-
-  // Helper to get path from element
   const getPathFromElement = useCallback((element: Element): string | null => {
     return element.getAttribute("data-path")
   }, [])
@@ -184,9 +173,6 @@ export function VirtualFileList({
         aria-multiselectable={true}
       >
         <div className="relative w-full" style={{ height: `${rowVirtualizer.getTotalSize()}px` }}>
-          {/* If the virtualizer fails to include the inline edit row in its visible items
-            (for example in tests when scrollToIndex can't complete), render a fallback
-            absolute InlineEditRow at the computed position so rename mode always works. */}
           {mode === "rename" &&
             inlineEditIndex >= 0 &&
             !rowVirtualizer.getVirtualItems().some((v) => v.index === inlineEditIndex) &&
@@ -239,15 +225,11 @@ export function VirtualFileList({
                 </div>
               )
             }
-
-            // Get actual file index
             const fileIndex =
               mode && mode !== "rename" && rowIndex > inlineEditIndex ? rowIndex - 1 : rowIndex
 
             const file = files[fileIndex]
             if (!file) return null
-
-            // Skip file being renamed (show inline edit instead)
             if (mode === "rename" && file.path === targetPath) {
               return (
                 <div
@@ -304,8 +286,6 @@ export function VirtualFileList({
             )
           })}
         </div>
-
-        {/* Rubber Band Selection */}
         <RubberBandOverlay
           containerRef={parentRef as React.RefObject<HTMLElement>}
           fileSelector="[data-path]"

@@ -33,9 +33,7 @@ const files: FileEntry[] = [
 ]
 
 function setupHandlers() {
-  // Use setState wrapped in act to avoid touching internals via getState
   act(() => {
-    // Use public store APIs to reset state
     useSelectionStore.getState().clearSelection()
     useNavigationStore.getState().navigate("/")
   })
@@ -54,8 +52,6 @@ function setupHandlers() {
       onStartCopyWithProgress: () => {},
     })
     handlers = h
-
-    // Use stable primitive selector to avoid re-render/cache warnings
     const selectedStr = useSelectionStore((s) => Array.from(s.selectedPaths).join(","))
     const current = useNavigationStore((s) => s.currentPath ?? "")
 
@@ -83,12 +79,12 @@ function setupHandlers() {
       try {
         cleanup()
       } catch {
-        /* ignore */
+        void 0
       }
       try {
         root?.unmount()
       } catch {
-        /* ignore */
+        void 0
       }
     },
   }

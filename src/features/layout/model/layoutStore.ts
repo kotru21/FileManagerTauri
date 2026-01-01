@@ -255,14 +255,13 @@ export const useLayoutStore = create<LayoutState>()(
             localStorage.setItem(key, JSON.stringify(parsed))
           }
         } catch {
-          /* ignore migration errors */
+          void 0
         }
       },
     },
   ),
 )
 
-// Selector hooks for optimized re-renders
 export const useSidebarLayout = () =>
   useLayoutStore((s) => ({
     showSidebar: s.layout.showSidebar,

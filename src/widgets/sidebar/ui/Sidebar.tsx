@@ -84,8 +84,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
   const { bookmarks, addBookmark } = useBookmarksStore()
   const { addFolder } = useRecentFoldersStore()
   const [homePath, setHomePath] = useState<string | null>(null)
-
-  // Persisted expanded/collapsed state lives in layout store
   const expandedSections = useLayoutStore((s) => s.layout.expandedSections)
   const toggleSectionExpanded = useLayoutStore((s) => s.toggleSectionExpanded)
 
@@ -102,7 +100,7 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
         }
       }
     } catch {
-      // Ignore parse errors
+      void 0
     }
   }
 
@@ -123,7 +121,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
         const home = await homeDir()
         setHomePath(home)
       } catch {
-        // Try to derive from current path
         if (currentPath) {
           const match = currentPath.match(/^([A-Z]:\\Users\\[^\\]+)/i)
           if (match) setHomePath(match[1])
@@ -140,7 +137,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
     [navigate],
   )
 
-  // Collapsed view
   if (collapsed) {
     return (
       <div
@@ -148,7 +144,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
         onDrop={handleDrop}
         onDragOver={handleDragOver}
       >
-        {/* Home */}
         {homePath && (
           <CollapsedItem
             icon={<Home className="h-5 w-5" />}
@@ -160,7 +155,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
 
         <Separator className="my-1 w-6" />
 
-        {/* Bookmarks - show first 4 */}
         {bookmarks.slice(0, 4).map((bookmark) => (
           <CollapsedItem
             key={bookmark.id}
@@ -172,8 +166,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
         ))}
 
         {bookmarks.length > 0 && <Separator className="my-1 w-6" />}
-
-        {/* Drives */}
         {drives.map((drive) => (
           <CollapsedItem
             key={drive.path}
@@ -187,11 +179,9 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
     )
   }
 
-  // Expanded view
   return (
     <ScrollArea className={cn("h-full", className)}>
       <div className="flex flex-col gap-1 p-2" onDrop={handleDrop} onDragOver={handleDragOver}>
-        {/* Quick Access */}
         <div>
           <SectionHeader
             title="Быстрый доступ"
@@ -221,8 +211,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
         </div>
 
         <Separator className="my-1" />
-
-        {/* Bookmarks */}
         <div>
           <SectionHeader
             title="Закладки"
@@ -238,8 +226,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
         </div>
 
         <Separator className="my-1" />
-
-        {/* Drives */}
         <div>
           <SectionHeader
             title="Диски"
@@ -262,8 +248,6 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
         </div>
 
         <Separator className="my-1" />
-
-        {/* Recent Folders */}
         <div>
           <SectionHeader
             title="Недавние"

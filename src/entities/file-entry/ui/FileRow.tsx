@@ -5,7 +5,7 @@ import { getPerfLog, setPerfLog } from "@/shared/lib/devLogger"
 import { FileIcon } from "./FileIcon"
 import { FileRowActions } from "./FileRowActions"
 
-// Minimal local types to avoid importing from higher layers
+// local types (avoid higher-layer imports)
 type FileDisplaySettings = {
   showFileExtensions: boolean
   showFileSizes: boolean
@@ -39,7 +39,6 @@ interface FileRowProps {
     date: number
     padding: number
   }
-  // New props: pass settings from higher layers (widgets/pages)
   displaySettings?: FileDisplaySettings
   appearance?: AppearanceSettings
 }
@@ -60,19 +59,16 @@ export const FileRow = memo(function FileRow({
   displaySettings: displaySettingsProp,
   appearance,
 }: FileRowProps) {
-  // Instrument render counts to help diagnose excessive re-renders in large directories
   try {
     const rc = (getPerfLog()?.renderCounts as Record<string, number>) ?? { fileRows: 0 }
     rc.fileRows = (rc.fileRows ?? 0) + 1
     setPerfLog({ renderCounts: rc })
   } catch {
-    /* ignore */
+    void 0
   }
   const rowRef = useRef<HTMLDivElement>(null)
   const [isDragOver, setIsDragOver] = useState(false)
   const [isHovered, setIsHovered] = useState(false)
-
-  // Use passed display settings or sensible defaults to avoid depending on higher layers
   const defaultDisplaySettings: FileDisplaySettings = {
     showFileExtensions: true,
     showFileSizes: true,
@@ -81,37 +77,27 @@ export const FileRow = memo(function FileRow({
     thumbnailSize: "medium",
   }
   const displaySettings = displaySettingsProp ?? defaultDisplaySettings
-
-  // Map thumbnailSize setting to icon size for list mode
   const iconSizeMap: Record<string, number> = { small: 14, medium: 18, large: 22 }
   const iconSize = iconSizeMap[displaySettings.thumbnailSize] ?? 18
 
   const defaultAppearance: AppearanceSettings = { reducedMotion: false }
   const appearanceLocal = appearance ?? defaultAppearance
-
-  // Scroll into view when focused; respect reduced motion setting
   useEffect(() => {
     if (isFocused && rowRef.current) {
       const behavior: ScrollBehavior = appearanceLocal.reducedMotion ? "auto" : "smooth"
       rowRef.current.scrollIntoView({ block: "nearest", behavior })
     }
   }, [isFocused, appearanceLocal.reducedMotion])
-
-  // Format the display name based on settings
   const displayName = displaySettings.showFileExtensions
     ? file.name
     : file.is_dir
       ? file.name
       : file.name.replace(/\.[^/.]+$/, "")
-
-  // Format date based on settings
-  const formattedDate =
-    displaySettings.dateFormat === "absolute"
-      ? formatDate(file.modified)
-      : displaySettings.dateFormat === "relative"
-        ? formatRelativeStrict(file.modified)
-        : // auto
-          formatRelativeDate(file.modified)
+  const formattedDate = (() => {
+    if (displaySettings.dateFormat === "absolute") return formatDate(file.modified)
+    if (displaySettings.dateFormat === "relative") return formatRelativeStrict(file.modified)
+    return formatRelativeDate(file.modified)
+  })()
 
   const handleDragStart = useCallback(
     (e: React.DragEvent) => {
@@ -148,7 +134,7 @@ export const FileRow = memo(function FileRow({
           onDrop(data.paths, file.path)
         }
       } catch {
-        // Ignore parse errors
+        void 0
       }
     },
     [file.is_dir, file.path, onDrop],
@@ -162,7 +148,6 @@ export const FileRow = memo(function FileRow({
       aria-label={displayName}
       className={cn(
         "group flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none no-drag",
-        // Only show hover background when NOT selected so selection remains visually stable
         !isSelected && "hover:bg-accent/50 transition-colors duration-(--transition-duration)",
         isSelected && "bg-accent",
         isFocused && "ring-1 ring-primary ring-inset",
@@ -191,17 +176,8 @@ export const FileRow = memo(function FileRow({
         className="shrink-0"
         size={iconSize}
       />
-
-      {/* Name cell: keep layout stable by rendering quick actions absolutely
-          so fixed-width columns (size/date) always line up with the header. */}
       <div className="relative flex-1 min-w-0">
-        <span
-          className={cn(
-            "block truncate text-sm file-name",
-            // Reserve space so text doesn't sit under the action buttons when enabled
-            onQuickLook && "pr-16",
-          )}
-        >
+        <span className={cn("block truncate text-sm file-name", onQuickLook && "pr-16")}>
           {displayName}
         </span>
 
@@ -214,7 +190,6 @@ export const FileRow = memo(function FileRow({
               onToggleBookmark={onToggleBookmark}
               className={cn(
                 "no-drag",
-                // show actions when hovered, focused, or selected; keep CSS hover fallback
                 isHovered || isSelected || isFocused
                   ? "opacity-100"
                   : "opacity-0 group-hover:opacity-100",
@@ -259,7 +234,6 @@ function arePropsEqual(prev: FileRowProps, next: FileRowProps): boolean {
     prev.isBookmarked === next.isBookmarked &&
     prev.columnWidths?.size === next.columnWidths?.size &&
     prev.columnWidths?.date === next.columnWidths?.date &&
-    // Compare relevant settings to avoid needless re-renders when they change
     (prev.displaySettings?.thumbnailSize ?? "medium") ===
       (next.displaySettings?.thumbnailSize ?? "medium") &&
     (prev.displaySettings?.showFileExtensions ?? true) ===

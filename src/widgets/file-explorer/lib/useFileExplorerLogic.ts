@@ -41,30 +41,26 @@ export function useFileExplorerLogic(
     const sorted = sortEntries(filtered, sortConfig)
     return sorted
   }, [rawFiles, displaySettings.showHiddenFiles, sortConfig])
-
-  // Log process metadata in an effect (avoid mutations during render)
   useEffect(() => {
     try {
       setPerfLog({
         lastProcess: { path: currentPath, count: processedFiles.length, ts: Date.now() },
       })
     } catch {
-      /* ignore */
+      void 0
     }
   }, [processedFiles.length, currentPath])
-
-  // Notify consumers and log render timing when processed files change
   useEffect(() => {
     try {
       onFilesChange?.(processedFiles)
     } catch {
-      /* ignore */
+      void 0
     }
 
     try {
       setLastFiles(processedFiles)
     } catch {
-      /* ignore */
+      void 0
     }
 
     try {
@@ -93,18 +89,13 @@ export function useFileExplorerLogic(
         })
       }
     } catch {
-      /* ignore */
+      void 0
     }
   }, [processedFiles, onFilesChange])
 
-  // Copy dialog state
   const [copyDialogOpen, setCopyDialogOpen] = useState(false)
   const [copySource, setCopySource] = useState<string[]>([])
   const [copyDestination, setCopyDestination] = useState("")
-
-  // prepare mutations/handlers used by the view
-  // Note: keep these simple; actual mutation hooks are used inside component in original code,
-  // but for decomposition we can expose handler creators as needed.
 
   const { mutateAsync: createDirectory } = useCreateDirectory()
   const { mutateAsync: createFile } = useCreateFile()

@@ -9,7 +9,7 @@ export function setPerfLog(partial: Record<string, unknown>) {
       ...partial,
     }
   } catch {
-    /* ignore */
+    void 0
   }
 }
 
@@ -26,7 +26,7 @@ export function setLastFiles(files: FileEntry[] | undefined) {
   try {
     ;(globalThis as unknown as { __fm_lastFiles?: FileEntry[] | undefined }).__fm_lastFiles = files
   } catch {
-    /* ignore */
+    void 0
   }
 }
 
@@ -47,7 +47,7 @@ export function setLastNav(nav: { id: string; path: string; t: number } | undefi
       }
     ).__fm_lastNav = nav
   } catch {
-    /* ignore */
+    void 0
   }
 }
 
