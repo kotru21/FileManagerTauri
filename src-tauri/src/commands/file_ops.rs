@@ -1,6 +1,7 @@
 //! File system operations: read, create, copy, move, delete.
 
 use std::fs;
+use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -67,9 +68,28 @@ fn validate_new_name(new_name: &str) -> Result<()> {
     }
     if matches!(
         upper.as_str(),
-        "CON" | "PRN" | "AUX" | "NUL" |
-        "COM1" | "COM2" | "COM3" | "COM4" | "COM5" | "COM6" | "COM7" | "COM8" | "COM9" |
-        "LPT1" | "LPT2" | "LPT3" | "LPT4" | "LPT5" | "LPT6" | "LPT7" | "LPT8" | "LPT9"
+        "CON"
+            | "PRN"
+            | "AUX"
+            | "NUL"
+            | "COM1"
+            | "COM2"
+            | "COM3"
+            | "COM4"
+            | "COM5"
+            | "COM6"
+            | "COM7"
+            | "COM8"
+            | "COM9"
+            | "LPT1"
+            | "LPT2"
+            | "LPT3"
+            | "LPT4"
+            | "LPT5"
+            | "LPT6"
+            | "LPT7"
+            | "LPT8"
+            | "LPT9"
     ) {
         return Err(FileManagerError::InvalidPath(
             "Name is a reserved device name".to_string(),
@@ -299,19 +319,47 @@ pub async fn create_file(path: String) -> std::result::Result<(), String> {
 /// Deletes files or directories.
 #[tauri::command]
 #[specta::specta]
-pub async fn delete_entries(
-    paths: Vec<String>,
-    _permanent: bool,
-) -> std::result::Result<(), String> {
+pub async fn delete_entries(paths: Vec<String>) -> std::result::Result<(), String> {
     spawn_blocking(move || -> Result<()> {
         for path in paths {
+            if path.is_empty() {
+                return Err(FileManagerError::EmptyPath);
+            }
+
             let entry_path = Path::new(&path);
+
+            if !entry_path.is_absolute() {
+                return Err(FileManagerError::NotAbsolutePath(path));
+            }
 
             if !entry_path.exists() {
                 continue;
             }
 
-            if entry_path.is_dir() {
+            // Refuse deleting filesystem / drive roots.
+            // Root paths typically have no "Normal" components.
+            let has_normal_component = entry_path
+                .components()
+                .any(|c| matches!(c, Component::Normal(_)));
+            if !has_normal_component {
+                return Err(FileManagerError::InvalidPath(format!(
+                    "Refusing to delete root path: {}",
+                    path
+                )));
+            }
+
+            // Use symlink_metadata so we don't follow symlinks when deciding how to delete.
+            let meta = fs::symlink_metadata(entry_path)
+                .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
+
+            // If a user selected a symlink, delete the link itself (not the target).
+            if meta.file_type().is_symlink() {
+                fs::remove_file(entry_path)
+                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
+                continue;
+            }
+
+            if meta.is_dir() {
                 fs::remove_dir_all(entry_path)
                     .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
             } else {
@@ -427,10 +475,7 @@ pub async fn copy_entries_parallel(
         let semaphore = semaphore.clone();
 
         // Acquire a permit BEFORE spawning to avoid creating thousands of tasks.
-        let permit = semaphore
-            .acquire_owned()
-            .await
-            .map_err(|e| e.to_string())?;
+        let permit = semaphore.acquire_owned().await.map_err(|e| e.to_string())?;
 
         set.spawn(async move {
             let _permit = permit;
@@ -524,8 +569,7 @@ pub async fn move_entries(
 #[specta::specta]
 pub async fn get_file_content(path: String) -> std::result::Result<String, String> {
     spawn_blocking(move || -> Result<String> {
-        fs::read_to_string(&path)
-            .map_err(|e| FileManagerError::ReadFileError(e.to_string()))
+        fs::read_to_string(&path).map_err(|e| FileManagerError::ReadFileError(e.to_string()))
     })
     .await
     .map_err(|e| e.to_string())?

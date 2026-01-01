@@ -3,9 +3,8 @@ import { create } from "zustand"
 interface DeleteConfirmState {
   isOpen: boolean
   paths: string[]
-  permanent: boolean
   onConfirm: (() => void) | null
-  open: (paths: string[], permanent?: boolean) => Promise<boolean>
+  open: (paths: string[]) => Promise<boolean>
   close: () => void
   confirm: () => void
   cancel: () => void
@@ -14,15 +13,13 @@ interface DeleteConfirmState {
 export const useDeleteConfirmStore = create<DeleteConfirmState>((set, get) => ({
   isOpen: false,
   paths: [],
-  permanent: false,
   onConfirm: null,
 
-  open: (paths, permanent = false) => {
+  open: (paths) => {
     return new Promise<boolean>((resolve) => {
       set({
         isOpen: true,
         paths,
-        permanent,
         onConfirm: () => resolve(true),
       })
 

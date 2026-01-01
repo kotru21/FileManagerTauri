@@ -36,6 +36,7 @@ pub fn run() {
         commands::search::search_content,
         // Preview
         commands::preview::get_file_preview,
+        commands::preview::get_thumbnail,
         // Watcher
         commands::watcher::watch_directory,
         commands::watcher::unwatch_directory,

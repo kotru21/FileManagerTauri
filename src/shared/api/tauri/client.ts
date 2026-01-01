@@ -5,11 +5,11 @@ import type {
   Result,
   SearchOptions,
   SearchResult,
+  Thumbnail,
 } from "./bindings"
 import { commands } from "./bindings"
 
-// Thumbnail command may or may not exist in generated bindings; define local type
-export type Thumbnail = { base64: string; mime: string } | null
+export type { Thumbnail }
 
 export function unwrapResult<T, E>(result: Result<T, E>): T {
   if (result.status === "ok") return result.data
@@ -37,8 +37,8 @@ export const tauriClient = {
     return unwrapResult(await commands.createFile(path))
   },
 
-  async deleteEntries(paths: string[], permanent: boolean): Promise<null> {
-    return unwrapResult(await commands.deleteEntries(paths, permanent))
+  async deleteEntries(paths: string[]): Promise<null> {
+    return unwrapResult(await commands.deleteEntries(paths))
   },
 
   async renameEntry(oldPath: string, newName: string): Promise<string> {
@@ -98,18 +98,8 @@ export const tauriClient = {
     return unwrapResult(await commands.getFilePreview(path))
   },
 
-  async getThumbnail(path: string, max_side: number): Promise<Thumbnail> {
-    // The generated bindings don't always include getThumbnail; guard and provide a clear error if missing.
-    const fn = (commands as unknown as Record<string, unknown>).getThumbnail
-    if (typeof fn === "function") {
-      // The generated command should return a Result<Thumbnail, unknown>
-      const res = await (fn as (...args: unknown[]) => Promise<Result<Thumbnail, unknown>>)(
-        path,
-        max_side,
-      )
-      return unwrapResult(res)
-    }
-    throw new Error("tauri command 'getThumbnail' is not available in bindings")
+  async getThumbnail(path: string, maxSide: number): Promise<Thumbnail> {
+    return unwrapResult(await commands.getThumbnail(path, maxSide))
   },
 
   async watchDirectory(path: string): Promise<null> {

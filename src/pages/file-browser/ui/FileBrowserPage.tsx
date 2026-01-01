@@ -78,11 +78,11 @@ export function FileBrowserPage() {
     const paths = Array.from(selectedPaths)
     if (paths.length === 0) return
 
-    const confirmed = await openDeleteConfirm(paths, false)
+    const confirmed = await openDeleteConfirm(paths)
     if (!confirmed) return
 
     try {
-      await tauriClient.deleteEntries(paths, false)
+      await tauriClient.deleteEntries(paths)
       toast.success(`Удалено: ${paths.length} элемент(ов)`)
       addOperation({
         type: "delete",

@@ -34,3 +34,26 @@ test("shows LQIP then replaces with full thumbnail", async () => {
 
   spy.mockRestore()
 })
+
+test("does not call backend thumbnail generator for svg", async () => {
+  const spy = vi.spyOn(tauriClient, "getThumbnail")
+
+  const { container } = render(
+    <div>
+      <FileThumbnail
+        path="/img.svg"
+        extension="svg"
+        isDir={false}
+        size={64}
+        performanceSettings={{ lazyLoadImages: false, thumbnailCacheSize: 10 }}
+        thumbnailGenerator={{ maxSide: 128 }}
+      />
+    </div>,
+  )
+
+  // ensure loading started (img exists)
+  await waitFor(() => expect(container.querySelector("img")).toBeTruthy())
+
+  expect(spy).not.toHaveBeenCalled()
+  spy.mockRestore()
+})

@@ -1,14 +1,9 @@
-import { listen } from "@tauri-apps/api/event"
 import { X } from "lucide-react"
 import { useEffect, useState } from "react"
+import type { CopyProgressEvent } from "@/shared/api/tauri"
+import { tauriEvents } from "@/shared/api/tauri"
 import { Button } from "@/shared/ui/button"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/shared/ui/dialog"
-
-interface CopyProgress {
-  current: number
-  total: number
-  file: string
-}
 
 interface CopyProgressDialogProps {
   open: boolean
@@ -17,12 +12,12 @@ interface CopyProgressDialogProps {
 }
 
 export function CopyProgressDialog({ open, onCancel, onComplete }: CopyProgressDialogProps) {
-  const [progress, setProgress] = useState<CopyProgress | null>(null)
+  const [progress, setProgress] = useState<CopyProgressEvent | null>(null)
 
   useEffect(() => {
     if (!open) return
 
-    const unlisten = listen<CopyProgress>("copy-progress", (e) => {
+    const unlisten = tauriEvents.copyProgress((e) => {
       setProgress(e.payload)
       if (e.payload.current === e.payload.total) {
         setTimeout(() => {

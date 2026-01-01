@@ -2,10 +2,10 @@ import { act } from "@testing-library/react"
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useNavigationStore } from "../store"
 
-// Mock Tauri commands
-vi.mock("@/shared/api/tauri", () => ({
-  commands: {
-    getParentPath: vi.fn().mockResolvedValue({ status: "ok", data: "/parent" }),
+// Mock Tauri client
+vi.mock("@/shared/api/tauri/client", () => ({
+  tauriClient: {
+    getParentPath: vi.fn().mockResolvedValue("/parent"),
   },
 }))
 

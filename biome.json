@@ -31,7 +31,24 @@
         "useKeyWithClickEvents": "off",
         "useSemanticElements": "off"
       },
-      "style": {}
+      "style": {
+        "noRestrictedImports": {
+          "level": "error",
+          "options": {
+            "patterns": [
+              {
+                "group": [
+                  "@/shared/api/tauri/bindings",
+                  "src/shared/api/tauri/bindings",
+                  "./src/shared/api/tauri/bindings",
+                  "*src/shared/api/tauri/bindings"
+                ],
+                "message": "Do not import generated Tauri bindings/commands directly. Use '@/shared/api/tauri/client' (tauriClient) instead so errors/results are handled consistently."
+              }
+            ]
+          }
+        }
+      }
     }
   },
   "overrides": [
@@ -83,6 +100,15 @@
                   {
                     "group": ["@/pages/*", "src/pages/*", "./src/pages/*", "*src/pages/*"],
                     "message": "Importing from pages into entities is forbidden."
+                  },
+                  {
+                    "group": [
+                      "@/shared/api/tauri/bindings",
+                      "src/shared/api/tauri/bindings",
+                      "./src/shared/api/tauri/bindings",
+                      "*src/shared/api/tauri/bindings"
+                    ],
+                    "message": "Do not import generated Tauri bindings/commands directly. Use '@/shared/api/tauri/client' (tauriClient) instead so errors/results are handled consistently."
                   }
                 ]
               }
@@ -103,10 +129,29 @@
                   {
                     "group": ["@/widgets/*", "src/widgets/*", "./src/widgets/*", "*src/widgets/*"],
                     "message": "Importing from widgets into features is forbidden. Use shared adapters or move logic."
+                  },
+                  {
+                    "group": [
+                      "@/shared/api/tauri/bindings",
+                      "src/shared/api/tauri/bindings",
+                      "./src/shared/api/tauri/bindings",
+                      "*src/shared/api/tauri/bindings"
+                    ],
+                    "message": "Do not import generated Tauri bindings/commands directly. Use '@/shared/api/tauri/client' (tauriClient) instead so errors/results are handled consistently."
                   }
                 ]
               }
             }
+          }
+        }
+      }
+    },
+    {
+      "includes": ["src/shared/api/tauri/client.ts", "src/test/shared/tauri/client.test.ts"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": "off"
           }
         }
       }

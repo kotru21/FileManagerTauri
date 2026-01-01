@@ -1,16 +1,10 @@
-import { listen } from "@tauri-apps/api/event"
 import { useCallback, useEffect, useRef } from "react"
 import { usePerformanceSettings } from "@/features/settings"
 import type { SearchOptions, SearchResult } from "@/shared/api/tauri"
+import { tauriEvents } from "@/shared/api/tauri"
 import { tauriClient } from "@/shared/api/tauri/client"
 import { toast } from "@/shared/ui"
 import { useSearchStore } from "../model/store"
-
-interface SearchProgressEvent {
-  scanned: number
-  found: number
-  current_path: string
-}
 
 export function useSearchWithProgress() {
   const unlistenRefs = useRef<Array<() => void>>([])
@@ -71,7 +65,7 @@ export function useSearchWithProgress() {
 
     try {
       // Subscribe to progress events with throttle
-      const unlistenProgress = await listen<SearchProgressEvent>("search-progress", (event) => {
+      const unlistenProgress = await tauriEvents.searchProgress((event) => {
         if (useSearchStore.getState().shouldCancel) {
           return
         }
@@ -87,7 +81,7 @@ export function useSearchWithProgress() {
         }
       })
 
-      const unlistenBatch = await listen<SearchResult[]>("search-batch", (event) => {
+      const unlistenBatch = await tauriEvents.searchBatch((event) => {
         if (useSearchStore.getState().shouldCancel) {
           return
         }

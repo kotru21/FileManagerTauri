@@ -132,29 +132,79 @@ pub async fn get_thumbnail(
     use image::imageops::FilterType;
     use image::io::Reader as ImageReader;
 
-    let file_path = Path::new(&path);
-    let _extension = get_extension(file_path).unwrap_or_default();
+    use crate::constants::{
+        MAX_THUMBNAIL_FILE_SIZE, MAX_THUMBNAIL_PIXELS, MAX_THUMBNAIL_SIDE, MIN_THUMBNAIL_SIDE,
+    };
 
-    // Try to open and decode image
-    let img = ImageReader::open(path)
-        .map_err(|e| e.to_string())?
-        .decode()
-        .map_err(|e| e.to_string())?;
+    // Image decoding/resizing is CPU-bound; keep UI responsive.
+    spawn_blocking(move || {
+        let path = path.trim().to_string();
+        if path.is_empty() {
+            return Err("Empty path".to_string());
+        }
 
-    // Resize preserving aspect ratio to fit inside max_side x max_side
-    let resized = img.resize(max_side, max_side, FilterType::Lanczos3);
+        let file_path = Path::new(&path);
+        let extension = get_extension(file_path).unwrap_or_default();
 
-    // Encode as PNG
-    let mut buf: Vec<u8> = Vec::new();
-    resized
-        .write_to(
-            &mut std::io::Cursor::new(&mut buf),
-            image::ImageOutputFormat::Png,
-        )
-        .map_err(|e| e.to_string())?;
+        // Basic format allowlist (avoid attempting to decode unexpected types).
+        if !IMAGE_EXTENSIONS.contains(&extension.as_str()) {
+            return Err(format!(
+                "Unsupported image extension for thumbnail: {extension}"
+            ));
+        }
 
-    let base64 = STANDARD.encode(&buf);
-    let mime = "image/png".to_string();
+        let meta = fs::metadata(&path).map_err(|e| e.to_string())?;
+        if !meta.is_file() {
+            return Err("Not a file".to_string());
+        }
+        if meta.len() > MAX_THUMBNAIL_FILE_SIZE {
+            return Err("File is too large for thumbnail generation".to_string());
+        }
 
-    Ok(crate::models::Thumbnail { base64, mime })
+        // Clamp requested max side.
+        let mut max_side = max_side.clamp(MIN_THUMBNAIL_SIDE, MAX_THUMBNAIL_SIDE);
+
+        // Fast header-only dimension check (helps avoid decompression bombs).
+        let (w, h) = image::image_dimensions(&path).map_err(|e| e.to_string())?;
+        if w == 0 || h == 0 {
+            return Err("Invalid image dimensions".to_string());
+        }
+        let pixels = (w as u64).saturating_mul(h as u64);
+        if pixels > MAX_THUMBNAIL_PIXELS {
+            return Err("Image is too large for thumbnail generation".to_string());
+        }
+
+        // Avoid upscaling: limit target side by original dimensions.
+        let max_dim = w.max(h);
+        if max_side > max_dim {
+            max_side = max_dim.max(MIN_THUMBNAIL_SIDE);
+        }
+
+        // Decode image
+        let img = ImageReader::open(&path)
+            .map_err(|e| e.to_string())?
+            .with_guessed_format()
+            .map_err(|e| e.to_string())?
+            .decode()
+            .map_err(|e| e.to_string())?;
+
+        // Resize preserving aspect ratio to fit inside max_side x max_side
+        let resized = img.resize(max_side, max_side, FilterType::Lanczos3);
+
+        // Encode as PNG
+        let mut buf: Vec<u8> = Vec::new();
+        resized
+            .write_to(
+                &mut std::io::Cursor::new(&mut buf),
+                image::ImageOutputFormat::Png,
+            )
+            .map_err(|e| e.to_string())?;
+
+        let base64 = STANDARD.encode(&buf);
+        let mime = "image/png".to_string();
+
+        Ok(crate::models::Thumbnail { base64, mime })
+    })
+    .await
+    .map_err(|e| e.to_string())?
 }

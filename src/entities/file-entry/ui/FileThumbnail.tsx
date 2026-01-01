@@ -81,6 +81,13 @@ export const FileThumbnail = memo(function FileThumbnail({
 
   const showThumbnail = canShowThumbnail(extension) && !isDir
 
+  // Backend thumbnail generation is intended for raster images.
+  // For SVG we prefer the native <img src="file://..."> path.
+  const lowerExt = extension?.toLowerCase() ?? null
+  const useBackendThumbnailGenerator = Boolean(
+    thumbnailGenerator && lowerExt && lowerExt !== "svg" && lowerExt !== "svgz",
+  )
+
   const performanceDefaults = { lazyLoadImages: true, thumbnailCacheSize: 100 }
   const performance = performanceSettings ?? performanceDefaults
   useEffect(() => {
@@ -110,14 +117,20 @@ export const FileThumbnail = memo(function FileThumbnail({
   }, [showThumbnail, performance.lazyLoadImages])
   useEffect(() => {
     if (!isVisible || !showThumbnail) return
-    if (shouldLoad && !thumbnailGenerator) return
+    if (shouldLoad && !useBackendThumbnailGenerator) return
 
-    if (thumbnailGenerator) {
+    if (useBackendThumbnailGenerator) {
       setShouldLoad(true)
+
+      const generatorMaxSide = thumbnailGenerator?.maxSide
+      if (!generatorMaxSide) {
+        loadingPool.acquire(() => setShouldLoad(true))
+        return
+      }
 
       ;(async () => {
         try {
-          const smallSide = Math.max(16, Math.min(64, Math.floor(thumbnailGenerator.maxSide / 4)))
+          const smallSide = Math.max(16, Math.min(64, Math.floor(generatorMaxSide / 4)))
 
           const tSmall = await import("@/shared/api/tauri/client").then((m) =>
             m.tauriClient.getThumbnail(path, smallSide),
@@ -130,7 +143,7 @@ export const FileThumbnail = memo(function FileThumbnail({
 
           try {
             const tFull = await import("@/shared/api/tauri/client").then((m) =>
-              m.tauriClient.getThumbnail(path, thumbnailGenerator.maxSide),
+              m.tauriClient.getThumbnail(path, generatorMaxSide),
             )
             if (!tFull) throw new Error("no thumbnail")
             const full = `data:${tFull.mime};base64,${tFull.base64}`
@@ -160,7 +173,8 @@ export const FileThumbnail = memo(function FileThumbnail({
     isVisible,
     showThumbnail,
     shouldLoad,
-    thumbnailGenerator,
+    useBackendThumbnailGenerator,
+    thumbnailGenerator?.maxSide,
     path,
     performance.thumbnailCacheSize,
   ])

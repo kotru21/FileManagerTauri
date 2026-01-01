@@ -119,7 +119,7 @@ describe("FolderPreview interactions", () => {
     const readSpy = vi.spyOn(tauriClient, "readDirectory").mockResolvedValue([imageFile])
 
     type Thumbnail = Awaited<ReturnType<typeof tauriClient.getThumbnail>>
-    const thumb: Thumbnail = { base64: "c21hbGw=", mime: "image/png" }
+    const thumb: Thumbnail = { type: "Thumbnail", base64: "c21hbGw=", mime: "image/png" }
     const thumbSpy = vi.spyOn(tauriClient, "getThumbnail").mockResolvedValue(thumb)
 
     render(<PreviewPanel file={folder} />)

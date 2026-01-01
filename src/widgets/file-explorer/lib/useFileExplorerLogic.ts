@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
 import {
   filterEntries,
   sortEntries,
@@ -28,9 +28,23 @@ export function useFileExplorerLogic(
   const dirQuery = useDirectoryContents(currentPath)
   const stream = useStreamingDirectory(currentPath)
 
-  const rawFiles = stream.entries.length > 0 ? stream.entries : dirQuery.data
+  // Streaming is primarily for fast incremental rendering while loading.
+  // After it completes, prefer the query as the canonical source of truth,
+  // because mutations + watcher invalidations refresh the query immediately.
+  const rawFiles = stream.isLoading
+    ? stream.entries.length > 0
+      ? stream.entries
+      : dirQuery.data
+    : (dirQuery.data ?? stream.entries)
+
   const isLoading = dirQuery.isLoading || stream.isLoading
-  const refetch = dirQuery.refetch
+
+  const refetch = useCallback(async () => {
+    // Keep both sources in sync.
+    // - query refetch is important for correctness
+    // - stream refresh fixes "not updating" when UI still shows stream entries
+    await Promise.all([dirQuery.refetch(), Promise.resolve(stream.refresh())])
+  }, [dirQuery.refetch, stream.refresh])
 
   const { sortConfig, setSortField } = useSortingStore()
 
@@ -114,8 +128,8 @@ export function useFileExplorerLogic(
     renameEntry: async ({ oldPath, newName }) => {
       await renameEntry({ oldPath, newName })
     },
-    deleteEntries: async ({ paths, permanent }) => {
-      await deleteEntries({ paths, permanent })
+    deleteEntries: async ({ paths }) => {
+      await deleteEntries({ paths })
     },
     copyEntries: async ({ sources, destination }) => {
       await copyEntries({ sources, destination })
