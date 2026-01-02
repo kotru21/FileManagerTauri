@@ -1,15 +1,14 @@
-# File Manager Tauri
+# File Manager на Tauri
+
+![Tauri](https://img.shields.io/badge/Tauri-2.x-blue)
+![React](https://img.shields.io/badge/React-19.2-61dafb)
+![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6)
+[![CI](https://github.com/kotru21/FileManagerTauri/actions/workflows/ci.yml/badge.svg)](https://github.com/kotru21/FileManagerTauri/actions)
 
 <img width="1280" height="640" alt="File manager UI" src="https://github.com/user-attachments/assets/0d8e2221-017d-48ea-a060-ceb78ba497e4" />
 
 
 Десктопный файловый менеджер на **Tauri 2.x + React 19.2 + TypeScript**, построенный по архитектуре **Feature-Sliced Design (FSD)**.
-
-![Tauri](https://img.shields.io/badge/Tauri-2.x-blue)
-![React](https://img.shields.io/badge/React-19.2-61dafb)
-![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6)
-
-[![CI](https://github.com/kotru21/FileManagerTauri/actions/workflows/ci.yml/badge.svg)](https://github.com/kotru21/FileManagerTauri/actions)
 
 ## Возможности
 
