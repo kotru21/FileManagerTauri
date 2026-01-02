@@ -8,7 +8,7 @@
 ![React](https://img.shields.io/badge/React-19.2-61dafb)
 ![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178c6)
 
-[![CI](https://github.com/<kotru21>/<FileManagerTauri>/actions/workflows/ci.yml/badge.svg)](https://github.com/<kotru21>/<FileManagerTauri>/actions)
+[![CI](https://github.com/kotru21/FileManagerTauri/actions/workflows/ci.yml/badge.svg)](https://github.com/kotru21/FileManagerTauri/actions)
 
 ## Возможности
 
