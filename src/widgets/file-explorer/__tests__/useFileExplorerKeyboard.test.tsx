@@ -47,7 +47,7 @@ describe("useFileExplorerKeyboard normalization and matching", () => {
     const { onCopy } = setupComponent()
 
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", ctrlKey: true }))
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", code: "KeyC", ctrlKey: true }))
     })
 
     expect(onCopy).toHaveBeenCalled()
@@ -57,7 +57,7 @@ describe("useFileExplorerKeyboard normalization and matching", () => {
     const { onCopy } = setupComponent()
 
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", metaKey: true }))
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", code: "KeyC", metaKey: true }))
     })
 
     expect(onCopy).toHaveBeenCalled()
@@ -67,7 +67,7 @@ describe("useFileExplorerKeyboard normalization and matching", () => {
     const { onRefresh } = setupComponent()
 
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "F5" }))
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "F5", code: "F5" }))
     })
 
     expect(onRefresh).toHaveBeenCalled()
@@ -78,7 +78,7 @@ describe("useFileExplorerKeyboard normalization and matching", () => {
     setupComponent({ onStartRename })
 
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "F2" }))
+      window.dispatchEvent(new KeyboardEvent("keydown", { key: "F2", code: "F2" }))
     })
 
     expect(onStartRename).toHaveBeenCalled()
@@ -93,7 +93,9 @@ describe("useFileExplorerKeyboard normalization and matching", () => {
     })
 
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "ArrowLeft", altKey: true }))
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "ArrowLeft", code: "ArrowLeft", altKey: true }),
+      )
     })
 
     expect(useNavigationStore.getState().currentPath).toBe("/")

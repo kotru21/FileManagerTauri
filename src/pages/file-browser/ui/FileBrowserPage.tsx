@@ -1,4 +1,5 @@
 import { useQueryClient } from "@tanstack/react-query"
+import { homeDir } from "@tauri-apps/api/path"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { fileKeys } from "@/entities/file-entry"
 import { useLayoutStore } from "@/entities/layout"
@@ -27,6 +28,7 @@ import { TabBarSection } from "./TabBarSection"
 
 export function FileBrowserPage() {
   const currentPath = useNavigationStore((s) => s.currentPath)
+  const navigate = useNavigationStore((s) => s.navigate)
   const { tabs, addTab, updateTabPath, getActiveTab } = useTabsStore()
   const selectedPaths = useSelectionStore((s) => s.selectedPaths)
   const lastSelectedPath = useSelectionStore((s) => s.lastSelectedPath)
@@ -40,6 +42,44 @@ export function FileBrowserPage() {
   const addOperation = useOperationsHistoryStore((s) => s.addOperation)
   const filesRef = useRef<FileEntry[]>([])
   const queryClient = useQueryClient()
+
+  // Ensure there is a usable starting folder. Without this, currentPath may be null/"" and
+  // creation actions (New File/Folder) appear non-functional.
+  useEffect(() => {
+    if (typeof currentPath === "string" && currentPath.length > 0) return
+
+    let cancelled = false
+
+    const resolveInitialPath = async () => {
+      try {
+        const home = await homeDir()
+        if (cancelled) return
+        if (typeof home === "string" && home.length > 0) {
+          navigate(home)
+          return
+        }
+      } catch {
+        void 0
+      }
+
+      try {
+        const drives = await tauriClient.getDrives()
+        if (cancelled) return
+        const first = drives?.[0]?.path
+        if (typeof first === "string" && first.length > 0) {
+          navigate(first)
+        }
+      } catch {
+        void 0
+      }
+    }
+
+    void resolveInitialPath()
+    return () => {
+      cancelled = true
+    }
+  }, [currentPath, navigate])
+
   useEffect(() => {
     if (tabs.length === 0 && currentPath) {
       addTab(currentPath)
@@ -102,8 +142,11 @@ export function FileBrowserPage() {
     onDelete: performDelete,
     onOpenSettings: openSettings,
   })
-  useUndoToast((operation) => {
-    toast.info(`Отмена: ${operation.description}`)
+  const { toast: undoToast } = useUndoToast({
+    onUndoSuccess: () => {
+      clearSelection()
+      handleRefresh()
+    },
   })
 
   return (
@@ -122,6 +165,7 @@ export function FileBrowserPage() {
           onClosePreview={() => clearSelection()}
         />
         {layoutSettings.showStatusBar && <StatusBar />}
+        {undoToast}
         <CommandPalette />
         <SettingsDialog />
         <DeleteConfirmDialog />

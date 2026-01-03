@@ -146,6 +146,7 @@ export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className
               variant="ghost"
               size="icon"
               onClick={onNewFolder}
+              disabled={!currentPath}
               className="h-8 w-8"
               aria-label="New folder"
               title="New folder"
@@ -153,7 +154,9 @@ export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className
               <FolderPlus className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Новая папка (Ctrl+Shift+N)</TooltipContent>
+          <TooltipContent>
+            {currentPath ? "Новая папка (Ctrl+Shift+N)" : "Сначала выберите папку"}
+          </TooltipContent>
         </Tooltip>
 
         <Tooltip>
@@ -162,6 +165,7 @@ export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className
               variant="ghost"
               size="icon"
               onClick={onNewFile}
+              disabled={!currentPath}
               className="h-8 w-8"
               aria-label="New file"
               title="New file"
@@ -169,7 +173,7 @@ export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className
               <FilePlus className="h-4 w-4" />
             </Button>
           </TooltipTrigger>
-          <TooltipContent>Новый файл</TooltipContent>
+          <TooltipContent>{currentPath ? "Новый файл" : "Сначала выберите папку"}</TooltipContent>
         </Tooltip>
       </div>
 

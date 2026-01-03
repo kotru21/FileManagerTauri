@@ -157,7 +157,7 @@ export function CommandPalette() {
 
   useEffect(() => {
     const handleGlobalKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "k") {
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyK") {
         e.preventDefault()
         togglePalette()
       }

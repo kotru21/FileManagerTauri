@@ -1,6 +1,6 @@
 import { FileQuestion } from "lucide-react"
 import type { FileEntry } from "@/shared/api/tauri"
-import { cn, formatBytes } from "@/shared/lib"
+import { cn } from "@/shared/lib"
 import { useFolderPreview } from "../lib/useFolderPreview"
 import { usePreviewPanel } from "../lib/usePreviewPanel"
 import FileMetadata from "./FileMetadata"
@@ -57,10 +57,6 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
           >
             {activeDisplayName}
           </h3>
-          <p className="text-xs text-muted-foreground">
-            {activeFile?.is_dir ? "Папка" : formatBytes(activeFile?.size)}
-            {activeFile?.modified && ` • ${new Date(activeFile.modified).toLocaleString()}`}
-          </p>
         </div>
       </div>
 

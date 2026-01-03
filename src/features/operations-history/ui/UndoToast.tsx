@@ -1,18 +1,19 @@
 import { Undo2 } from "lucide-react"
-import { useCallback, useEffect, useState } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { cn } from "@/shared/lib"
-import { Button } from "@/shared/ui"
+import { Button, toast } from "@/shared/ui"
 import { type Operation, useOperationsHistoryStore } from "../model/store"
 
 interface UndoToastProps {
   operation: Operation
-  onUndo: (operation: Operation) => void
+  onUndo: (operation: Operation) => Promise<boolean> | boolean
   duration?: number
 }
 
 export function UndoToast({ operation, onUndo, duration = 5000 }: UndoToastProps) {
   const [isVisible, setIsVisible] = useState(true)
   const [progress, setProgress] = useState(100)
+  const [isUndoing, setIsUndoing] = useState(false)
 
   useEffect(() => {
     const interval = setInterval(() => {
@@ -51,9 +52,15 @@ export function UndoToast({ operation, onUndo, duration = 5000 }: UndoToastProps
         <Button
           variant="ghost"
           size="sm"
-          onClick={() => {
-            onUndo(operation)
-            setIsVisible(false)
+          disabled={isUndoing}
+          onClick={async () => {
+            try {
+              setIsUndoing(true)
+              const ok = await onUndo(operation)
+              if (ok) setIsVisible(false)
+            } finally {
+              setIsUndoing(false)
+            }
           }}
           className="h-7 px-2"
         >
@@ -73,21 +80,47 @@ export function UndoToast({ operation, onUndo, duration = 5000 }: UndoToastProps
 }
 
 // Hook to show undo toast for last operation
-export function useUndoToast(onOperation?: (op: Operation) => void) {
+export function useUndoToast(
+  options?:
+    | ((op: Operation) => void)
+    | {
+        onOperation?: (op: Operation) => void
+        onUndoSuccess?: (op: Operation) => void
+      },
+) {
   const [currentOperation, setCurrentOperation] = useState<Operation | null>(null)
   const { undoLastOperation } = useOperationsHistoryStore()
   const operations = useOperationsHistoryStore((s) => s.operations)
+
+  const onOperation = typeof options === "function" ? options : options?.onOperation
+  const onUndoSuccess = typeof options === "function" ? undefined : options?.onUndoSuccess
+
+  const callbacksRef = useRef<{
+    onOperation?: (op: Operation) => void
+    onUndoSuccess?: (op: Operation) => void
+  }>({})
+  callbacksRef.current.onOperation = onOperation
+  callbacksRef.current.onUndoSuccess = onUndoSuccess
+
+  const lastSeenOperationIdRef = useRef<string | null>(null)
 
   const showUndo = useCallback((operation: Operation) => {
     setCurrentOperation(operation)
   }, [])
 
   const handleUndo = useCallback(
-    (operation: Operation) => {
-      undoLastOperation()
-      setCurrentOperation(null)
-      // Return the operation so caller can perform the actual undo
-      return operation
+    async (_operation: Operation) => {
+      try {
+        const op = await undoLastOperation()
+        if (!op) return false
+
+        callbacksRef.current.onUndoSuccess?.(op)
+        setCurrentOperation(null)
+        return true
+      } catch (error) {
+        toast.error(`Не удалось отменить: ${error}`)
+        return false
+      }
     },
     [undoLastOperation],
   )
@@ -96,13 +129,16 @@ export function useUndoToast(onOperation?: (op: Operation) => void) {
   useEffect(() => {
     if (!operations || operations.length === 0) return
     const op = operations[0]
-    if (onOperation) onOperation(op)
-    if (op.canUndo) showUndo(op)
-  }, [operations, onOperation, showUndo])
+    if (op.id && lastSeenOperationIdRef.current === op.id) return
 
-  const toast = currentOperation ? (
+    lastSeenOperationIdRef.current = op.id
+    callbacksRef.current.onOperation?.(op)
+    if (op.canUndo && !op.undone) showUndo(op)
+  }, [operations, showUndo])
+
+  const toastElement = currentOperation ? (
     <UndoToast operation={currentOperation} onUndo={handleUndo} />
   ) : null
 
-  return { showUndo, toast }
+  return { showUndo, toast: toastElement }
 }

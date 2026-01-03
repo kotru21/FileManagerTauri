@@ -3,10 +3,12 @@ import { useCommandPaletteStore } from "@/features/command-palette"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
+import { useOperationsHistoryStore } from "@/features/operations-history"
 import { useQuickFilterStore } from "@/features/quick-filter"
 import { useKeyboardSettings, useSettingsStore } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { getLastFiles } from "@/shared/lib/devLogger"
+import { toast } from "@/shared/ui"
 
 export interface UseFileExplorerKeyboardOptions {
   files?: FileEntry[]
@@ -35,6 +37,9 @@ export function useFileExplorerKeyboard({
   const { toggle: toggleQuickFilter } = useQuickFilterStore()
   const { open: openSettings } = useSettingsStore()
 
+  const undoLastOperation = useOperationsHistoryStore((s) => s.undoLastOperation)
+  const isUndoing = useOperationsHistoryStore((s) => s.isUndoing)
+
   // Selectors to avoid getState() in event handlers
   const getSelectedPaths = useSelectionStore((s) => s.getSelectedPaths)
   const selectFile = useSelectionStore((s) => s.selectFile)
@@ -56,6 +61,38 @@ export function useFileExplorerKeyboard({
       return token
     }
 
+    const tokenFromCode = (code: string | undefined): string | null => {
+      if (!code) return null
+
+      // Letters: KeyA -> a (layout-independent)
+      const keyMatch = /^Key([A-Z])$/.exec(code)
+      if (keyMatch) return keyMatch[1]?.toLowerCase() ?? null
+
+      // Digits: Digit1 -> 1
+      const digitMatch = /^Digit([0-9])$/.exec(code)
+      if (digitMatch) return digitMatch[1] ?? null
+
+      // Common punctuation (layout-independent)
+      const punctuationMap: Record<string, string> = {
+        Comma: ",",
+        Period: ".",
+        Slash: "/",
+        Backslash: "\\",
+        Semicolon: ";",
+        Quote: "'",
+        BracketLeft: "[",
+        BracketRight: "]",
+        Minus: "-",
+        Equal: "=",
+        Backquote: "`",
+      }
+      if (code in punctuationMap) return punctuationMap[code] ?? null
+
+      // Space, function keys, navigation keys, delete, etc.
+      // For these, code is already a stable identifier we can feed into normalizeToken.
+      return code
+    }
+
     const normalizeSignature = (s: string) =>
       s
         .toLowerCase()
@@ -71,9 +108,9 @@ export function useFileExplorerKeyboard({
       if (e.altKey) parts.push("alt")
       if (e.metaKey) parts.push("meta")
 
-      // Prefer code for Space and function keys, normalize names
-      const key = e.key.length === 1 ? e.key.toLowerCase() : e.key
-      const normalizedKey = normalizeToken(key)
+      // Prefer layout-independent code token (KeyA/Digit1/Comma...), fallback to key.
+      const primary = tokenFromCode(e.code) ?? (e.key.length === 1 ? e.key.toLowerCase() : e.key)
+      const normalizedKey = normalizeToken(primary)
       parts.push(normalizedKey)
       return parts.join("+")
     }
@@ -159,6 +196,16 @@ export function useFileExplorerKeyboard({
       if (action) {
         e.preventDefault()
         switch (action) {
+          case "undo":
+            if (isUndoing) break
+            void (async () => {
+              try {
+                await undoLastOperation()
+              } catch (error) {
+                toast.error(`Ошибка отмены: ${error}`)
+              }
+            })()
+            break
           case "copy":
             onCopy()
             break
@@ -258,6 +305,8 @@ export function useFileExplorerKeyboard({
     openSettings,
     shortcuts,
     enableVim,
+    undoLastOperation,
+    isUndoing,
     getSelectedPaths,
     selectFile,
     toggleCommandPalette,
