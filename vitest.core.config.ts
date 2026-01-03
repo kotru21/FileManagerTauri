@@ -1,13 +1,11 @@
 import path from "node:path"
 import { defineConfig } from "vitest/config"
 
-// Coverage targets:
-// 80/70/80/80 globally, >90 in core.
-const COVERAGE_BASELINE = {
-  statements: 42,
-  branches: 37,
-  functions: 36,
-  lines: 43,
+const CORE_COVERAGE_BASELINE = {
+  statements: 82,
+  branches: 64,
+  functions: 82,
+  lines: 84,
 } as const
 
 export default defineConfig({
@@ -19,14 +17,26 @@ export default defineConfig({
     coverage: {
       provider: "v8",
       reporter: ["text-summary", "json", "html"],
-      include: ["src/**/*.ts", "src/**/*.tsx"],
+      reportsDirectory: "coverage-core",
+      include: [
+        // shared/lib core utilities
+        "src/shared/lib/**/*.ts",
+        "src/shared/lib/**/*.tsx",
+
+        // zustand stores (FSD-style)
+        "src/**/model/store.ts",
+        "src/**/model/store.tsx",
+
+        // legacy/special-case store outside model/
+        "src/shared/ui/virtualized-file-list/store.ts",
+      ],
       exclude: [
         "src/**/*.test.ts",
         "src/**/*.spec.ts",
         "src/test/**",
         "src/shared/api/tauri/bindings.ts",
       ],
-      thresholds: COVERAGE_BASELINE,
+      thresholds: CORE_COVERAGE_BASELINE,
     },
   },
   resolve: {

@@ -37,8 +37,13 @@ jobs:
       - name: Run tests and coverage
         run: npm run test:coverage
 
+      - name: Run core coverage gates (shared/lib + stores)
+        run: npm run test:coverage:core
+
       - name: Upload coverage
         uses: actions/upload-artifact@v6
         with:
           name: coverage-report
-          path: coverage
+          path: |
+            coverage
+            coverage-core
