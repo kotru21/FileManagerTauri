@@ -26,6 +26,19 @@ Object.defineProperty(globalThis, "localStorage", {
   writable: true,
 })
 
+// jsdom doesn't implement canvas; some dependencies (or components) touch it and spam stderr.
+// Provide a minimal stub so calls don't throw.
+try {
+  if (typeof HTMLCanvasElement !== "undefined") {
+    Object.defineProperty(HTMLCanvasElement.prototype, "getContext", {
+      value: vi.fn(() => null),
+      writable: true,
+    })
+  }
+} catch {
+  // ignore if environment doesn't allow redefining
+}
+
 // Mock Tauri API
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
