@@ -60,7 +60,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
   // Handle keyboard shortcut (Ctrl+L)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "l") {
+      if ((e.ctrlKey || e.metaKey) && e.code === "KeyL") {
         e.preventDefault()
         startEditing()
       }

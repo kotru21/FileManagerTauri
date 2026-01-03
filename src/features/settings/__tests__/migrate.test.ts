@@ -33,5 +33,13 @@ describe("migrateSettings", () => {
     // Ensure columnWidths were merged with sensible defaults (non-zero)
     // @ts-expect-error
     expect(migrated.settings.layout.columnWidths.size).toBeGreaterThanOrEqual(50)
+
+    // Ensure new keyboard shortcuts are present after migration (e.g. Ctrl+Z undo)
+    // @ts-expect-error
+    const shortcuts = migrated.settings.keyboard.shortcuts
+    // @ts-expect-error
+    expect(Array.isArray(shortcuts)).toBe(true)
+    // @ts-expect-error
+    expect(shortcuts.some((s) => s.id === "undo" && s.keys.toLowerCase() === "ctrl+z")).toBe(true)
   })
 })

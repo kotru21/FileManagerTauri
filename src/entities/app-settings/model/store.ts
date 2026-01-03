@@ -15,7 +15,7 @@ import type {
   PerformanceSettings,
 } from "./types"
 
-const SETTINGS_VERSION = 1
+const SETTINGS_VERSION = 2
 
 const defaultAppearance: AppearanceSettings = {
   theme: "dark",
@@ -70,21 +70,52 @@ const defaultPerformance: PerformanceSettings = {
   lazyLoadImages: true,
 }
 
+const defaultShortcuts: KeyboardSettings["shortcuts"] = [
+  { id: "copy", action: "Копировать", keys: "Ctrl+C", enabled: true },
+  { id: "cut", action: "Вырезать", keys: "Ctrl+X", enabled: true },
+  { id: "paste", action: "Вставить", keys: "Ctrl+V", enabled: true },
+  { id: "undo", action: "Отменить", keys: "Ctrl+Z", enabled: true },
+  { id: "delete", action: "Удалить", keys: "Delete", enabled: true },
+  { id: "rename", action: "Переименовать", keys: "F2", enabled: true },
+  { id: "newFolder", action: "Новая папка", keys: "Ctrl+Shift+N", enabled: true },
+  { id: "refresh", action: "Обновить", keys: "F5", enabled: true },
+  { id: "search", action: "Поиск", keys: "Ctrl+F", enabled: true },
+  { id: "quickFilter", action: "Быстрый фильтр", keys: "Ctrl+Shift+F", enabled: true },
+  { id: "settings", action: "Настройки", keys: "Ctrl+,", enabled: true },
+  { id: "commandPalette", action: "Палитра команд", keys: "Ctrl+K", enabled: true },
+]
+
 const defaultKeyboard: KeyboardSettings = {
-  shortcuts: [
-    { id: "copy", action: "Копировать", keys: "Ctrl+C", enabled: true },
-    { id: "cut", action: "Вырезать", keys: "Ctrl+X", enabled: true },
-    { id: "paste", action: "Вставить", keys: "Ctrl+V", enabled: true },
-    { id: "delete", action: "Удалить", keys: "Delete", enabled: true },
-    { id: "rename", action: "Переименовать", keys: "F2", enabled: true },
-    { id: "newFolder", action: "Новая папка", keys: "Ctrl+Shift+N", enabled: true },
-    { id: "refresh", action: "Обновить", keys: "F5", enabled: true },
-    { id: "search", action: "Поиск", keys: "Ctrl+F", enabled: true },
-    { id: "quickFilter", action: "Быстрый фильтр", keys: "Ctrl+Shift+F", enabled: true },
-    { id: "settings", action: "Настройки", keys: "Ctrl+,", enabled: true },
-    { id: "commandPalette", action: "Палитра команд", keys: "Ctrl+K", enabled: true },
-  ],
+  shortcuts: defaultShortcuts,
   enableVimMode: false,
+}
+
+function mergeKeyboardShortcuts(
+  persisted: unknown,
+  defaults: KeyboardSettings["shortcuts"],
+): KeyboardSettings["shortcuts"] {
+  const isShortcut = (v: unknown): v is KeyboardSettings["shortcuts"][number] => {
+    if (!v || typeof v !== "object") return false
+    const o = v as Record<string, unknown>
+    return (
+      typeof o.id === "string" &&
+      typeof o.action === "string" &&
+      typeof o.keys === "string" &&
+      typeof o.enabled === "boolean"
+    )
+  }
+
+  const persistedShortcuts = Array.isArray(persisted) ? persisted.filter(isShortcut) : []
+
+  const byId = new Map<string, KeyboardSettings["shortcuts"][number]>()
+  for (const s of persistedShortcuts) byId.set(s.id, s)
+
+  const merged: KeyboardSettings["shortcuts"] = [...persistedShortcuts]
+  for (const d of defaults) {
+    if (!byId.has(d.id)) merged.push(d)
+  }
+
+  return merged
 }
 
 const defaultSettings: AppSettings = {
@@ -169,6 +200,9 @@ export async function migrateSettings(persistedState: unknown, fromVersion: numb
 
   const merged = deepMerge(defaultSettings, base) as unknown as AppSettings
   merged.version = SETTINGS_VERSION
+
+  // Ensure new shortcuts are added for existing users (arrays are overridden in deepMerge).
+  merged.keyboard.shortcuts = mergeKeyboardShortcuts(merged.keyboard.shortcuts, defaultShortcuts)
 
   return { settings: merged }
 }

@@ -1,3 +1,4 @@
+import type { ReactNode } from "react"
 import { ColumnHeader, FileRow, InlineEditRow, type SortConfig } from "@/entities/file-entry"
 import type { ColumnWidths } from "@/entities/layout"
 import { useInlineEditStore } from "@/features/inline-edit"
@@ -40,6 +41,8 @@ export function FileExplorerSimpleList({
   const lastFolderIndex = findLastIndex(files, (f) => f.is_dir)
   const newItemIndex = lastFolderIndex + 1
 
+  const shouldRenderNewItemRow = mode === "new-folder" || mode === "new-file"
+
   return (
     <div className={className ?? "h-full overflow-auto"} role="listbox" aria-multiselectable={true}>
       {showColumnHeadersInSimpleList && (
@@ -60,10 +63,27 @@ export function FileExplorerSimpleList({
       )}
 
       {/* Inline edit support for simple list (rename / new file / new folder) */}
-      {files.map((file, idx) => {
-        // If we're inserting a new item and this is the insertion spot, render InlineEditRow
-        if (mode && mode !== "rename" && idx === newItemIndex) {
-          return (
+      {shouldRenderNewItemRow && files.length === 0 && (
+        <div key="inline-edit-empty" className="px-2">
+          <InlineEditRow
+            mode={mode}
+            onConfirm={(name) => {
+              if (mode === "new-folder") handlers.handleCreateFolder?.(name)
+              else if (mode === "new-file") handlers.handleCreateFile?.(name)
+              inlineCancel()
+            }}
+            onCancel={() => inlineCancel()}
+            columnWidths={columnWidths}
+          />
+        </div>
+      )}
+
+      {files.flatMap((file, idx) => {
+        const rows: ReactNode[] = []
+
+        // If we're inserting a new item and this is the insertion spot, render InlineEditRow BEFORE the file.
+        if (shouldRenderNewItemRow && idx === newItemIndex) {
+          rows.push(
             <div key="inline-edit" className="px-2">
               <InlineEditRow
                 mode={mode}
@@ -75,13 +95,13 @@ export function FileExplorerSimpleList({
                 onCancel={() => inlineCancel()}
                 columnWidths={columnWidths}
               />
-            </div>
+            </div>,
           )
         }
 
         // If rename mode targets this file, render InlineEditRow in place
         if (mode === "rename" && targetPath === file.path) {
-          return (
+          rows.push(
             <div key={file.path} className="px-2">
               <InlineEditRow
                 mode="rename"
@@ -93,12 +113,13 @@ export function FileExplorerSimpleList({
                 onCancel={() => inlineCancel()}
                 columnWidths={columnWidths}
               />
-            </div>
+            </div>,
           )
+          return rows
         }
 
-        return (
-          <div key={file.path} className="px-2">
+        rows.push(
+          <div key={`${file.path}-row`} className="px-2">
             <FileRow
               file={file}
               isSelected={selectedPaths.has(file.path)}
@@ -112,9 +133,26 @@ export function FileExplorerSimpleList({
               displaySettings={displaySettings}
               appearance={appearanceLocal}
             />
-          </div>
+          </div>,
         )
+
+        return rows
       })}
+
+      {shouldRenderNewItemRow && files.length > 0 && newItemIndex >= files.length && (
+        <div key="inline-edit-end" className="px-2">
+          <InlineEditRow
+            mode={mode}
+            onConfirm={(name) => {
+              if (mode === "new-folder") handlers.handleCreateFolder?.(name)
+              else if (mode === "new-file") handlers.handleCreateFile?.(name)
+              inlineCancel()
+            }}
+            onCancel={() => inlineCancel()}
+            columnWidths={columnWidths}
+          />
+        </div>
+      )}
     </div>
   )
 }

@@ -5,14 +5,28 @@ import { useConfirmStore } from "@/features/confirm"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
+import {
+  createOperationDescription,
+  useOperationsHistoryStore,
+} from "@/features/operations-history"
 import { useBehaviorSettings } from "@/features/settings"
 import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
-import { joinPath } from "@/shared/lib"
+import { getBasename, joinPath } from "@/shared/lib"
 
 import { toast } from "@/shared/ui"
 import type { SelectionModifiers } from "../ui/types"
 import { handleSelectionEvent } from "./selectionHandlers"
+
+function getDirname(path: string): string {
+  const normalized = (path ?? "").replace(/\\/g, "/").replace(/\/+$/, "")
+  if (!normalized) return ""
+
+  const idx = normalized.lastIndexOf("/")
+  if (idx === -1) return ""
+  if (idx === 0) return "/"
+  return normalized.slice(0, idx)
+}
 
 interface UseFileExplorerHandlersOptions {
   files: FileEntry[]
@@ -44,6 +58,7 @@ export function useFileExplorerHandlers({
   const clipboardCut = useClipboardStore((s) => s.cut)
   const openConfirm = useConfirmStore((s) => s.open)
   const behaviorSettings = useBehaviorSettings()
+  const addOperation = useOperationsHistoryStore((s) => s.addOperation)
   const handleSelect = useCallback(
     (path: string, e: SelectionModifiers) => {
       if ((e.ctrlKey || e.metaKey) && behaviorSettings.openFoldersInNewTab) {
@@ -122,39 +137,59 @@ export function useFileExplorerHandlers({
       try {
         await moveEntries({ sources, destination })
         toast.success(`Перемещено ${sources.length} элементов`)
+        addOperation({
+          type: "move",
+          description: createOperationDescription("move", { sources, destination }),
+          data: { sources, destination },
+          canUndo: true,
+        })
         clearSelection()
       } catch (error) {
         toast.error(`Ошибка перемещения: ${error}`)
       }
     },
-    [moveEntries, clearSelection],
+    [moveEntries, addOperation, clearSelection],
   )
   const handleCreateFolder = useCallback(
     async (name: string) => {
       if (!currentPath) return
       try {
-        await createDirectory(joinPath(currentPath, name))
+        const path = joinPath(currentPath, name)
+        await createDirectory(path)
         toast.success(`Папка "${name}" создана`)
+        addOperation({
+          type: "create",
+          description: createOperationDescription("create", { newPath: path }),
+          data: { newPath: path },
+          canUndo: true,
+        })
       } catch (error) {
         toast.error(`Ошибка создания папки: ${error}`)
       }
       resetInlineEdit()
     },
-    [currentPath, createDirectory, resetInlineEdit],
+    [currentPath, createDirectory, addOperation, resetInlineEdit],
   )
 
   const handleCreateFile = useCallback(
     async (name: string) => {
       if (!currentPath) return
       try {
-        await createFile(joinPath(currentPath, name))
+        const path = joinPath(currentPath, name)
+        await createFile(path)
         toast.success(`Файл "${name}" создан`)
+        addOperation({
+          type: "create",
+          description: createOperationDescription("create", { newPath: path }),
+          data: { newPath: path },
+          canUndo: true,
+        })
       } catch (error) {
         toast.error(`Ошибка создания файла: ${error}`)
       }
       resetInlineEdit()
     },
-    [currentPath, createFile, resetInlineEdit],
+    [currentPath, createFile, addOperation, resetInlineEdit],
   )
 
   const handleStartNewFolder = useCallback(() => {
@@ -185,12 +220,20 @@ export function useFileExplorerHandlers({
       try {
         await renameEntry({ oldPath, newName })
         toast.success(`Переименовано в "${newName}"`)
+        const oldName = getBasename(oldPath)
+        const newPath = joinPath(getDirname(oldPath), newName)
+        addOperation({
+          type: "rename",
+          description: createOperationDescription("rename", { oldName, newName }),
+          data: { oldPath, newPath, oldName, newName },
+          canUndo: true,
+        })
       } catch (error) {
         toast.error(`Ошибка переименования: ${error}`)
       }
       resetInlineEdit()
     },
-    [renameEntry, resetInlineEdit],
+    [renameEntry, addOperation, resetInlineEdit],
   )
   const handleCopy = useCallback(() => {
     const selected = getSelectedPaths()
@@ -231,9 +274,27 @@ export function useFileExplorerHandlers({
         await moveEntries({ sources: clipboardPaths, destination: currentPath })
         clearClipboard()
         toast.success(`Перемещено ${clipboardPaths.length} элементов`)
+        addOperation({
+          type: "move",
+          description: createOperationDescription("move", {
+            sources: clipboardPaths,
+            destination: currentPath,
+          }),
+          data: { sources: clipboardPaths, destination: currentPath },
+          canUndo: true,
+        })
       } else {
         await copyEntries({ sources: clipboardPaths, destination: currentPath })
         toast.success(`Скопировано ${clipboardPaths.length} элементов`)
+        addOperation({
+          type: "copy",
+          description: createOperationDescription("copy", {
+            sources: clipboardPaths,
+            destination: currentPath,
+          }),
+          data: { sources: clipboardPaths, destination: currentPath },
+          canUndo: false,
+        })
       }
     } catch (error) {
       toast.error(`Ошибка вставки: ${error}`)
@@ -243,6 +304,7 @@ export function useFileExplorerHandlers({
     copyEntries,
     moveEntries,
     clearClipboard,
+    addOperation,
     onStartCopyWithProgress,
     files,
     behaviorSettings.confirmOverwrite,
@@ -256,11 +318,17 @@ export function useFileExplorerHandlers({
     try {
       await deleteEntries({ paths: selected })
       toast.success(`Удалено ${selected.length} элементов`)
+      addOperation({
+        type: "delete",
+        description: createOperationDescription("delete", { deletedPaths: selected }),
+        data: { deletedPaths: selected },
+        canUndo: false,
+      })
       clearSelection()
     } catch (error) {
       toast.error(`Ошибка удаления: ${error}`)
     }
-  }, [getSelectedPaths, deleteEntries, clearSelection])
+  }, [getSelectedPaths, deleteEntries, addOperation, clearSelection])
 
   const handleCopyPath = useCallback(() => {
     const selected = getSelectedPaths()

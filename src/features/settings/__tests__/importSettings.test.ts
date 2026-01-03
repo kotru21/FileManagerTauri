@@ -30,7 +30,7 @@ describe("importSettings", () => {
     const ok = useSettingsStore.getState().importSettings(old)
     expect(ok).toBe(true)
     const s = useSettingsStore.getState().settings
-    expect(s.version).toBe(1) // canonicalized
+    expect(s.version).toBe(2) // canonicalized
     expect(s.appearance.theme).toBe("light")
   })
 })
