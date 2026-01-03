@@ -54,11 +54,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run test:coverage
+      - run: npm run test:coverage:core
       - uses: actions/upload-artifact@v6
         if: always()
         with:
           name: coverage
-          path: coverage
+          path: |
+            coverage
+            coverage-core
           retention-days: 7
 
   build:

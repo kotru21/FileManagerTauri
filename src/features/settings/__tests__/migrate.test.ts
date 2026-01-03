@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 import { describe, expect, it } from "vitest"
-import { migrateSettings } from "@/entities/app-settings"
+import { type AppSettings, migrateSettings } from "@/entities/app-settings"
 
 // Note: migrateSettings should update persisted settings to the canonical schema
 
@@ -25,21 +25,18 @@ describe("migrateSettings", () => {
     const migrated = await migrateSettings(persisted, 0)
 
     expect(migrated).toBeTruthy()
-    // @ts-expect-error
-    expect(migrated.settings.version).toBeDefined()
+
+    const m = migrated as { settings: AppSettings }
+
+    expect(m.settings.version).toBeDefined()
     // Ensure showColumnHeadersInSimpleList exists after migration
-    // @ts-expect-error
-    expect(migrated.settings.layout.showColumnHeadersInSimpleList).toBeDefined()
+    expect(m.settings.layout.showColumnHeadersInSimpleList).toBeDefined()
     // Ensure columnWidths were merged with sensible defaults (non-zero)
-    // @ts-expect-error
-    expect(migrated.settings.layout.columnWidths.size).toBeGreaterThanOrEqual(50)
+    expect(m.settings.layout.columnWidths.size).toBeGreaterThanOrEqual(50)
 
     // Ensure new keyboard shortcuts are present after migration (e.g. Ctrl+Z undo)
-    // @ts-expect-error
-    const shortcuts = migrated.settings.keyboard.shortcuts
-    // @ts-expect-error
+    const shortcuts = m.settings.keyboard.shortcuts
     expect(Array.isArray(shortcuts)).toBe(true)
-    // @ts-expect-error
     expect(shortcuts.some((s) => s.id === "undo" && s.keys.toLowerCase() === "ctrl+z")).toBe(true)
   })
 })

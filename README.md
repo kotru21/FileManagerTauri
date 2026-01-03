@@ -6,9 +6,7 @@
 [![CI](https://github.com/kotru21/FileManagerTauri/actions/workflows/ci.yml/badge.svg)](https://github.com/kotru21/FileManagerTauri/actions)
 [![contributions welcome](https://img.shields.io/badge/contributions-welcome-brightgreen.svg?style=flat)](https://github.com/dwyl/esta/issues)
 
-
 <img width="1280" height="640" alt="File manager UI" src="https://github.com/user-attachments/assets/0d8e2221-017d-48ea-a060-ceb78ba497e4" />
-
 
 Десктопный файловый менеджер на **Tauri 2.x + React 19.2 + TypeScript**, построенный по архитектуре **Feature-Sliced Design (FSD)**.
 
