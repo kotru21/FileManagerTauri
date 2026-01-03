@@ -1,4 +1,4 @@
-import type { ColumnWidths, PanelLayout } from "@/features/layout"
+import type { ColumnWidths, PanelLayout } from "@/entities/layout"
 
 export type Theme = "dark" | "light" | "system"
 export type FontSize = "small" | "medium" | "large"

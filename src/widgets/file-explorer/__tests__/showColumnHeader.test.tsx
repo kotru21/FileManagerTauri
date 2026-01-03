@@ -5,7 +5,7 @@ import { render, waitFor } from "@testing-library/react"
 import { act } from "react"
 import { beforeEach, describe, expect, it } from "vitest"
 import { ColumnHeader } from "@/entities/file-entry"
-import { useLayoutStore } from "@/features/layout"
+import { useLayoutStore } from "@/entities/layout"
 import { useNavigationStore } from "@/features/navigation"
 import { useSettingsStore } from "@/features/settings"
 

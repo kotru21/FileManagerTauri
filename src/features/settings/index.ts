@@ -1,13 +1,3 @@
-export { useApplyAppearance } from "./hooks/useApplyAppearance"
-export {
-  useAppearanceSettings,
-  useBehaviorSettings,
-  useFileDisplaySettings,
-  useKeyboardSettings,
-  useLayoutSettings,
-  usePerformanceSettings,
-  useSettingsStore,
-} from "./model/store"
 export type {
   AppearanceSettings,
   AppSettings,
@@ -19,5 +9,17 @@ export type {
   LayoutSettings,
   PerformanceSettings,
   Theme,
-} from "./model/types"
+} from "@/entities/app-settings"
+
+export {
+  useAppearanceSettings,
+  useBehaviorSettings,
+  useFileDisplaySettings,
+  useKeyboardSettings,
+  useLayoutSettings,
+  usePerformanceSettings,
+  useSettingsStore,
+} from "@/entities/app-settings"
+
+export { useApplyAppearance } from "./hooks/useApplyAppearance"
 export { SettingsDialog } from "./ui/SettingsDialog"

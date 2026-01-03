@@ -1,6 +1,6 @@
 import { useEffect, useLayoutEffect } from "react"
-import { useAppearanceSettings } from "../model/store"
-import type { AppearanceSettings } from "../model/types"
+import type { AppearanceSettings } from "@/entities/app-settings"
+import { useAppearanceSettings } from "@/entities/app-settings"
 
 export function applyAppearanceToRoot(appearance: AppearanceSettings) {
   try {

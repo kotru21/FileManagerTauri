@@ -76,6 +76,47 @@
       }
     },
     {
+      "includes": ["**/src/processes/**"],
+      "linter": {
+        "rules": {
+          "style": {
+            "noRestrictedImports": {
+              "level": "error",
+              "options": {
+                "patterns": [
+                  {
+                    "group": ["@/widgets/*", "src/widgets/*", "./src/widgets/*", "*src/widgets/*"],
+                    "message": "Importing from widgets into processes is forbidden. Processes should orchestrate features/entities/shared without UI composition. Use widgets for UI composition."
+                  },
+                  {
+                    "group": ["@/pages/*", "src/pages/*", "./src/pages/*", "*src/pages/*"],
+                    "message": "Importing from pages into processes is forbidden. Use pages to compose processes/widgets instead."
+                  },
+                  {
+                    "group": ["@/app/*", "src/app/*", "./src/app/*", "*src/app/*"],
+                    "message": "Importing from app into processes is forbidden. Processes should be composed by app/pages."
+                  },
+                  {
+                    "group": ["@tauri-apps/*"],
+                    "message": "Do not import @tauri-apps/* directly in processes. Use shared/tauri adapters instead."
+                  },
+                  {
+                    "group": [
+                      "@/shared/api/tauri/bindings",
+                      "src/shared/api/tauri/bindings",
+                      "./src/shared/api/tauri/bindings",
+                      "*src/shared/api/tauri/bindings"
+                    ],
+                    "message": "Do not import generated Tauri bindings/commands directly. Use '@/shared/api/tauri/client' (tauriClient) instead so errors/results are handled consistently."
+                  }
+                ]
+              }
+            }
+          }
+        }
+      }
+    },
+    {
       "includes": ["**/src/entities/**"],
       "linter": {
         "rules": {
@@ -129,6 +170,27 @@
                   {
                     "group": ["@/widgets/*", "src/widgets/*", "./src/widgets/*", "*src/widgets/*"],
                     "message": "Importing from widgets into features is forbidden. Use shared adapters or move logic."
+                  },
+                  {
+                    "group": ["@/pages/*", "src/pages/*", "./src/pages/*", "*src/pages/*"],
+                    "message": "Importing from pages into features is forbidden. Compose at the page/widget level."
+                  },
+                  {
+                    "group": ["@/app/*", "src/app/*", "./src/app/*", "*src/app/*"],
+                    "message": "Importing from app into features is forbidden. Compose at the page/widget level."
+                  },
+                  {
+                    "group": [
+                      "@/processes/*",
+                      "src/processes/*",
+                      "./src/processes/*",
+                      "*src/processes/*"
+                    ],
+                    "message": "Importing from processes into features is forbidden. Processes are higher-level orchestrators."
+                  },
+                  {
+                    "group": ["@tauri-apps/*"],
+                    "message": "Do not import @tauri-apps/* directly in features. Use shared/tauri adapters instead."
                   },
                   {
                     "group": [

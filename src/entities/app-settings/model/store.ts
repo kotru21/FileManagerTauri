@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { create } from "zustand"
 import { persist, subscribeWithSelector } from "zustand/middleware"
-import type { ColumnWidths, PanelLayout } from "@/features/layout"
+import type { ColumnWidths, PanelLayout } from "@/entities/layout"
 import { getPresetLayout, isCustomLayout } from "./layoutPresets"
 import type {
   AppearanceSettings,
@@ -97,7 +97,7 @@ const defaultSettings: AppSettings = {
   version: SETTINGS_VERSION,
 }
 
-interface SettingsState {
+export interface SettingsState {
   settings: AppSettings
   isOpen: boolean
   activeTab: string
@@ -263,7 +263,7 @@ export const useSettingsStore = create<SettingsState>()(
         set((state) => {
           const newLayout = { ...state.settings.layout.panelLayout, ...layout }
           const currentPreset = state.settings.layout.currentPreset
-          const isCustom = isCustomLayout(newLayout, currentPreset)
+          const custom = isCustomLayout(newLayout, currentPreset)
 
           return {
             settings: {
@@ -271,7 +271,7 @@ export const useSettingsStore = create<SettingsState>()(
               layout: {
                 ...state.settings.layout,
                 panelLayout: newLayout,
-                currentPreset: isCustom ? "custom" : currentPreset,
+                currentPreset: custom ? "custom" : currentPreset,
               },
             },
           }
@@ -279,18 +279,19 @@ export const useSettingsStore = create<SettingsState>()(
 
       updateColumnWidths: (widths) =>
         set((state) => {
-          const merged = { ...state.settings.layout.columnWidths, ...widths }
+          const mergedWidths = { ...state.settings.layout.columnWidths, ...widths }
 
           return {
             settings: {
               ...state.settings,
               layout: {
                 ...state.settings.layout,
-                columnWidths: merged,
+                columnWidths: mergedWidths,
               },
             },
           }
         }),
+
       saveCustomLayout: (name) => {
         const id = generateId()
         const customLayout: CustomLayout = {

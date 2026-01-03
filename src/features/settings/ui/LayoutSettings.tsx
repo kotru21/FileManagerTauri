@@ -11,11 +11,10 @@ import {
   Trash2,
 } from "lucide-react"
 import { memo, useCallback, useState } from "react"
+import type { LayoutPresetId } from "@/entities/app-settings"
+import { layoutPresets, useLayoutSettings, useSettingsStore } from "@/entities/app-settings"
 import { cn } from "@/shared/lib"
 import { Button, Input, ScrollArea, Separator } from "@/shared/ui"
-import { layoutPresets } from "../model/layoutPresets"
-import { useLayoutSettings, useSettingsStore } from "../model/store"
-import type { LayoutPresetId } from "../model/types"
 
 interface ToggleProps {
   label: string

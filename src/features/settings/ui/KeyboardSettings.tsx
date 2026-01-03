@@ -1,8 +1,8 @@
 import { Keyboard, RotateCcw } from "lucide-react"
 import { memo } from "react"
+import { useKeyboardSettings, useSettingsStore } from "@/entities/app-settings"
 import { cn } from "@/shared/lib"
 import { Button, ScrollArea, Separator } from "@/shared/ui"
-import { useKeyboardSettings, useSettingsStore } from "../model/store"
 
 interface ToggleSwitchProps {
   checked: boolean

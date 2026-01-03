@@ -1,8 +1,8 @@
 import { Gauge, RotateCcw } from "lucide-react"
 import { memo } from "react"
+import { usePerformanceSettings, useSettingsStore } from "@/entities/app-settings"
 import { cn } from "@/shared/lib"
 import { Button, ScrollArea, Separator } from "@/shared/ui"
-import { usePerformanceSettings, useSettingsStore } from "../model/store"
 
 interface SliderProps {
   label: string

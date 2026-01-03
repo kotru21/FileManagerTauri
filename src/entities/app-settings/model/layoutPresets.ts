@@ -1,4 +1,4 @@
-import type { PanelLayout } from "@/features/layout"
+import type { PanelLayout } from "@/entities/layout"
 import type { LayoutPreset, LayoutPresetId } from "./types"
 
 const defaultColumnWidths = {

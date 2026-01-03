@@ -1,6 +1,6 @@
 import { fireEvent, render } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import { useLayoutStore } from "@/features/layout"
+import { useLayoutStore } from "@/entities/layout"
 import { Sidebar } from "../ui/Sidebar"
 
 // Mock recent folders so Sidebar can render list items
