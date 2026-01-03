@@ -1,6 +1,6 @@
 import { ColumnHeader, FileRow, InlineEditRow, type SortConfig } from "@/entities/file-entry"
+import type { ColumnWidths } from "@/entities/layout"
 import { useInlineEditStore } from "@/features/inline-edit"
-import type { ColumnWidths } from "@/features/layout"
 import type { AppearanceSettings, FileDisplaySettings } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { findLastIndex } from "@/shared/lib"

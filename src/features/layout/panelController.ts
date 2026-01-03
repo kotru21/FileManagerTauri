@@ -1,5 +1,5 @@
 import type { PanelImperativeHandle } from "react-resizable-panels"
-import type { PanelLayout } from "./model/layoutStore"
+import type { PanelLayout } from "@/entities/layout"
 
 let sidebarRef: React.RefObject<PanelImperativeHandle | null> | null = null
 let _previewRef: React.RefObject<PanelImperativeHandle | null> | null = null

@@ -1,13 +1,13 @@
 import { useCallback, useEffect } from "react"
+import { useFileDisplaySettings, useSettingsStore } from "@/entities/app-settings"
 import { useBookmarksStore } from "@/features/bookmarks"
 import { useClipboardStore } from "@/features/clipboard"
+import { type Command, useCommandPaletteStore } from "@/features/command-palette"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
 import { useQuickFilterStore } from "@/features/quick-filter"
-import { useFileDisplaySettings, useSettingsStore } from "@/features/settings"
 import { useViewModeStore } from "@/features/view-mode"
-import { type Command, useCommandPaletteStore } from "../model/store"
 
 interface UseRegisterCommandsOptions {
   onRefresh: () => void

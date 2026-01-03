@@ -1,8 +1,8 @@
 import { MousePointer, RotateCcw } from "lucide-react"
 import { memo } from "react"
+import { useBehaviorSettings, useSettingsStore } from "@/entities/app-settings"
 import { cn } from "@/shared/lib"
 import { Button, ScrollArea, Separator } from "@/shared/ui"
-import { useBehaviorSettings, useSettingsStore } from "../model/store"
 
 interface SettingItemProps {
   label: string

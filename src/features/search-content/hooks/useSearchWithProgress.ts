@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
-import { usePerformanceSettings } from "@/features/settings"
+import { usePerformanceSettings } from "@/entities/app-settings"
 import type { SearchOptions, SearchResult } from "@/shared/api/tauri"
 import { tauriEvents } from "@/shared/api/tauri"
 import { tauriClient } from "@/shared/api/tauri/client"

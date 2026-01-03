@@ -1,9 +1,9 @@
 import { Calendar, FileText, Image, RotateCcw } from "lucide-react"
 import { memo, useCallback } from "react"
+import type { DateFormat } from "@/entities/app-settings"
+import { useFileDisplaySettings, useSettingsStore } from "@/entities/app-settings"
 import { cn } from "@/shared/lib"
 import { Button, ScrollArea, Separator } from "@/shared/ui"
-import { useFileDisplaySettings, useSettingsStore } from "../model/store"
-import type { DateFormat } from "../model/types"
 
 interface SettingItemProps {
   label: string

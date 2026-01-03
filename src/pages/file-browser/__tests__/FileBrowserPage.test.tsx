@@ -4,7 +4,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, waitFor } from "@testing-library/react"
 import { act } from "react"
 import { beforeEach, describe, expect, it } from "vitest"
-import { useLayoutStore } from "@/features/layout"
+import { useLayoutStore } from "@/entities/layout"
 import { useLayoutSettings, useSettingsStore } from "@/features/settings"
 import { useSyncLayoutWithSettings } from "@/pages/file-browser/hooks/useSyncLayoutWithSettings"
 

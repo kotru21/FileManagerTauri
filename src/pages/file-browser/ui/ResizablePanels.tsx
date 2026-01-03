@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef } from "react"
 import type { PanelImperativeHandle, PanelSize } from "react-resizable-panels"
+import { useLayoutStore } from "@/entities/layout"
 import { useSelectionStore } from "@/features/file-selection"
-import { useLayoutStore } from "@/features/layout"
 import { isApplyingSettings } from "@/features/layout/sync"
 import { useNavigationStore } from "@/features/navigation"
 import { SearchResultItem, useSearchStore } from "@/features/search-content"

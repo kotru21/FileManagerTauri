@@ -225,11 +225,13 @@ export const useLayoutStore = create<LayoutState>()(
               const obj = p as Record<string, unknown>
               if (obj.state && typeof obj.state === "object") {
                 const state = obj.state as Record<string, unknown>
-                if (state.layout && typeof state.layout === "object")
+                if (state.layout && typeof state.layout === "object") {
                   return state.layout as Record<string, unknown>
+                }
               }
-              if (obj.layout && typeof obj.layout === "object")
+              if (obj.layout && typeof obj.layout === "object") {
                 return obj.layout as Record<string, unknown>
+              }
             }
             return undefined
           }

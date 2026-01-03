@@ -1,6 +1,6 @@
 /// <reference types="vitest" />
 import { expect, it } from "vitest"
-import { useSettingsStore } from "@/features/settings"
+import { useSettingsStore } from "@/entities/app-settings"
 import { useViewModeStore } from "../model/store"
 
 it("toggleHidden delegates to settings store", () => {

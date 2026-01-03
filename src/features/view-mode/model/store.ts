@@ -3,7 +3,7 @@ import { persist } from "zustand/middleware"
 
 export type ViewMode = "list" | "grid" | "details"
 
-import { useSettingsStore } from "@/features/settings"
+import { useSettingsStore } from "@/entities/app-settings"
 
 export interface ViewSettings {
   mode: ViewMode

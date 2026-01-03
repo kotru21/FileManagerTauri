@@ -1,6 +1,6 @@
 import { Filter, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { usePerformanceSettings } from "@/features/settings"
+import { usePerformanceSettings } from "@/entities/app-settings"
 import { cn } from "@/shared/lib"
 import { Button, Input } from "@/shared/ui"
 import { useQuickFilterStore } from "../model/store"

@@ -1,9 +1,9 @@
 import { Moon, Palette, RotateCcw, Sun, Type } from "lucide-react"
 import { memo, useCallback } from "react"
+import type { FontSize, Theme } from "@/entities/app-settings"
+import { useAppearanceSettings, useSettingsStore } from "@/entities/app-settings"
 import { cn } from "@/shared/lib"
 import { Button, ScrollArea, Separator } from "@/shared/ui"
-import { useAppearanceSettings, useSettingsStore } from "../model/store"
-import type { FontSize, Theme } from "../model/types"
 
 const themes: { id: Theme; label: string; icon: React.ReactNode }[] = [
   { id: "light", label: "Светлая", icon: <Sun size={18} /> },

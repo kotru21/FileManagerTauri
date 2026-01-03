@@ -1,11 +1,11 @@
 import { useQueryClient } from "@tanstack/react-query"
 import { useCallback, useEffect, useMemo, useRef } from "react"
 import { fileKeys } from "@/entities/file-entry"
-import { CommandPalette, useRegisterCommands } from "@/features/command-palette"
+import { useLayoutStore } from "@/entities/layout"
+import { CommandPalette } from "@/features/command-palette"
 import { ConfirmDialog } from "@/features/confirm"
 import { DeleteConfirmDialog, useDeleteConfirmStore } from "@/features/delete-confirm"
 import { useSelectionStore } from "@/features/file-selection"
-import { useLayoutStore } from "@/features/layout"
 import { useNavigationStore } from "@/features/navigation"
 import {
   createOperationDescription,
@@ -14,6 +14,7 @@ import {
 } from "@/features/operations-history"
 import { SettingsDialog, useLayoutSettings, useSettingsStore } from "@/features/settings"
 import { useTabsStore } from "@/features/tabs"
+import { useRegisterCommands } from "@/processes/command-palette"
 import type { FileEntry } from "@/shared/api/tauri"
 import { tauriClient } from "@/shared/api/tauri/client"
 import { cn } from "@/shared/lib"

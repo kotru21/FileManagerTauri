@@ -1,6 +1,7 @@
 // @ts-nocheck
 /// <reference types="vitest" />
-import { useSettingsStore } from "../model/store"
+
+import { useSettingsStore } from "@/entities/app-settings"
 
 describe("importSettings", () => {
   beforeEach(() => {

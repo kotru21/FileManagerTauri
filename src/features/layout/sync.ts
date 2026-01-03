@@ -1,5 +1,5 @@
-import { useSettingsStore } from "@/features/settings"
-import { useLayoutStore } from "./model/layoutStore"
+import { useSettingsStore } from "@/entities/app-settings"
+import { useLayoutStore } from "@/entities/layout"
 import { applyLayoutToPanels } from "./panelController"
 
 let presetUnsub: (() => void) | null = null
