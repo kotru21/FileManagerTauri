@@ -2,10 +2,10 @@ import path from "node:path"
 import { defineConfig } from "vitest/config"
 
 const CORE_COVERAGE_BASELINE = {
-  statements: 82,
-  branches: 64,
-  functions: 82,
-  lines: 84,
+  statements: 88,
+  branches: 69,
+  functions: 91,
+  lines: 90,
 } as const
 
 export default defineConfig({
