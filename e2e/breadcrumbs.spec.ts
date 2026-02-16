@@ -24,7 +24,7 @@ test.describe("Breadcrumbs", () => {
     await page.goto(base)
 
     // Breadcrumb segments should contain path parts
-    const segment = page.locator('[data-path]').first()
+    const segment = page.locator("[data-path]").first()
     if ((await segment.count()) === 0) {
       test.skip(true, "Breadcrumb segments not rendered")
       return
