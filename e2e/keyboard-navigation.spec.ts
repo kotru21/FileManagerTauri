@@ -46,7 +46,6 @@ test.describe("Keyboard navigation", () => {
     }
 
     await rows.first().click()
-    const currentUrl = page.url()
     await page.keyboard.press("Enter")
 
     // Wait briefly for potential navigation
