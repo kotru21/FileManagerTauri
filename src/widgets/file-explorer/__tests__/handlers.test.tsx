@@ -1,7 +1,6 @@
 /// <reference types="vitest" />
 
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useClipboardStore } from "@/features/clipboard"
 import { useConfirmStore } from "@/features/confirm"
 import { useInlineEditStore } from "@/features/inline-edit"

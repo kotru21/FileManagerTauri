@@ -1,5 +1,4 @@
 import { render } from "@testing-library/react"
-import { expect, it } from "vitest"
 import { FileExplorerGrid } from "@/widgets/file-explorer/ui/FileExplorerGrid"
 
 it("a11y check — FileExplorerGrid (axe)", async () => {

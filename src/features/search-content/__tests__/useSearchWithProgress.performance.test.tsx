@@ -1,6 +1,5 @@
 import { render, waitFor } from "@testing-library/react"
 import React from "react"
-import { describe, expect, it, vi } from "vitest"
 import { useSettingsStore } from "@/entities/app-settings"
 import { useSearchStore } from "@/features/search-content"
 import { useSearchWithProgress } from "@/features/search-content/hooks/useSearchWithProgress"

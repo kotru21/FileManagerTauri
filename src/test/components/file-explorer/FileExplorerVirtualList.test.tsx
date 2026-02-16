@@ -1,5 +1,4 @@
 import { render } from "@testing-library/react"
-import { expect, test, vi } from "vitest"
 import type { FileEntry } from "@/shared/api/tauri"
 
 // Mock heavy VirtualFileList

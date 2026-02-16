@@ -1,6 +1,5 @@
 /// <reference types="vitest" />
 import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
 import { useInlineEditStore } from "@/features/inline-edit"
 import type { FileEntry } from "@/shared/api/tauri"
 import { FileExplorerSimpleList } from "@/widgets/file-explorer/ui/FileExplorerSimpleList"

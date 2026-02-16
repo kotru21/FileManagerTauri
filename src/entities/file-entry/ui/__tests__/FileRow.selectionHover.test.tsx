@@ -1,5 +1,4 @@
 import { fireEvent, render } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
 import { FileRow } from "../FileRow"
 
 const baseFile = {

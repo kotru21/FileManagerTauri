@@ -1,5 +1,4 @@
 import { fireEvent, render, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it } from "vitest"
 import { FileRow } from "@/entities/file-entry/ui/FileRow"
 import { useFileDisplaySettings, useSettingsStore } from "@/features/settings"
 import { FileDisplaySettings } from "@/features/settings/ui/FileDisplaySettings"

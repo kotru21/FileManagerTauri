@@ -1,5 +1,4 @@
 import { act, fireEvent, render } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
 import { useSelectionStore } from "@/features/file-selection"
 
 function TestBackground() {

@@ -1,5 +1,4 @@
 /// <reference types="vitest" />
-import { describe, expect, it } from "vitest"
 import { type AppSettings, migrateSettings } from "@/entities/app-settings"
 
 // Note: migrateSettings should update persisted settings to the canonical schema

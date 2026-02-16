@@ -1,6 +1,4 @@
 /// <reference types="vitest" />
-import { beforeEach, describe, expect, it, vi } from "vitest"
-
 vi.mock("@/shared/api/tauri/client", () => {
   return {
     tauriClient: {

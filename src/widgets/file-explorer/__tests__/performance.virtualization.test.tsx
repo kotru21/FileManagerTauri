@@ -1,5 +1,4 @@
 import { render } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
 import type { FileEntry } from "@/shared/api/tauri"
 import { TooltipProvider } from "@/shared/ui"
 import { FileExplorerView } from "@/widgets/file-explorer/ui/FileExplorer.view"

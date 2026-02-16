@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest"
 import type { FileEntry } from "@/shared/api/tauri"
 import { filterEntries, type SortConfig, sortEntries } from "../types"
 

@@ -1,5 +1,3 @@
-import { afterEach, vi } from "vitest"
-
 // Mock localStorage for zustand persist middleware
 const localStorageMock = (() => {
   let store: Record<string, string> = {}

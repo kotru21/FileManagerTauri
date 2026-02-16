@@ -1,5 +1,4 @@
 import { render } from "@testing-library/react"
-import { expect, it } from "vitest"
 import { FileExplorerVirtualList } from "@/widgets/file-explorer/ui/FileExplorerVirtualList"
 
 it("a11y check — FileExplorerVirtualList (axe)", async () => {

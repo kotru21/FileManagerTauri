@@ -1,5 +1,3 @@
-import { describe, expect, it, vi } from "vitest"
-
 import { findLastIndex, generateId } from "../array-utils"
 
 describe("shared/lib/array-utils", () => {

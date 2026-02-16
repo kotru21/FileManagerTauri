@@ -1,5 +1,4 @@
 import * as rtl from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
 import { TooltipProvider } from "@/shared/ui"
 import { FileRow } from "../FileRow"
 

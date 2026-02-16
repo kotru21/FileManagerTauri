@@ -1,5 +1,4 @@
 import { cleanup, render } from "@testing-library/react"
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest"
 import { useSettingsStore } from "@/entities/app-settings"
 import { applyAppearanceToRoot, useApplyAppearance } from "./useApplyAppearance"
 

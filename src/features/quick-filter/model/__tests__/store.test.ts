@@ -1,6 +1,4 @@
 import { act } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
-
 import { useQuickFilterStore } from "../store"
 
 describe("useQuickFilterStore", () => {

@@ -1,5 +1,4 @@
 /// <reference types="vitest" />
-import { beforeEach, describe, expect, it } from "vitest"
 import type { FileEntry } from "@/shared/api/tauri"
 import { getLastFiles, getPerfLog, setLastFiles, setPerfLog } from "../devLogger"
 

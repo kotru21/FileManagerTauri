@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest"
 import { __maybeCacheThumbnail, __thumbnailCache } from "../FileThumbnail"
 
 describe("thumbnail cache LRU behaviour", () => {

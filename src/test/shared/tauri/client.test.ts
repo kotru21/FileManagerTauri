@@ -1,4 +1,3 @@
-import { beforeEach, expect, test, vi } from "vitest"
 import { commands } from "@/shared/api/tauri/bindings"
 import { tauriClient } from "@/shared/api/tauri/client"
 

@@ -2,7 +2,6 @@
 
 import fs from "node:fs"
 import path from "node:path"
-import { describe, expect, it } from "vitest"
 
 const PROJECT_ROOT = process.cwd()
 const SRC_ROOT = path.join(PROJECT_ROOT, "src")

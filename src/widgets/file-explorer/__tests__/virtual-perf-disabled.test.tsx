@@ -1,5 +1,4 @@
 import { render } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
 import { VirtualFileList } from "@/widgets/file-explorer"
 
 describe("virtualizer perf disabled (integration)", () => {

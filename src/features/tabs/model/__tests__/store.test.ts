@@ -1,6 +1,4 @@
 import { act } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
-
 import { useTabsStore } from "../store"
 
 describe("useTabsStore", () => {

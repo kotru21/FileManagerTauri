@@ -1,5 +1,4 @@
 import { render } from "@testing-library/react"
-import { expect, test, vi } from "vitest"
 
 // Minimal FileDisplaySettings for unit tests
 type FileDisplaySettings = {

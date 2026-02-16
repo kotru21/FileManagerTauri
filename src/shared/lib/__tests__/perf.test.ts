@@ -1,4 +1,3 @@
-import { describe, expect, it, vi } from "vitest"
 import { markPerf, withPerf, withPerfSync } from "../perf"
 
 describe("withPerf", () => {

@@ -1,6 +1,5 @@
 /// <reference types="vitest" />
 import { fireEvent, render, screen } from "@testing-library/react"
-import { expect, it, vi } from "vitest"
 import { FileContextMenu } from "@/features/context-menu/ui/FileContextMenu"
 
 it("shows Open in Explorer when context menu is opened", async () => {

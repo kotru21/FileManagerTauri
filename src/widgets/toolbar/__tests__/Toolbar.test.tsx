@@ -2,7 +2,6 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { fireEvent, render, screen } from "@testing-library/react"
-import { beforeEach, describe, expect, it } from "vitest"
 import { useQuickFilterStore } from "@/features/quick-filter"
 import { TooltipProvider } from "@/shared/ui"
 import { Toolbar } from "@/widgets/toolbar"
