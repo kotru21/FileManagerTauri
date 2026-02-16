@@ -1,5 +1,4 @@
 import { fireEvent, render, waitFor } from "@testing-library/react"
-import { beforeEach, describe, expect, it } from "vitest"
 import { usePerformanceSettings } from "@/features/settings"
 import { PerformanceSettings } from "@/features/settings/ui/PerformanceSettings"
 

@@ -1,4 +1,3 @@
-import { describe, expect, it } from "vitest"
 import { getBasename, getExtension, getFileType, joinPath } from "../file-utils"
 
 describe("getFileType", () => {

@@ -33,11 +33,11 @@ export function useKeyboardNavigation({
     const lastSelected = Array.from(selectedPaths).pop()
     if (lastSelected) {
       const index = files.findIndex((f) => f.path === lastSelected)
-      if (index !== -1 && index !== focusedIndex) {
+      if (index !== -1) {
         setFocusedIndex(index)
       }
     }
-  }, [selectedPaths, files, focusedIndex])
+  }, [selectedPaths, files])
   useEffect(() => {
     if (files.length === 0) {
       setFocusedIndex(-1)

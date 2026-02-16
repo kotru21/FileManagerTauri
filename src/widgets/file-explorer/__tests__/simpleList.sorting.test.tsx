@@ -1,5 +1,4 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
 import { ColumnHeader } from "@/entities/file-entry"
 import { sortEntries } from "@/entities/file-entry/model/types"
 import { useSortingStore } from "@/features/sorting/model/store"

@@ -25,7 +25,6 @@
   "dependencies": {
     "@radix-ui/react-context-menu": "^2.2.16",
     "@radix-ui/react-dialog": "^1.1.15",
-    "@radix-ui/react-dropdown-menu": "^2.1.16",
     "@radix-ui/react-scroll-area": "^1.2.10",
     "@radix-ui/react-separator": "^1.1.8",
     "@radix-ui/react-tooltip": "^1.2.8",
@@ -35,13 +34,13 @@
     "@tauri-apps/api": "^2.9.1",
     "@tauri-apps/plugin-opener": "^2.5.2",
     "clsx": "^2.1.1",
-    "lucide-react": "^0.562.0",
+    "lucide-react": "^0.564.0",
     "react": "^19.2.3",
     "react-dom": "^19.2.3",
     "react-resizable-panels": "^4.1.1",
     "tailwind-merge": "^3.4.0",
-    "zustand": "^5.0.9",
-    "zod": "^4.3.4"
+    "zod": "^4.3.4",
+    "zustand": "^5.0.9"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.3.10",
@@ -55,7 +54,6 @@
     "@vitejs/plugin-react": "^5.1.2",
     "@vitest/coverage-v8": "^4.0.16",
     "axe-core": "^4.11.0",
-    "globals": "^16.5.0",
     "jsdom": "^27.4.0",
     "madge": "^8.0.0",
     "tailwindcss": "^4.1.18",

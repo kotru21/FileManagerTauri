@@ -1,6 +1,5 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render, waitFor } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
 import { tauriClient } from "@/shared/api/tauri/client"
 import { useDirectoryContents } from "../queries"
 

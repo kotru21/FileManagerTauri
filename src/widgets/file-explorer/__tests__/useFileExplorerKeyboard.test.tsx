@@ -1,6 +1,5 @@
 /// <reference types="vitest" />
 import { act, render } from "@testing-library/react"
-import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useNavigationStore } from "@/features/navigation"
 import { useSettingsStore } from "@/features/settings"
 import type { UseFileExplorerKeyboardOptions } from "../lib/useFileExplorerKeyboard"

@@ -1,4 +1,3 @@
-import { describe, expect, it, vi } from "vitest"
 import { useNavigationStore } from "@/features/navigation/model/store"
 
 describe("perf integration", () => {

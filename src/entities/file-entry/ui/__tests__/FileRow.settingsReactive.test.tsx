@@ -1,6 +1,5 @@
 import { fireEvent, render, waitFor } from "@testing-library/react"
 import { useState } from "react"
-import { describe, expect, it } from "vitest"
 import { FileRow } from "../FileRow"
 
 const nowSec = Math.floor(Date.now() / 1000)

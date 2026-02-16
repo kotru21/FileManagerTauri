@@ -1,6 +1,4 @@
 import { act } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
-
 import type { SearchResult } from "@/shared/api/tauri"
 
 import { useSearchStore } from "../store"

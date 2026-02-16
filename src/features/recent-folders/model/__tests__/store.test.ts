@@ -1,6 +1,4 @@
 import { act } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
-
 import { useRecentFoldersStore } from "../store"
 
 describe("useRecentFoldersStore", () => {

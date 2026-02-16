@@ -1,6 +1,4 @@
 import { act } from "@testing-library/react"
-import { describe, expect, it, vi } from "vitest"
-
 import { createOperationDescription, useOperationsHistoryStore } from "../store"
 
 describe("useOperationsHistoryStore basics", () => {

@@ -1,5 +1,3 @@
-import { describe, expect, it } from "vitest"
-
 import * as lib from "../index"
 
 describe("shared/lib/index", () => {

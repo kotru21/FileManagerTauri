@@ -2,7 +2,6 @@
 
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { render } from "@testing-library/react"
-import { expect, it } from "vitest"
 import FileBrowserPage from "@/pages/file-browser/ui/FileBrowserPage"
 
 function renderWithProviders(ui: React.ReactElement) {

@@ -1,5 +1,4 @@
 import { waitFor } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
 import { useSettingsStore } from "@/features/settings"
 
 describe("Settings persistence", () => {

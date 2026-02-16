@@ -1,7 +1,6 @@
 /// <reference types="vitest" />
 
 import { act, cleanup, render, screen, waitFor } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
 import { useSelectionStore } from "@/features/file-selection"
 import { useNavigationStore } from "@/features/navigation"
 import { useSettingsStore } from "@/features/settings"

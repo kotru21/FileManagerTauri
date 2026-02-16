@@ -1,5 +1,4 @@
 import { waitFor } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
 import { useSettingsStore } from "@/features/settings"
 
 // These expected defaults mirror the defaults declared in the settings store

@@ -1,5 +1,3 @@
-import { describe, expect, it } from "vitest"
-
 import { canShowThumbnail, getLocalImageUrl } from "../image-utils"
 
 describe("shared/lib/image-utils", () => {

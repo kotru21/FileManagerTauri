@@ -1,5 +1,4 @@
 import { fireEvent, render, screen } from "@testing-library/react"
-import { describe, expect, it } from "vitest"
 import { useSettingsStore } from "@/features/settings"
 import { PerformanceSettings } from "@/features/settings/ui/PerformanceSettings"
 

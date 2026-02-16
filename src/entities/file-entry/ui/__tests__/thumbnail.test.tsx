@@ -1,6 +1,5 @@
 /// <reference types="vitest" />
 import { fireEvent, render, waitFor } from "@testing-library/react"
-import { expect, test, vi } from "vitest"
 import type { FilePreview } from "@/shared/api/tauri"
 import { tauriClient } from "@/shared/api/tauri/client"
 import { FileThumbnail } from "../FileThumbnail"
