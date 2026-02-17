@@ -1,7 +1,7 @@
 import { z } from "zod"
 import { create } from "zustand"
 import { persist, subscribeWithSelector } from "zustand/middleware"
-import type { ColumnWidths, PanelLayout } from "@/entities/layout"
+import type { PanelLayout } from "@/entities/layout"
 import { getPresetLayout, isCustomLayout } from "./layoutPresets"
 import type {
   AppearanceSettings,
@@ -53,7 +53,6 @@ const defaultLayout: LayoutSettings = {
   currentPreset: "default",
   customLayouts: [],
   panelLayout: getPresetLayout("default"),
-  columnWidths: { size: 90, date: 140, padding: 16 },
   showStatusBar: true,
   showToolbar: true,
   showBreadcrumbs: true,
@@ -150,7 +149,6 @@ export interface SettingsState {
   // Layout specific
   setLayoutPreset: (presetId: LayoutPresetId) => void
   updatePanelLayout: (layout: Partial<PanelLayout>) => void
-  updateColumnWidths: (widths: Partial<ColumnWidths>) => void
   saveCustomLayout: (name: string) => string
   deleteCustomLayout: (id: string) => void
   applyCustomLayout: (id: string) => void
@@ -311,21 +309,6 @@ export const useSettingsStore = create<SettingsState>()(
           }
         }),
 
-      updateColumnWidths: (widths) =>
-        set((state) => {
-          const mergedWidths = { ...state.settings.layout.columnWidths, ...widths }
-
-          return {
-            settings: {
-              ...state.settings,
-              layout: {
-                ...state.settings.layout,
-                columnWidths: mergedWidths,
-              },
-            },
-          }
-        }),
-
       saveCustomLayout: (name) => {
         const id = generateId()
         const customLayout: CustomLayout = {
@@ -440,7 +423,6 @@ export const useSettingsStore = create<SettingsState>()(
           const layoutSchema = z.object({
             currentPreset: z.string().optional(),
             panelLayout: z.any().optional(),
-            columnWidths: z.any().optional(),
             showStatusBar: z.boolean().optional(),
             showToolbar: z.boolean().optional(),
             showBreadcrumbs: z.boolean().optional(),

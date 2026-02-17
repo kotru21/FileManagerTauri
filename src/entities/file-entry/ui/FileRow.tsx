@@ -154,7 +154,7 @@ export const FileRow = memo(function FileRow({
       className={cn(
         "group flex items-center gap-2 px-3 py-1.5 cursor-pointer select-none no-drag",
         !isSelected && "hover:bg-accent/50 transition-colors duration-(--transition-duration)",
-        isSelected && "bg-accent",
+        isSelected && "bg-accent text-accent-foreground",
         isFocused && "ring-1 ring-primary ring-inset",
         isDragOver && "bg-accent/70 ring-2 ring-primary",
         isCut && "opacity-50",
@@ -205,7 +205,10 @@ export const FileRow = memo(function FileRow({
 
       {displaySettings.showFileSizes && (
         <span
-          className="text-xs text-muted-foreground tabular-nums shrink-0 text-right pr-2"
+          className={cn(
+            "text-xs tabular-nums shrink-0 text-right pr-2",
+            isSelected ? "text-accent-foreground-muted" : "text-muted-foreground",
+          )}
           style={{ width: columnWidths.size }}
         >
           {file.is_dir ? "" : formatBytes(file.size)}
@@ -214,7 +217,10 @@ export const FileRow = memo(function FileRow({
 
       {displaySettings.showFileDates && (
         <span
-          className="text-xs text-muted-foreground shrink-0 text-right pr-2"
+          className={cn(
+            "text-xs shrink-0 text-right pr-2",
+            isSelected ? "text-accent-foreground-muted" : "text-muted-foreground",
+          )}
           style={{ width: columnWidths.date }}
         >
           {formattedDate}

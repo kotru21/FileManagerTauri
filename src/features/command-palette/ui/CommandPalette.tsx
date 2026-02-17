@@ -206,25 +206,46 @@ export function CommandPalette() {
                         data-index={index}
                         className={cn(
                           "w-full flex items-center gap-3 px-3 py-2 text-sm text-left",
-                          "hover:bg-accent transition-colors",
-                          index === selectedIndex && "bg-accent",
+                          "hover:bg-accent hover:text-accent-foreground transition-colors",
+                          index === selectedIndex && "bg-accent text-accent-foreground",
                         )}
                         onClick={() => executeCommand(command.id)}
                         onMouseEnter={() => setSelectedIndex(index)}
                       >
-                        <span className="text-muted-foreground shrink-0">
+                        <span
+                          className={cn(
+                            "shrink-0",
+                            index === selectedIndex
+                              ? "text-accent-foreground-muted"
+                              : "text-muted-foreground",
+                          )}
+                        >
                           {command.icon && ICON_MAP[command.icon]}
                         </span>
                         <div className="flex-1 min-w-0">
                           <div className="truncate">{command.title}</div>
                           {command.description && (
-                            <div className="text-xs text-muted-foreground truncate">
+                            <div
+                              className={cn(
+                                "text-xs truncate",
+                                index === selectedIndex
+                                  ? "text-accent-foreground-muted"
+                                  : "text-muted-foreground",
+                              )}
+                            >
                               {command.description}
                             </div>
                           )}
                         </div>
                         {command.shortcut && (
-                          <kbd className="hidden sm:inline-flex h-5 items-center gap-1 rounded border bg-muted px-1.5 font-mono text-xs text-muted-foreground">
+                          <kbd
+                            className={cn(
+                              "hidden sm:inline-flex h-5 items-center gap-1 rounded border px-1.5 font-mono text-xs",
+                              index === selectedIndex
+                                ? "bg-accent/70 border-accent-foreground/20 text-accent-foreground-muted"
+                                : "bg-muted text-muted-foreground",
+                            )}
+                          >
                             {command.shortcut}
                           </kbd>
                         )}

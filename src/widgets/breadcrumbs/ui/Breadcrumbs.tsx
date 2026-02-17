@@ -157,6 +157,7 @@ export function Breadcrumbs({ className }: BreadcrumbsProps) {
     <div
       className={cn("flex items-center gap-1 text-sm overflow-hidden", className)}
       onDoubleClick={startEditing}
+      data-slot="breadcrumbs"
     >
       {/* Home/Root button */}
       <button

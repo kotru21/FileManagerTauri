@@ -15,7 +15,7 @@ export function FileCard({ file, isSelected, onSelect, onOpen }: FileCardProps) 
       className={cn(
         "flex flex-col items-center gap-1 p-3 rounded-lg cursor-pointer select-none",
         "hover:bg-accent/50 transition-colors w-24",
-        isSelected && "bg-accent",
+        isSelected && "bg-accent text-accent-foreground",
       )}
       onClick={onSelect}
       onDoubleClick={onOpen}

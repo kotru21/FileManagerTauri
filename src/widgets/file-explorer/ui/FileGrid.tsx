@@ -211,8 +211,8 @@ const GridItem = memo(function GridItem({
         // Only show hover background when not selected to avoid visual override of selection
         !isSelected && "hover:bg-accent/50",
         "transition-colors",
-        isSelected && "bg-accent",
-        isDragOver && "bg-accent/70 ring-2 ring-primary",
+        isSelected && "bg-accent text-accent-foreground",
+        isDragOver && "bg-accent/70 ring-2 ring-primary text-accent-foreground",
         isCut && "opacity-50",
       )}
       style={{ width: gridConfig.itemSize }}
@@ -225,6 +225,7 @@ const GridItem = memo(function GridItem({
       onDragLeave={() => setIsDragOver(false)}
       onDrop={handleDrop}
       data-path={file.path}
+      data-slot="grid-item"
     >
       {/* Thumbnail or Icon */}
       <div

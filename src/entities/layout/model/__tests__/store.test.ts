@@ -25,9 +25,9 @@ describe("useLayoutStore", () => {
     expect(s.layout.showSidebar).toBe(true)
     expect(s.layout.showPreview).toBe(true)
 
-    expect(s.layout.columnWidths.size).toBe(100)
-    expect(s.layout.columnWidths.date).toBe(180)
-    expect(s.layout.columnWidths.padding).toBe(8)
+    expect(s.layout.columnWidths.size).toBe(90)
+    expect(s.layout.columnWidths.date).toBe(140)
+    expect(s.layout.columnWidths.padding).toBe(16)
 
     expect(s.layout.expandedSections?.bookmarks).toBe(true)
     expect(s.layout.expandedSections?.recent).toBe(true)
@@ -65,8 +65,8 @@ describe("useLayoutStore", () => {
 
     const s = useLayoutStore.getState().layout.columnWidths
     expect(s.size).toBe(111)
-    expect(s.date).toBe(180)
-    expect(s.padding).toBe(8)
+    expect(s.date).toBe(140)
+    expect(s.padding).toBe(16)
   })
 
   it("toggleSidebar/togglePreview invert visibility", () => {
@@ -162,7 +162,7 @@ describe("useLayoutStore", () => {
 
     // columnWidths should be merged with defaults
     expect(s.columnWidths.size).toBe(123)
-    expect(s.columnWidths.date).toBe(180)
-    expect(s.columnWidths.padding).toBe(8)
+    expect(s.columnWidths.date).toBe(140)
+    expect(s.columnWidths.padding).toBe(16)
   })
 })

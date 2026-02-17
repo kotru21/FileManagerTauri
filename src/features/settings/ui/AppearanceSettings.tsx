@@ -12,9 +12,9 @@ const themes: { id: Theme; label: string; icon: React.ReactNode }[] = [
 ]
 
 const fontSizes: { id: FontSize; label: string; preview: string }[] = [
-  { id: "small", label: "Маленький", preview: "12px" },
-  { id: "medium", label: "Средний", preview: "14px" },
-  { id: "large", label: "Большой", preview: "16px" },
+  { id: "small", label: "Маленький", preview: "14px" },
+  { id: "medium", label: "Средний", preview: "16px" },
+  { id: "large", label: "Большой", preview: "18px" },
 ]
 
 const accentColors = [

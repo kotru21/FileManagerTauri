@@ -49,6 +49,10 @@ html.light {
 .text-accent-foreground {
   color: var(--accent-color-foreground, var(--color-primary-foreground, #fff));
 }
+.text-accent-foreground-muted {
+  color: var(--accent-color-foreground, var(--color-primary-foreground, #fff));
+  opacity: 0.7;
+}
 .icon-accent {
   color: var(--accent-color);
   stroke: var(--accent-color);
@@ -220,11 +224,74 @@ html.light {
   transition: all var(--transition-duration) ease-out;
 }
 .compact-mode .file-row {
-  padding-top: 0.25rem;
-  padding-bottom: 0.25rem;
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
 }
 
 .compact-mode .file-icon {
   width: 16px;
   height: 16px;
+}
+
+/* Tabs: reduce height and padding */
+.compact-mode [data-slot="tab-bar"] {
+  height: 1.75rem;
+}
+.compact-mode [data-slot="tab-item"] {
+  height: 1.5rem;
+  min-width: 5rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+  font-size: 0.75rem;
+}
+.compact-mode [data-slot="tab-new"] {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+/* Toolbar: tighter spacing */
+.compact-mode [data-slot="toolbar"] {
+  padding: 0.25rem 0.5rem;
+  gap: 0.25rem;
+}
+.compact-mode [data-slot="toolbar"] button {
+  height: 1.5rem;
+  width: 1.5rem;
+}
+
+/* Breadcrumbs: smaller text and padding */
+.compact-mode [data-slot="breadcrumbs"] {
+  font-size: 0.75rem;
+  gap: 0.125rem;
+}
+.compact-mode [data-slot="breadcrumbs"] button {
+  padding: 0.125rem 0.25rem;
+}
+
+/* Status bar: minimal height */
+.compact-mode [data-slot="status-bar"] {
+  height: 1.25rem;
+  font-size: 0.625rem;
+  padding-left: 0.5rem;
+  padding-right: 0.5rem;
+}
+
+/* Sidebar: tighter item spacing */
+.compact-mode [data-slot="sidebar"] button {
+  padding-top: 0.25rem;
+  padding-bottom: 0.25rem;
+  font-size: 0.75rem;
+}
+.compact-mode [data-slot="sidebar"] [data-slot="section-header"] {
+  padding-top: 0.125rem;
+  padding-bottom: 0.125rem;
+  font-size: 0.625rem;
+}
+
+/* Grid view: tighter items */
+.compact-mode [data-slot="grid-item"] {
+  padding: 0.25rem;
+}
+.compact-mode [data-slot="grid-item"] .file-name {
+  font-size: 0.625rem;
 }

@@ -67,12 +67,13 @@ function TabItem({
           onDragLeave={handleDragLeave}
           onDrop={handleDrop}
           onClick={onSelect}
+          data-slot="tab-item"
           className={cn(
             "group relative flex h-8 min-w-30 max-w-50 cursor-pointer items-center gap-2 border-r border-border/50 px-3 text-sm transition-colors no-drag",
             isActive
               ? "bg-background text-foreground"
               : "bg-muted/30 text-muted-foreground hover:bg-muted/50",
-            isDragOver && "bg-accent",
+            isDragOver && "bg-accent text-accent-foreground",
           )}
         >
           {tab.isPinned && <Pin className="h-3.5 w-3.5" />}
@@ -222,6 +223,7 @@ export function TabBar({ onTabChange, className, controls }: TabBarProps) {
         "flex h-9 items-center bg-muted/50 border-b border-border select-none",
         className,
       )}
+      data-slot="tab-bar"
     >
       {/* Drag region (occupies remaining space to push controls to the right) */}
       <div data-tauri-drag-region className="flex-1 flex items-center h-full min-w-0">
@@ -249,6 +251,7 @@ export function TabBar({ onTabChange, className, controls }: TabBarProps) {
           onClick={handleNewTab}
           className="flex h-8 w-8 shrink-0 items-center justify-center text-muted-foreground hover:bg-muted/80 hover:text-foreground transition-colors ml-1"
           aria-label="Новая вкладка"
+          data-slot="tab-new"
         >
           <Plus className="h-4 w-4" />
         </button>

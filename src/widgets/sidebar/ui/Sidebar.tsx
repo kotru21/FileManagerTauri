@@ -70,6 +70,7 @@ function SectionHeader({ title, icon, expanded, onToggle, collapsed }: SectionHe
     <button
       type="button"
       onClick={onToggle}
+      data-slot="section-header"
       className="flex w-full items-center gap-2 px-2 py-1.5 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors"
     >
       {expanded ? <ChevronDown className="h-3 w-3" /> : <ChevronRight className="h-3 w-3" />}
@@ -174,7 +175,12 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
 
   return (
     <ScrollArea className={cn("h-full", className)}>
-      <div className="flex flex-col gap-1 p-2" onDrop={handleDrop} onDragOver={handleDragOver}>
+      <div
+        className="flex flex-col gap-1 p-2"
+        data-slot="sidebar"
+        onDrop={handleDrop}
+        onDragOver={handleDragOver}
+      >
         <div>
           <SectionHeader
             title="Быстрый доступ"

@@ -53,6 +53,7 @@ export function StatusBar({ className }: StatusBarProps) {
         "flex items-center justify-between h-6 px-3 text-xs bg-muted/30 border-t border-border",
         className,
       )}
+      data-slot="status-bar"
     >
       <div className="flex items-center gap-3">
         {(isLoading || isFetching || isSearching) && (
