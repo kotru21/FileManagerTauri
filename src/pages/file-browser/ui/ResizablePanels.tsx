@@ -1,5 +1,5 @@
-import { useCallback, useEffect, useRef } from "react"
-import type { PanelImperativeHandle, PanelSize } from "react-resizable-panels"
+import { useCallback, useEffect, useRef, useState } from "react"
+import type { PanelImperativeHandle } from "react-resizable-panels"
 import { useLayoutStore } from "@/entities/layout"
 import { useSelectionStore } from "@/features/file-selection"
 import { isApplyingSettings } from "@/features/layout/sync"
@@ -27,8 +27,24 @@ export function ResizablePanels({
   const navigate = useNavigationStore((s) => s.navigate)
   const sidebarPanelRef = useRef<PanelImperativeHandle | null>(null)
   const previewPanelRef = useRef<PanelImperativeHandle | null>(null)
-  const layoutSaveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const showSearchResults = searchResults.length > 0 || isSearching
+
+  // Track sidebar collapsed state locally for immediate UI updates without
+  // triggering store re-renders during drag (which would break the resize).
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(
+    panelLayout.sidebarCollapsed ?? false,
+  )
+  const lastCollapsedRef = useRef(panelLayout.sidebarCollapsed ?? false)
+
+  // Sync collapsed state from external sources (e.g. preset application)
+  useEffect(() => {
+    const external = panelLayout.sidebarCollapsed ?? false
+    if (external !== lastCollapsedRef.current) {
+      lastCollapsedRef.current = external
+      setSidebarCollapsed(external)
+    }
+  }, [panelLayout.sidebarCollapsed])
+
   const handleSearchResultSelect = useCallback(
     async (path: string) => {
       try {
@@ -83,16 +99,6 @@ export function ResizablePanels({
     return Number.parseFloat(String(v).replace("%", ""))
   }, [])
 
-  const panelSizeToPercent = useCallback((s: PanelSize) => {
-    if (typeof s === "number") return s
-    // react-resizable-panels uses an object for richer sizes
-    if (typeof s === "object" && s !== null && "asPercentage" in s) {
-      const asPercentage = (s as { asPercentage?: unknown }).asPercentage
-      if (typeof asPercentage === "number") return asPercentage
-    }
-    return 0
-  }, [])
-
   const sidebarDefaultSize = parsePercent(panelLayout.sidebarSize)
   const previewDefaultSize = parsePercent(panelLayout.previewPanelSize)
 
@@ -108,43 +114,61 @@ export function ResizablePanels({
     return 100
   })()
 
+  // Persist layout to store only after pointer release (onLayoutChanged).
+  // Using onResize + debounce for persistence would update the store mid-drag,
+  // causing defaultSize prop changes → Panel re-registration → Group
+  // re-registration → drag state lost in mountedGroups.
+  const handleLayoutChanged = useCallback(
+    (layout: Record<string, number>) => {
+      if (isApplyingSettings()) return
+
+      const isCollapsed = sidebarPanelRef.current?.isCollapsed() ?? false
+
+      setLayout({
+        sidebarSize: isCollapsed
+          ? panelLayout.sidebarSize
+          : (layout.sidebar ?? panelLayout.sidebarSize),
+        sidebarCollapsed: isCollapsed,
+        mainPanelSize: layout.main ?? panelLayout.mainPanelSize,
+        previewPanelSize: layout.preview ?? panelLayout.previewPanelSize,
+      })
+    },
+    [panelLayout.sidebarSize, panelLayout.mainPanelSize, panelLayout.previewPanelSize, setLayout],
+  )
+
   return (
-    <ResizablePanelGroup direction="horizontal" className="flex-1 min-h-0 min-w-0">
+    <ResizablePanelGroup
+      direction="horizontal"
+      className="flex-1 min-h-0 min-w-0"
+      onLayoutChanged={handleLayoutChanged}
+    >
       {panelLayout.showSidebar && (
         <>
           <ResizablePanel
             id="sidebar"
             key={panelLayout.sidebarSizeLocked ? `sidebar-${panelLayout.sidebarSize}` : undefined}
             panelRef={sidebarPanelRef}
-            defaultSize={sidebarDefaultSize}
+            defaultSize={`${sidebarDefaultSize}%`}
             minSize="10%"
             maxSize="400px"
             collapsible
             collapsedSize="56px"
-            onResize={(panelSize: PanelSize) => {
+            onResize={() => {
               if (isApplyingSettings()) return
-
-              const sizeNum = panelSizeToPercent(panelSize)
               const isCollapsed = sidebarPanelRef.current?.isCollapsed() ?? false
-
-              if (layoutSaveTimeoutRef.current) {
-                clearTimeout(layoutSaveTimeoutRef.current)
+              if (isCollapsed !== lastCollapsedRef.current) {
+                lastCollapsedRef.current = isCollapsed
+                setSidebarCollapsed(isCollapsed)
               }
-              layoutSaveTimeoutRef.current = setTimeout(() => {
-                setLayout({
-                  sidebarSize: isCollapsed ? panelLayout.sidebarSize : sizeNum,
-                  sidebarCollapsed: isCollapsed,
-                })
-              }, 200)
             }}
           >
-            <Sidebar collapsed={panelLayout.sidebarCollapsed} />
+            <Sidebar collapsed={sidebarCollapsed} />
           </ResizablePanel>
           {!panelLayout.sidebarSizeLocked && <ResizableHandle withHandle />}
         </>
       )}
 
-      <ResizablePanel id="main" defaultSize={mainDefaultSize} minSize={10}>
+      <ResizablePanel id="main" defaultSize={`${mainDefaultSize}%`} minSize={10}>
         {showSearchResults ? (
           <ScrollArea className="h-full">
             <div className="p-2 space-y-1">
@@ -170,21 +194,9 @@ export function ResizablePanels({
               panelLayout.previewSizeLocked ? `preview-${panelLayout.previewPanelSize}` : undefined
             }
             panelRef={previewPanelRef}
-            defaultSize={previewDefaultSize}
+            defaultSize={`${previewDefaultSize}%`}
             minSize="10%"
             maxSize="400px"
-            onResize={(panelSize: PanelSize) => {
-              const sizeNum = panelSizeToPercent(panelSize)
-
-              if (isApplyingSettings()) return
-
-              if (layoutSaveTimeoutRef.current) {
-                clearTimeout(layoutSaveTimeoutRef.current)
-              }
-              layoutSaveTimeoutRef.current = setTimeout(() => {
-                setLayout({ previewPanelSize: sizeNum })
-              }, 150)
-            }}
           >
             <PreviewPanel file={selectedFile} onClose={onClosePreview} />
           </ResizablePanel>
