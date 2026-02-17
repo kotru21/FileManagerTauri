@@ -11,8 +11,8 @@ use base64::Engine;
 
 use crate::constants::{
     DOCUMENT_EXTENSIONS, IMAGE_EXTENSIONS, MAX_DOCUMENT_PARAGRAPHS, MAX_OFFICE_FILE_SIZE,
-    MAX_PRESENTATION_SLIDES, MAX_PREVIEW_FILE_SIZE, MAX_SPREADSHEET_ROWS,
-    MAX_TEXT_PREVIEW_LENGTH, PRESENTATION_EXTENSIONS, SPREADSHEET_EXTENSIONS, TEXT_EXTENSIONS,
+    MAX_PRESENTATION_SLIDES, MAX_PREVIEW_FILE_SIZE, MAX_SPREADSHEET_ROWS, MAX_TEXT_PREVIEW_LENGTH,
+    PRESENTATION_EXTENSIONS, SPREADSHEET_EXTENSIONS, TEXT_EXTENSIONS,
 };
 use crate::models::preview::{DocParagraph, PresentationSlide, SpreadsheetSheet};
 use crate::models::FilePreview;
@@ -175,7 +175,8 @@ fn generate_document_preview(path: &str) -> Result<FilePreview, String> {
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(quick_xml::events::Event::Start(ref e)) | Ok(quick_xml::events::Event::Empty(ref e)) => {
+            Ok(quick_xml::events::Event::Start(ref e))
+            | Ok(quick_xml::events::Event::Empty(ref e)) => {
                 let name_bytes = e.name();
                 let local = local_name(name_bytes.as_ref());
                 match local {
@@ -446,7 +447,8 @@ fn extract_pptx_slide_text(xml: &str) -> (Option<String>, Vec<String>) {
 
     loop {
         match reader.read_event_into(&mut buf) {
-            Ok(quick_xml::events::Event::Start(ref e)) | Ok(quick_xml::events::Event::Empty(ref e)) => {
+            Ok(quick_xml::events::Event::Start(ref e))
+            | Ok(quick_xml::events::Event::Empty(ref e)) => {
                 let name_bytes = e.name();
                 let local = local_name(name_bytes.as_ref());
                 match local {
