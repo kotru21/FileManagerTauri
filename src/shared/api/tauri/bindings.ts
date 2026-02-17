@@ -266,6 +266,14 @@ async unwatchAll() : Promise<Result<null, string>> {
  */
 export type ContentMatch = { line_number: number; line_content: string; match_start: number; match_end: number }
 /**
+ * A paragraph extracted from a DOCX document.
+ */
+export type DocParagraph = { text: string; 
+/**
+ * Style hint: "heading1", "heading2", "heading3", "listItem", "normal"
+ */
+style: string }
+/**
  * Represents a drive/volume on the system.
  */
 export type DriveInfo = { name: string; path: string; total_space: number; free_space: number; drive_type: string }
@@ -273,7 +281,11 @@ export type DriveInfo = { name: string; path: string; total_space: number; free_
  * Represents a file or directory entry in the filesystem.
  */
 export type FileEntry = { name: string; path: string; is_dir: boolean; is_hidden: boolean; size: number; modified: number | null; created: number | null; extension: string | null }
-export type FilePreview = { type: "Text"; content: string; truncated: boolean } | { type: "Image"; base64: string; mime: string } | { type: "Unsupported"; mime: string }
+export type FilePreview = { type: "Text"; content: string; truncated: boolean } | { type: "Image"; base64: string; mime: string } | { type: "Document"; paragraphs: DocParagraph[]; truncated: boolean } | { type: "Spreadsheet"; sheets: SpreadsheetSheet[] } | { type: "Presentation"; slides: PresentationSlide[] } | { type: "Unsupported"; mime: string }
+/**
+ * A slide extracted from a PPTX presentation.
+ */
+export type PresentationSlide = { number: number; title: string | null; texts: string[] }
 /**
  * Options for file search operations.
  */
@@ -282,6 +294,10 @@ export type SearchOptions = { query: string; search_path: string; search_content
  * A search result entry.
  */
 export type SearchResult = { path: string; name: string; is_dir: boolean; matches: ContentMatch[] }
+/**
+ * A sheet extracted from an XLSX spreadsheet.
+ */
+export type SpreadsheetSheet = { name: string; headers: string[]; rows: string[][]; total_rows: number; truncated: boolean }
 /**
  * File preview content types.
  */

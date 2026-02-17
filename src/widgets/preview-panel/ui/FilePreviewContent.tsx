@@ -1,6 +1,9 @@
 import { FileText } from "lucide-react"
 import type { FilePreview } from "@/shared/api/tauri"
+import DocumentPreview from "./DocumentPreview"
 import ImageViewer from "./ImageViewer"
+import PresentationPreview from "./PresentationPreview"
+import SpreadsheetPreview from "./SpreadsheetPreview"
 
 export default function FilePreviewContent({
   preview,
@@ -30,6 +33,18 @@ export default function FilePreviewContent({
     return (
       <ImageViewer preview={preview} fileName={fileName} filePath={filePath} onClose={onClose} />
     )
+  }
+
+  if (preview.type === "Document") {
+    return <DocumentPreview paragraphs={preview.paragraphs} truncated={preview.truncated} />
+  }
+
+  if (preview.type === "Spreadsheet") {
+    return <SpreadsheetPreview sheets={preview.sheets} />
+  }
+
+  if (preview.type === "Presentation") {
+    return <PresentationPreview slides={preview.slides} />
   }
 
   return (

@@ -3,7 +3,7 @@
 mod drive_info;
 mod events;
 mod file_entry;
-mod preview;
+pub(crate) mod preview;
 mod search;
 
 pub use drive_info::DriveInfo;
