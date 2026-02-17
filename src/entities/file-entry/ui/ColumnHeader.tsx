@@ -142,7 +142,7 @@ function ResizeHandle({
       onMouseDown={handleMouseDown}
       onDoubleClick={handleDoubleClick}
       className={cn(
-        "absolute right-0 top-1 bottom-1 w-[7px] -mr-[3px] z-10 cursor-col-resize flex items-center justify-center",
+        "absolute right-0 top-1 bottom-1 w-1.75 -mr-0.75 z-10 cursor-col-resize flex items-center justify-center",
         "before:absolute before:inset-y-0 before:w-px before:transition-colors before:duration-150",
         isDragging ? "before:bg-primary" : "before:bg-transparent hover:before:bg-border",
       )}

@@ -51,3 +51,24 @@ pub const TEXT_EXTENSIONS: &[&str] = &[
 
 /// Image extensions for preview.
 pub const IMAGE_EXTENSIONS: &[&str] = &["png", "jpg", "jpeg", "gif", "bmp", "webp", "ico"];
+
+/// Document extensions (OOXML Word).
+pub const DOCUMENT_EXTENSIONS: &[&str] = &["docx"];
+
+/// Spreadsheet extensions (OOXML Excel).
+pub const SPREADSHEET_EXTENSIONS: &[&str] = &["xlsx"];
+
+/// Presentation extensions (OOXML PowerPoint).
+pub const PRESENTATION_EXTENSIONS: &[&str] = &["pptx"];
+
+/// Maximum file size for office document preview (50 MB).
+pub const MAX_OFFICE_FILE_SIZE: u64 = 50 * 1024 * 1024;
+
+/// Maximum paragraphs to extract from a DOCX.
+pub const MAX_DOCUMENT_PARAGRAPHS: usize = 500;
+
+/// Maximum rows per sheet to extract from an XLSX.
+pub const MAX_SPREADSHEET_ROWS: usize = 200;
+
+/// Maximum slides to extract from a PPTX.
+pub const MAX_PRESENTATION_SLIDES: usize = 50;
