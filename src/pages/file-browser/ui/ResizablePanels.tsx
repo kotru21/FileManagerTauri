@@ -31,9 +31,7 @@ export function ResizablePanels({
 
   // Track sidebar collapsed state locally for immediate UI updates without
   // triggering store re-renders during drag (which would break the resize).
-  const [sidebarCollapsed, setSidebarCollapsed] = useState(
-    panelLayout.sidebarCollapsed ?? false,
-  )
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(panelLayout.sidebarCollapsed ?? false)
   const lastCollapsedRef = useRef(panelLayout.sidebarCollapsed ?? false)
 
   // Sync collapsed state from external sources (e.g. preset application)

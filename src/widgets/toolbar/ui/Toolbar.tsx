@@ -66,7 +66,10 @@ export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className
   const isQuickFilterActive = useQuickFilterStore((s) => s.isActive)
 
   return (
-    <div className={cn("flex items-center gap-1 p-2 border-b border-border", className)}>
+    <div
+      className={cn("flex items-center gap-1 p-2 border-b border-border", className)}
+      data-slot="toolbar"
+    >
       {/* Navigation */}
       <div className="flex items-center gap-0.5">
         <Tooltip>
@@ -189,7 +192,10 @@ export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className
               variant="ghost"
               size="icon"
               onClick={toggleHidden}
-              className={cn("h-8 w-8", displaySettings.showHiddenFiles && "bg-accent")}
+              className={cn(
+                "h-8 w-8",
+                displaySettings.showHiddenFiles && "bg-accent text-accent-foreground",
+              )}
               aria-label={
                 displaySettings.showHiddenFiles ? "Hide hidden files" : "Show hidden files"
               }
@@ -218,7 +224,7 @@ export function Toolbar({ onRefresh, onNewFolder, onNewFile, onSearch, className
             size="icon"
             aria-label="Быстрый фильтр"
             onClick={toggleQuickFilter}
-            className={cn("h-8 w-8", isQuickFilterActive && "bg-accent")}
+            className={cn("h-8 w-8", isQuickFilterActive && "bg-accent text-accent-foreground")}
           >
             <Filter className="h-4 w-4" />
           </Button>

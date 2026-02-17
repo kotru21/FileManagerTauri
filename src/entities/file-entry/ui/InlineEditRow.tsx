@@ -106,10 +106,10 @@ export function InlineEditRow({
     <div
       className={cn(
         "flex items-center gap-2 h-7 px-3 text-sm",
-        "bg-accent border border-primary rounded",
+        "bg-accent text-accent-foreground border border-primary rounded",
       )}
     >
-      <Icon size={18} className="shrink-0 text-muted-foreground" />
+      <Icon size={18} className="shrink-0 text-accent-foreground-muted" />
 
       <div className="flex-1 min-w-0 flex items-center">
         <input
@@ -126,7 +126,7 @@ export function InlineEditRow({
           className={cn(
             "flex-1 bg-transparent outline-none",
             "border-none focus:ring-0",
-            "text-foreground placeholder:text-muted-foreground",
+            "text-accent-foreground placeholder:text-accent-foreground-muted",
             error && "text-destructive",
           )}
           spellCheck={false}
@@ -135,13 +135,13 @@ export function InlineEditRow({
       </div>
 
       <span
-        className="text-muted-foreground text-right shrink-0 pr-2"
+        className="text-accent-foreground-muted text-right shrink-0 pr-2"
         style={{ width: columnWidths.size }}
       >
         —
       </span>
       <span
-        className="text-muted-foreground text-right shrink-0 pr-2"
+        className="text-accent-foreground-muted text-right shrink-0 pr-2"
         style={{ width: columnWidths.date }}
       >
         —

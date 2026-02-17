@@ -30,8 +30,6 @@ describe("migrateSettings", () => {
     expect(m.settings.version).toBeDefined()
     // Ensure showColumnHeadersInSimpleList exists after migration
     expect(m.settings.layout.showColumnHeadersInSimpleList).toBeDefined()
-    // Ensure columnWidths were merged with sensible defaults (non-zero)
-    expect(m.settings.layout.columnWidths.size).toBeGreaterThanOrEqual(50)
 
     // Ensure new keyboard shortcuts are present after migration (e.g. Ctrl+Z undo)
     const shortcuts = m.settings.keyboard.shortcuts

@@ -1,4 +1,4 @@
-import type { ColumnWidths, PanelLayout } from "@/entities/layout"
+import type { PanelLayout } from "@/entities/layout"
 
 export type Theme = "dark" | "light" | "system"
 export type FontSize = "small" | "medium" | "large"
@@ -60,7 +60,6 @@ export interface LayoutSettings {
   currentPreset: LayoutPresetId
   customLayouts: CustomLayout[]
   panelLayout: PanelLayout
-  columnWidths: ColumnWidths
   showStatusBar: boolean
   showToolbar: boolean
   showBreadcrumbs: boolean

@@ -30,8 +30,8 @@ function RecentFolderItem({ folder, isActive, onSelect, onRemove }: RecentFolder
     <ContextMenu>
       <div
         className={cn(
-          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none hover:bg-accent transition-colors text-left group",
-          isActive && "bg-accent",
+          "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm cursor-pointer focus-visible:ring-2 focus-visible:ring-primary focus-visible:outline-none hover:bg-accent hover:text-accent-foreground transition-colors text-left group",
+          isActive && "bg-accent text-accent-foreground",
         )}
         title={folder.path}
       >
@@ -42,10 +42,20 @@ function RecentFolderItem({ folder, isActive, onSelect, onRemove }: RecentFolder
             className="flex-1 flex items-center gap-2 text-left"
             aria-label={`Open ${folder.name}`}
           >
-            <Folder className="h-4 w-4 shrink-0 text-muted-foreground" />
+            <Folder
+              className={cn(
+                "h-4 w-4 shrink-0",
+                isActive ? "text-accent-foreground-muted" : "text-muted-foreground",
+              )}
+            />
             <div className="flex-1 min-w-0">
               <div className="truncate">{folder.name}</div>
-              <div className="text-xs text-muted-foreground truncate">
+              <div
+                className={cn(
+                  "text-xs truncate",
+                  isActive ? "text-accent-foreground-muted" : "text-muted-foreground",
+                )}
+              >
                 {formatRelativeDate(folder.lastVisited)}
               </div>
             </div>

@@ -30,9 +30,9 @@ const DEFAULT_LAYOUT: PanelLayout = {
   sidebarCollapsed: false,
   showPreview: true,
   columnWidths: {
-    size: 100,
-    date: 180,
-    padding: 8,
+    size: 90,
+    date: 140,
+    padding: 16,
   },
   // Default: all sections expanded
   expandedSections: {

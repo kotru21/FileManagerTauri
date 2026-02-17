@@ -66,17 +66,6 @@ describe("useSettingsStore", () => {
     expect(useSettingsStore.getState().settings.layout.currentPreset).toBe("custom")
   })
 
-  it("updateColumnWidths merges widths", () => {
-    act(() => {
-      useSettingsStore.getState().updateColumnWidths({ size: 123 })
-    })
-
-    const w = useSettingsStore.getState().settings.layout.columnWidths
-    expect(w.size).toBe(123)
-    expect(w.date).toBeTypeOf("number")
-    expect(w.padding).toBeTypeOf("number")
-  })
-
   it("saveCustomLayout adds a new custom layout and returns id; applyCustomLayout applies it", () => {
     vi.spyOn(Date, "now").mockReturnValue(100)
 

@@ -1,5 +1,5 @@
 import { ArrowDown, ArrowUp, ArrowUpDown } from "lucide-react"
-import { useCallback, useEffect, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { cn } from "@/shared/lib"
 
 export type SortField = "name" | "size" | "modified" | "type"
@@ -34,37 +34,50 @@ interface SortableHeaderProps {
   className?: string
 }
 
+const DEFAULT_WIDTHS = { size: 90, date: 140, padding: 16 }
+
 function SortableHeader({ field, label, sortConfig, onSort, className }: SortableHeaderProps) {
   const isActive = sortConfig.field === field
 
   return (
     <button
       type="button"
-      onClick={() => onSort(field)}
+      onClick={(e) => {
+        e.stopPropagation()
+        onSort(field)
+      }}
       className={cn(
-        "flex w-full items-center gap-1 text-xs font-medium text-muted-foreground hover:text-foreground transition-colors",
+        "group/sort flex w-full items-center gap-1 text-xs font-medium text-muted-foreground transition-colors",
+        "hover:text-foreground",
         isActive && "text-foreground",
         className,
       )}
     >
-      {label}
+      <span className="truncate">{label}</span>
       {isActive ? (
         sortConfig.direction === "asc" ? (
-          <ArrowUp className="h-3 w-3" />
+          <ArrowUp className="h-3 w-3 shrink-0" />
         ) : (
-          <ArrowDown className="h-3 w-3" />
+          <ArrowDown className="h-3 w-3 shrink-0" />
         )
       ) : (
-        <ArrowUpDown className="h-3 w-3 opacity-0 group-hover:opacity-50" />
+        <ArrowUpDown className="h-3 w-3 shrink-0 opacity-0 group-hover/sort:opacity-50 transition-opacity" />
       )}
     </button>
   )
 }
 
-function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
+function ResizeHandle({
+  onResize,
+  onResetWidth,
+}: {
+  onResize: (delta: number) => void
+  onResetWidth?: () => void
+}) {
   const startXRef = useRef(0)
   const pendingDelta = useRef(0)
   const rafRef = useRef<number | null>(null)
+  const [isDragging, setIsDragging] = useState(false)
 
   const flush = useCallback(() => {
     if (pendingDelta.current !== 0) {
@@ -79,7 +92,13 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       e.preventDefault()
+      e.stopPropagation()
       startXRef.current = e.clientX
+      setIsDragging(true)
+
+      // Override cursor on document during drag
+      document.body.style.cursor = "col-resize"
+      document.body.style.userSelect = "none"
 
       const handleMove = (moveEvent: MouseEvent) => {
         const delta = moveEvent.clientX - startXRef.current
@@ -96,6 +115,9 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
           rafRef.current = null
         }
         flush()
+        setIsDragging(false)
+        document.body.style.cursor = ""
+        document.body.style.userSelect = ""
         document.removeEventListener("mousemove", handleMove)
         document.removeEventListener("mouseup", handleUp)
       }
@@ -106,10 +128,24 @@ function ResizeHandle({ onResize }: { onResize: (delta: number) => void }) {
     [flush],
   )
 
+  const handleDoubleClick = useCallback(
+    (e: React.MouseEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      onResetWidth?.()
+    },
+    [onResetWidth],
+  )
+
   return (
     <div
       onMouseDown={handleMouseDown}
-      className="absolute right-0 top-0 bottom-0 w-1 cursor-col-resize hover:bg-primary/50 transition-colors"
+      onDoubleClick={handleDoubleClick}
+      className={cn(
+        "absolute right-0 top-1 bottom-1 w-[7px] -mr-[3px] z-10 cursor-col-resize flex items-center justify-center",
+        "before:absolute before:inset-y-0 before:w-px before:transition-colors before:duration-150",
+        isDragging ? "before:bg-primary" : "before:bg-transparent hover:before:bg-border",
+      )}
     />
   )
 }
@@ -138,6 +174,14 @@ export function ColumnHeader({
     },
     [onColumnResize],
   )
+
+  const handleResetWidth = useCallback(
+    (column: ColumnKey) => () => {
+      onColumnResize(column, DEFAULT_WIDTHS[column])
+    },
+    [onColumnResize],
+  )
+
   const handleResizeBetween = useCallback(
     (left: Exclude<ColumnKey, "padding">, right: Exclude<ColumnKey, "padding">) =>
       (delta: number) => {
@@ -159,6 +203,14 @@ export function ColumnHeader({
     [onColumnResize],
   )
 
+  const handleResetBetween = useCallback(
+    (left: Exclude<ColumnKey, "padding">, right: Exclude<ColumnKey, "padding">) => () => {
+      onColumnResize(left, DEFAULT_WIDTHS[left])
+      onColumnResize(right, DEFAULT_WIDTHS[right])
+    },
+    [onColumnResize],
+  )
+
   const showFileSizes = displaySettings?.showFileSizes ?? true
   const showFileDates = displaySettings?.showFileDates ?? true
   const thumbnailSize = displaySettings?.thumbnailSize ?? "medium"
@@ -171,11 +223,13 @@ export function ColumnHeader({
   return (
     <div
       className={cn(
-        "group relative flex h-8 items-center gap-2 border-b border-border bg-muted/50 px-3 text-xs font-medium text-muted-foreground select-none",
+        "relative flex h-7 items-center gap-2 border-b border-border bg-muted/30 px-3 text-xs font-medium text-muted-foreground select-none",
         className,
       )}
     >
       <span className="shrink-0" style={{ width: iconSlotWidth }} />
+
+      {/* Name column */}
       <div className="relative flex-1 min-w-0">
         <SortableHeader
           field="name"
@@ -184,6 +238,8 @@ export function ColumnHeader({
           onSort={effectiveOnSort}
         />
       </div>
+
+      {/* Size column */}
       {showFileSizes && (
         <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.size }}>
           <SortableHeader
@@ -194,13 +250,25 @@ export function ColumnHeader({
             className="justify-end"
           />
           {(() => {
-            const onResize = showFileDates
-              ? handleResizeBetween("size", "date")
-              : handleResize("size")
-            return <ResizeHandle onResize={onResize} />
+            if (showFileDates) {
+              return (
+                <ResizeHandle
+                  onResize={handleResizeBetween("size", "date")}
+                  onResetWidth={handleResetBetween("size", "date")}
+                />
+              )
+            }
+            return (
+              <ResizeHandle
+                onResize={handleResize("size")}
+                onResetWidth={handleResetWidth("size")}
+              />
+            )
           })()}
         </div>
       )}
+
+      {/* Date column */}
       {showFileDates && (
         <div className="relative shrink-0 text-right pr-2" style={{ width: columnWidths.date }}>
           <SortableHeader
@@ -210,11 +278,12 @@ export function ColumnHeader({
             onSort={effectiveOnSort}
             className="justify-end"
           />
-          <ResizeHandle onResize={handleResize("date")} />
+          <ResizeHandle onResize={handleResize("date")} onResetWidth={handleResetWidth("date")} />
         </div>
       )}
+
+      {/* Right padding */}
       <div className="shrink-0" style={{ width: columnWidths.padding }} />
-      <ResizeHandle onResize={handleResize("padding")} />
     </div>
   )
 }
