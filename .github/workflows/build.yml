@@ -103,6 +103,8 @@ jobs:
           VERSION=$(node -p "require('./package.json').version")
           echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
 
+      - uses: oven-sh/setup-bun@v2
+
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0.6
         env:
