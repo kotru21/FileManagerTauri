@@ -116,14 +116,14 @@ ContextMenuShortcut.displayName = "ContextMenuShortcut"
 
 export {
   ContextMenu,
-  ContextMenuTrigger,
   ContextMenuContent,
+  ContextMenuGroup,
   ContextMenuItem,
+  ContextMenuRadioGroup,
   ContextMenuSeparator,
   ContextMenuShortcut,
   ContextMenuSub,
   ContextMenuSubContent,
   ContextMenuSubTrigger,
-  ContextMenuGroup,
-  ContextMenuRadioGroup,
+  ContextMenuTrigger,
 }

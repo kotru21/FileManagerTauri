@@ -100,9 +100,8 @@ export function ResizableSeparator({
   )
 }
 
-export { ResizableGroup as ResizablePanelGroup }
-export { ResizableSeparator as ResizableHandle }
 export type {
-  PrimitivePanelRef as ResizablePrimitivePanelRef,
   PrimitiveGroupRef as ResizablePrimitiveGroupRef,
+  PrimitivePanelRef as ResizablePrimitivePanelRef,
 }
+export { ResizableGroup as ResizablePanelGroup, ResizableSeparator as ResizableHandle }

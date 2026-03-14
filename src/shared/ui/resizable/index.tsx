@@ -9,7 +9,7 @@ import {
 } from "react-resizable-panels"
 import { cn } from "@/shared/lib"
 
-export type { PanelImperativeHandle, GroupImperativeHandle, PanelSize }
+export type { GroupImperativeHandle, PanelImperativeHandle, PanelSize }
 export type ImperativePanelHandle = PanelImperativeHandle
 
 type GroupProps = ComponentProps<typeof Group>

@@ -115,4 +115,4 @@ export const tauriClient = {
   },
 }
 
-export type { FileEntry, DriveInfo, FilePreview, SearchResult, Result }
+export type { DriveInfo, FileEntry, FilePreview, Result, SearchResult }
