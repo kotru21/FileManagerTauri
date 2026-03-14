@@ -25,9 +25,9 @@ export default function PresentationPreview({ slides }: { slides: PresentationSl
             {/* Slide content */}
             {slide.texts.length > 0 && (
               <div className="space-y-1 pl-7">
-                {slide.texts.map((text, i) => (
+                {slide.texts.map((text) => (
                   <p
-                    key={`${slide.number}-${i}`}
+                    key={`${slide.number}-${text}`}
                     className="text-sm text-muted-foreground leading-relaxed"
                   >
                     {text}
