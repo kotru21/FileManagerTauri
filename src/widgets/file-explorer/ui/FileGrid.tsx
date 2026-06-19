@@ -9,13 +9,7 @@ import {
 } from "@/features/settings"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
-import {
-  createDragData,
-  DRAG_DATA_TYPE,
-  getDragAction,
-  parseDragData,
-  setDragImage,
-} from "@/shared/lib/drag-drop"
+import { getDragAction, parseDragData, setDragImage, setDragPayload } from "@/shared/lib/drag-drop"
 import type { SelectionModifiers } from "./types"
 
 interface FileGridProps {
@@ -180,11 +174,7 @@ const GridItem = memo(function GridItem({
       const selected = getSelectedPaths?.()
       const paths = isSelected && selected && selected.length > 0 ? selected : [file.path]
       const action = getDragAction(e)
-      const payload = createDragData(paths, action)
-
-      e.dataTransfer.setData(DRAG_DATA_TYPE, payload)
-      e.dataTransfer.setData("application/json", payload)
-      e.dataTransfer.effectAllowed = "copyMove"
+      setDragPayload(e.dataTransfer, paths, action)
       setDragImage(e, paths.length)
     },
     [file.path, getSelectedPaths, isSelected],

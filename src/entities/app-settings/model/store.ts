@@ -75,6 +75,7 @@ const defaultShortcuts: KeyboardSettings["shortcuts"] = [
   { id: "paste", action: "Вставить", keys: "Ctrl+V", enabled: true },
   { id: "undo", action: "Отменить", keys: "Ctrl+Z", enabled: true },
   { id: "delete", action: "Удалить", keys: "Delete", enabled: true },
+  { id: "bookmark", action: "Закладка", keys: "Ctrl+D", enabled: true },
   { id: "rename", action: "Переименовать", keys: "F2", enabled: true },
   { id: "newFolder", action: "Новая папка", keys: "Ctrl+Shift+N", enabled: true },
   { id: "refresh", action: "Обновить", keys: "F5", enabled: true },

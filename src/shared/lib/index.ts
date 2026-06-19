@@ -7,6 +7,7 @@ export {
   getDragAction,
   parseDragData,
   setDragImage,
+  setDragPayload,
   setDropEffect,
 } from "./drag-drop"
 export { type FileType, getBasename, getExtension, getFileType, joinPath } from "./file-utils"

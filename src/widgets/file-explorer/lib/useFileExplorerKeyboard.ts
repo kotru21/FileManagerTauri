@@ -1,4 +1,5 @@
 import { useEffect } from "react"
+import { useBookmarksStore } from "@/features/bookmarks"
 import { useCommandPaletteStore } from "@/features/command-palette"
 import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
@@ -48,6 +49,11 @@ export function useFileExplorerKeyboard({
   const keyboardSettings = useKeyboardSettings()
   const shortcuts = keyboardSettings.shortcuts
   const enableVim = keyboardSettings.enableVimMode
+  const currentPath = useNavigationStore((s) => s.currentPath)
+  const isBookmarked = useBookmarksStore((s) => s.isBookmarked)
+  const addBookmark = useBookmarksStore((s) => s.addBookmark)
+  const removeBookmark = useBookmarksStore((s) => s.removeBookmark)
+  const getBookmarkByPath = useBookmarksStore((s) => s.getBookmarkByPath)
 
   useEffect(() => {
     // Build a normalized signature map for enabled shortcuts
@@ -126,12 +132,15 @@ export function useFileExplorerKeyboard({
     const handleKeyDown = (e: KeyboardEvent) => {
       // Don't handle if in input or inline edit mode
       const target = e.target as HTMLElement
-      const isInput = target.tagName === "INPUT" || target.tagName === "TEXTAREA"
+      const isTextInput =
+        target.tagName === "INPUT" ||
+        target.tagName === "TEXTAREA" ||
+        target.isContentEditable
 
       if (inlineEditMode) return
 
       // Vim navigation basic: j/k/select next/prev, gg -> top, G -> bottom
-      if (enableVim && !isInput) {
+      if (enableVim && !isTextInput) {
         if (e.key === "j") {
           e.preventDefault()
           const sel = getSelectedPaths()
@@ -174,12 +183,6 @@ export function useFileExplorerKeyboard({
         }
       }
 
-      // If in input (including quick filter), only handle Escape
-      if (isInput) {
-        return
-      }
-
-      // Check settings shortcuts first
       const sig = signatureFromEvent(e)
       // Try direct match
       let action = shortcutMap.get(sig)
@@ -193,7 +196,11 @@ export function useFileExplorerKeyboard({
         }
       }
 
-      if (action) {
+      // Allow global shortcuts with modifiers even when a text field is focused.
+      const allowInTextInput =
+        isTextInput && (e.ctrlKey || e.metaKey || e.altKey || e.key === "Escape")
+
+      if (action && (!isTextInput || allowInTextInput)) {
         e.preventDefault()
         switch (action) {
           case "undo":
@@ -228,6 +235,16 @@ export function useFileExplorerKeyboard({
           case "refresh":
             onRefresh()
             break
+          case "bookmark":
+            if (currentPath) {
+              if (isBookmarked(currentPath)) {
+                const bookmark = getBookmarkByPath(currentPath)
+                if (bookmark) removeBookmark(bookmark.id)
+              } else {
+                addBookmark(currentPath)
+              }
+            }
+            break
           case "quickFilter":
           case "search":
             toggleQuickFilter()
@@ -241,6 +258,10 @@ export function useFileExplorerKeyboard({
           default:
             break
         }
+        return
+      }
+
+      if (isTextInput) {
         return
       }
 
@@ -287,8 +308,8 @@ export function useFileExplorerKeyboard({
       }
     }
 
-    window.addEventListener("keydown", handleKeyDown)
-    return () => window.removeEventListener("keydown", handleKeyDown)
+    window.addEventListener("keydown", handleKeyDown, true)
+    return () => window.removeEventListener("keydown", handleKeyDown, true)
   }, [
     onCopy,
     onCut,
@@ -311,5 +332,10 @@ export function useFileExplorerKeyboard({
     selectFile,
     toggleCommandPalette,
     onStartRename,
+    currentPath,
+    isBookmarked,
+    addBookmark,
+    removeBookmark,
+    getBookmarkByPath,
   ])
 }

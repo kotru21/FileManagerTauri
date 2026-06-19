@@ -51,6 +51,29 @@ describe("shared/lib/drag-drop", () => {
       })
     })
 
+    it("falls back to text/plain for WebView2 in-app drags", () => {
+      const dt = new FakeDataTransfer()
+      dt.setData(
+        "text/plain",
+        JSON.stringify({ paths: ["C:\\Users\\test\\Documents"], action: "move" }),
+      )
+
+      expect(parseDragData(dt as unknown as DataTransfer)).toEqual({
+        paths: ["C:\\Users\\test\\Documents"],
+        action: "move",
+      })
+    })
+
+    it("parses a bare path from text/plain", () => {
+      const dt = new FakeDataTransfer()
+      dt.setData("text/plain", "C:\\Users\\test\\Documents")
+
+      expect(parseDragData(dt as unknown as DataTransfer)).toEqual({
+        paths: ["C:\\Users\\test\\Documents"],
+        action: "move",
+      })
+    })
+
     it("returns null on invalid JSON", () => {
       const dt = new FakeDataTransfer()
       dt.setData(DRAG_DATA_TYPE, "not-json")

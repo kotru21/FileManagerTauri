@@ -6,25 +6,47 @@ export interface DragData {
 export const DRAG_DATA_TYPE = "application/x-file-manager-paths"
 
 export function createDragData(paths: string[], action: "copy" | "move" = "move"): string {
-  return JSON.stringify({ paths, action } as DragData)
+  return JSON.stringify({ paths, action } satisfies DragData)
+}
+
+function parseDragPayload(raw: string): DragData | null {
+  if (!raw) return null
+  try {
+    const parsed = JSON.parse(raw) as Partial<DragData>
+    if (!Array.isArray(parsed.paths) || parsed.paths.length === 0) return null
+    return {
+      paths: parsed.paths.filter((p): p is string => typeof p === "string" && p.length > 0),
+      action: parsed.action === "copy" ? "copy" : "move",
+    }
+  } catch {
+    // WebView2 may only preserve text/plain for in-app drags.
+    if (raw.includes(":\\") || raw.startsWith("/")) {
+      return { paths: [raw], action: "move" }
+    }
+    return null
+  }
+}
+
+/** Register all MIME types needed for reliable drops in WebView2/Chromium. */
+export function setDragPayload(
+  dataTransfer: DataTransfer,
+  paths: string[],
+  action: "copy" | "move" = "move",
+): void {
+  const payload = createDragData(paths, action)
+  dataTransfer.setData(DRAG_DATA_TYPE, payload)
+  dataTransfer.setData("application/json", payload)
+  dataTransfer.setData("text/plain", payload)
+  dataTransfer.effectAllowed = "copyMove"
 }
 
 export function parseDragData(dataTransfer: DataTransfer): DragData | null {
   try {
-    const data = dataTransfer.getData(DRAG_DATA_TYPE)
-    if (!data) {
-      // Try fallback JSON format
-      const jsonData = dataTransfer.getData("application/json")
-      if (jsonData) {
-        const parsed = JSON.parse(jsonData)
-        return {
-          paths: parsed.paths || [],
-          action: parsed.action || "move",
-        }
-      }
-      return null
+    for (const type of [DRAG_DATA_TYPE, "application/json", "text/plain"] as const) {
+      const parsed = parseDragPayload(dataTransfer.getData(type))
+      if (parsed) return parsed
     }
-    return JSON.parse(data) as DragData
+    return null
   } catch {
     return null
   }

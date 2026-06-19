@@ -219,7 +219,12 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
             onToggle={() => toggleSection("bookmarks")}
           />
           {(expandedSections?.bookmarks ?? true) && (
-            <div className="mt-1">
+            <div
+              className="mt-1 min-h-[3rem] rounded-md"
+              data-testid="bookmarks-drop-zone"
+              onDragOver={handleDragOver}
+              onDrop={handleDrop}
+            >
               <BookmarksList onSelect={handleNavigate} currentPath={currentPath || undefined} />
             </div>
           )}
