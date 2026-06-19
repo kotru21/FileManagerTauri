@@ -64,10 +64,8 @@ export const KeyboardSettings = memo(function KeyboardSettings() {
                   />
                   <span className="text-sm">{shortcut.action}</span>
                 </div>
-                <kbd
-                  aria-readonly="true"
-                  className="px-2 py-1 text-xs bg-muted rounded font-mono"
-                >
+                {/* biome-ignore lint/a11y/useAriaPropsSupportedByRole: kbd displays non-editable shortcut labels */}
+                <kbd aria-readonly="true" className="px-2 py-1 text-xs bg-muted rounded font-mono">
                   {shortcut.keys}
                 </kbd>
               </div>

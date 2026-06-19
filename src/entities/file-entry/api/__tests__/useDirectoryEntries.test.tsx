@@ -14,8 +14,9 @@ const entry = {
   extension: "txt",
 }
 
-let batchCb: ((event: { payload: { request_id: string; path: string; entries: typeof entry[] } }) => void) | null =
-  null
+let batchCb:
+  | ((event: { payload: { request_id: string; path: string; entries: (typeof entry)[] } }) => void)
+  | null = null
 let completeCb: ((event: { payload: { request_id: string; path: string } }) => void) | null = null
 
 vi.mock("@/shared/api/tauri/client", () => ({
