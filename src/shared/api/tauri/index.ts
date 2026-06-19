@@ -8,6 +8,7 @@ export type {
   SearchResult,
   Thumbnail,
 } from "./bindings"
+export type { DocParagraph, PresentationSlide, SpreadsheetSheet } from "./preview-types"
 export type {
   CopyProgressEvent,
   DirectoryBatchEvent,

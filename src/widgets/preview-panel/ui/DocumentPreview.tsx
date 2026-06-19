@@ -1,4 +1,4 @@
-import type { DocParagraph } from "@/shared/api/tauri/bindings"
+import type { DocParagraph } from "@/shared/api/tauri"
 
 export default function DocumentPreview({
   paragraphs,

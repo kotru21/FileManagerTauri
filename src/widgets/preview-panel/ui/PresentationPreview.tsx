@@ -1,4 +1,4 @@
-import type { PresentationSlide } from "@/shared/api/tauri/bindings"
+import type { PresentationSlide } from "@/shared/api/tauri"
 
 export default function PresentationPreview({ slides }: { slides: PresentationSlide[] }) {
   if (slides.length === 0) {
