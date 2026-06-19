@@ -456,6 +456,8 @@ pub async fn copy_entries_parallel(
     destination: String,
     app: AppHandle,
 ) -> std::result::Result<(), String> {
+    validate_absolute_path(&destination).map_err(|e| e.to_string())?;
+
     // Prevent spawning unbounded number of tasks for huge selections.
     // This is mostly IO-bound; a small fixed parallelism keeps the app responsive.
     const COPY_PARALLELISM: usize = 8;
@@ -466,6 +468,7 @@ pub async fn copy_entries_parallel(
     let semaphore = Arc::new(Semaphore::new(COPY_PARALLELISM));
 
     for source in sources {
+        validate_absolute_path(&source).map_err(|e| e.to_string())?;
         let dest = destination.clone();
         let app = app.clone();
         let counter = counter.clone();
@@ -505,6 +508,9 @@ pub async fn copy_entries_parallel(
 
 /// Copies a single file or directory entry.
 async fn copy_single_entry(source: &str, destination: &str) -> std::result::Result<(), String> {
+    validate_absolute_path(destination).map_err(|e| e.to_string())?;
+    validate_absolute_path(source).map_err(|e| e.to_string())?;
+
     let src_path = Path::new(source);
     let dest_path = Path::new(destination);
     let file_name = src_path
@@ -634,5 +640,23 @@ mod tests {
         assert!(result.is_err());
         let err = result.unwrap_err().to_string();
         assert!(err.contains("too large") || err.contains("File too large"));
+    }
+
+    #[tokio::test]
+    async fn copy_single_entry_rejects_relative_paths() {
+        #[cfg(windows)]
+        let abs_path = "C:\\Users\\test\\file.txt";
+        #[cfg(not(windows))]
+        let abs_path = "/home/test/file.txt";
+
+        let result = copy_single_entry("relative/source.txt", abs_path).await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("absolute") || err.contains("Absolute"));
+
+        let result = copy_single_entry(abs_path, "relative/dest").await;
+        assert!(result.is_err());
+        let err = result.unwrap_err();
+        assert!(err.contains("absolute") || err.contains("Absolute"));
     }
 }
