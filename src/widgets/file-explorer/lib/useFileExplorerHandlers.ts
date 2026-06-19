@@ -12,21 +12,11 @@ import {
 import { useBehaviorSettings } from "@/features/settings"
 import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"
-import { getBasename, joinPath } from "@/shared/lib"
+import { getBasename, getDirname, joinPath } from "@/shared/lib"
 
 import { toast } from "@/shared/ui"
 import type { SelectionModifiers } from "../ui/types"
 import { handleSelectionEvent } from "./selectionHandlers"
-
-function getDirname(path: string): string {
-  const normalized = (path ?? "").replace(/\\/g, "/").replace(/\/+$/, "")
-  if (!normalized) return ""
-
-  const idx = normalized.lastIndexOf("/")
-  if (idx === -1) return ""
-  if (idx === 0) return "/"
-  return normalized.slice(0, idx)
-}
 
 interface UseFileExplorerHandlersOptions {
   files: FileEntry[]
