@@ -1,5 +1,5 @@
 import { useState } from "react"
-import type { SpreadsheetSheet } from "@/shared/api/tauri/bindings"
+import type { SpreadsheetSheet } from "@/shared/api/tauri"
 import { cn } from "@/shared/lib"
 
 export default function SpreadsheetPreview({ sheets }: { sheets: SpreadsheetSheet[] }) {
