@@ -29,6 +29,9 @@
 - **Radix UI** — примитивы UI (context-menu, dialog, tooltip)
 - **Tailwind CSS 4** — стилизация
 - **Lucide React** — иконки
+- **Vitest** — unit/integration тесты
+- **Playwright** — E2E тесты
+- **Biome** — линт и форматирование
 
 ### Backend
 
@@ -97,7 +100,7 @@ src/
 
 ### Требования
 
-- [Node.js 18+](https://nodejs.org/)
+- [Node.js 20–24 LTS](https://nodejs.org/) (см. `engines` в `package.json`)
 - [Rust](https://rustup.rs/)
 - [Visual Studio Build Tools](https://visualstudio.microsoft.com/visual-cpp-build-tools/) с компонентом "Desktop development with C++"
 
@@ -113,6 +116,25 @@ npm run tauri dev
 # Сборка production
 npm run tauri build
 ```
+
+## Скрипты
+
+| Команда | Описание |
+|---------|----------|
+| `npm run tauri dev` | Dev (Vite :1420 + Rust backend) |
+| `npm run lint:all` | Biome + Clippy |
+| `npm run test` | Vitest unit tests |
+| `npm run test:e2e` | Playwright E2E |
+| `npm run sync:versions` | Синхронизировать версию в Cargo/tauri.conf |
+
+## Тестирование и качество
+
+- **Vitest** — unit/integration тесты (`npm run test`)
+- **Playwright** — E2E (`npm run test:e2e`)
+- **Biome** — линт и форматирование фронтенда
+- **Clippy** — линт Rust backend (`npm run lint:rust`)
+
+Текущая версия приложения: **0.8.5**.
 
 ## IDE Setup
 
