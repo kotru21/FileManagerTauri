@@ -1,10 +1,9 @@
 import { expect, test } from "@playwright/test"
+import { DEV_SERVER_URL } from "./constants"
 
 test("Migrates legacy numeric layout values in localStorage to percent-strings on first load", async ({
   page,
 }) => {
-  const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-
   // Put legacy numeric persisted layout into localStorage before app loads
   await page.addInitScript(() => {
     try {
@@ -18,7 +17,7 @@ test("Migrates legacy numeric layout values in localStorage to percent-strings o
     }
   })
 
-  await page.goto(base)
+  await page.goto(DEV_SERVER_URL)
   await page.waitForSelector("text=Недавние", { state: "visible" })
 
   // After load the persisted storage should be migrated

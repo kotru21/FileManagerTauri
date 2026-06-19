@@ -1,9 +1,8 @@
 import { expect, test } from "@playwright/test"
+import { DEV_SERVER_URL } from "./constants"
 
 test.describe("Tab management", () => {
   test("pre-populated tabs render in the tab bar", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-
     await page.addInitScript(() => {
       try {
         localStorage.setItem(
@@ -23,7 +22,7 @@ test.describe("Tab management", () => {
       }
     })
 
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     // Both tabs should be visible by their titles
     const tab1 = page.locator("text=Users").first()
@@ -39,8 +38,6 @@ test.describe("Tab management", () => {
   })
 
   test("clicking a tab switches the active tab", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-
     await page.addInitScript(() => {
       try {
         localStorage.setItem(
@@ -60,7 +57,7 @@ test.describe("Tab management", () => {
       }
     })
 
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const tab2 = page.locator("text=Documents").first()
     if ((await tab2.count()) === 0) {
@@ -79,8 +76,6 @@ test.describe("Tab management", () => {
   })
 
   test("new tab button is present", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-
     await page.addInitScript(() => {
       try {
         localStorage.setItem(
@@ -97,7 +92,7 @@ test.describe("Tab management", () => {
       }
     })
 
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const newTabBtn = page.locator('[aria-label="Новая вкладка"]')
     if ((await newTabBtn.count()) === 0) {
@@ -109,8 +104,6 @@ test.describe("Tab management", () => {
   })
 
   test("new tab button adds a tab", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-
     await page.addInitScript(() => {
       try {
         localStorage.setItem(
@@ -127,7 +120,7 @@ test.describe("Tab management", () => {
       }
     })
 
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const newTabBtn = page.locator('[aria-label="Новая вкладка"]')
     if ((await newTabBtn.count()) === 0) {

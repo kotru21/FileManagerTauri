@@ -1,12 +1,11 @@
 import type { Page } from "@playwright/test"
 import { expect, test } from "@playwright/test"
+import { DEV_SERVER_URL } from "./constants"
 
-// NOTE: Use DEV_SERVER_URL or default; ensure dev server and recent folders exist
+// NOTE: ensure dev server and recent folders exist
 
 test.describe("RecentFolders hover & cursor", () => {
   test("hover shows remove button and cursor is pointer", async ({ page }: { page: Page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-
     // Hydrate recent-folders store for deterministic test data
     await page.addInitScript(() => {
       try {
@@ -20,7 +19,7 @@ test.describe("RecentFolders hover & cursor", () => {
       }
     })
 
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     await page.waitForSelector("text=Недавние", { state: "visible" })
 
