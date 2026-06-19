@@ -81,6 +81,7 @@ export interface KeyboardShortcut {
   action: string
   keys: string
   enabled: boolean
+  editable?: boolean
 }
 
 export interface KeyboardSettings {
