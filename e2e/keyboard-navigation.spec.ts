@@ -1,15 +1,16 @@
 import { expect, test } from "@playwright/test"
 import { DEV_SERVER_URL } from "./constants"
+import { requireBackend } from "./helpers"
 
 test.describe("Keyboard navigation", () => {
   test("ArrowDown and ArrowUp navigate between file rows", async ({ page }) => {
     await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
-    if ((await rows.count()) < 2) {
-      test.skip(true, "Need at least 2 file rows — requires running Tauri backend")
-      return
-    }
+    requireBackend(
+      (await rows.count()) >= 2 ? 1 : 0,
+      "Need at least 2 file rows — requires running Tauri backend",
+    )
 
     await rows.first().click()
     await page.keyboard.press("ArrowDown")
@@ -23,10 +24,10 @@ test.describe("Keyboard navigation", () => {
     await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
-    if ((await rows.count()) < 3) {
-      test.skip(true, "Need at least 3 file rows — requires running Tauri backend")
-      return
-    }
+    requireBackend(
+      (await rows.count()) >= 3 ? 1 : 0,
+      "Need at least 3 file rows — requires running Tauri backend",
+    )
 
     // Click middle row, then press Home, then End
     await rows.nth(1).click()
@@ -38,10 +39,7 @@ test.describe("Keyboard navigation", () => {
     await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
-    if ((await rows.count()) === 0) {
-      test.skip(true, "No file rows available — requires running Tauri backend")
-      return
-    }
+    requireBackend(await rows.count(), "No file rows — requires running Tauri backend")
 
     await rows.first().click()
     await page.keyboard.press("Enter")
