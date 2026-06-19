@@ -8,10 +8,7 @@ use crate::error::{FileManagerError, Result};
 
 /// Returns true when the path is a filesystem root (e.g. `/`, `C:\`).
 pub fn is_filesystem_root(path: &Path) -> bool {
-    path.is_absolute()
-        && !path
-            .components()
-            .any(|c| matches!(c, Component::Normal(_)))
+    path.is_absolute() && !path.components().any(|c| matches!(c, Component::Normal(_)))
 }
 
 /// Validates an absolute filesystem path for read/write commands.
@@ -49,8 +46,8 @@ pub fn validate_deletable_path(path: &str) -> Result<()> {
 
 /// Copies a symlink from `src` to `dst` without following it.
 pub fn copy_symlink(src: &Path, dst: &Path) -> Result<()> {
-    let target = fs::read_link(src)
-        .map_err(|e| FileManagerError::CopyError(format!("read_link: {e}")))?;
+    let target =
+        fs::read_link(src).map_err(|e| FileManagerError::CopyError(format!("read_link: {e}")))?;
     symlink_file(&target, dst)
 }
 
@@ -63,8 +60,7 @@ fn symlink_file(target: &Path, dst: &Path) -> Result<()> {
 #[cfg(windows)]
 fn symlink_file(target: &Path, dst: &Path) -> Result<()> {
     use std::os::windows::fs::symlink_file;
-    symlink_file(target, dst)
-        .map_err(|e| FileManagerError::CopyError(format!("symlink: {e}")))
+    symlink_file(target, dst).map_err(|e| FileManagerError::CopyError(format!("symlink: {e}")))
 }
 
 /// Converts `SystemTime` to Unix timestamp (seconds since epoch).

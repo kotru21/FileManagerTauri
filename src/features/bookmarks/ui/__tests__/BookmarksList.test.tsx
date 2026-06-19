@@ -120,9 +120,7 @@ describe("BookmarksList", () => {
     fireEvent.drop(dropZone, {
       dataTransfer: {
         getData: (type: string) =>
-          type === "application/x-file-manager-paths" || type === "application/json"
-            ? payload
-            : "",
+          type === "application/x-file-manager-paths" || type === "application/json" ? payload : "",
       },
     })
 

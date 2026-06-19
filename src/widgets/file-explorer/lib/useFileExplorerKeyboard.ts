@@ -133,9 +133,7 @@ export function useFileExplorerKeyboard({
       // Don't handle if in input or inline edit mode
       const target = e.target as HTMLElement
       const isTextInput =
-        target.tagName === "INPUT" ||
-        target.tagName === "TEXTAREA" ||
-        target.isContentEditable
+        target.tagName === "INPUT" || target.tagName === "TEXTAREA" || target.isContentEditable
 
       if (inlineEditMode) return
 

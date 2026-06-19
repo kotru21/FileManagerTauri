@@ -8,7 +8,9 @@ fn rejects_empty_path() {
 
 #[test]
 fn rejects_relative_path() {
-    let err = validate_absolute_path("relative/path").unwrap_err().to_string();
+    let err = validate_absolute_path("relative/path")
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("absolute") || err.contains("Absolute"));
 }
 

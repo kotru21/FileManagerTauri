@@ -199,4 +199,32 @@ describe("useNavigationStore", () => {
       expect(useNavigationStore.getState().canGoForward()).toBe(true)
     })
   })
+
+  describe("goUp", () => {
+    it("should navigate to parent path", async () => {
+      const { tauriClient } = await import("@/shared/api/tauri/client")
+
+      act(() => {
+        useNavigationStore.setState({ currentPath: "/child/path" })
+      })
+
+      await act(async () => {
+        await useNavigationStore.getState().goUp()
+      })
+
+      expect(tauriClient.getParentPath).toHaveBeenCalledWith("/child/path")
+      expect(useNavigationStore.getState().currentPath).toBe("/parent")
+    })
+
+    it("should no-op when currentPath is null", async () => {
+      const { tauriClient } = await import("@/shared/api/tauri/client")
+
+      await act(async () => {
+        await useNavigationStore.getState().goUp()
+      })
+
+      expect(tauriClient.getParentPath).not.toHaveBeenCalled()
+      expect(useNavigationStore.getState().currentPath).toBeNull()
+    })
+  })
 })

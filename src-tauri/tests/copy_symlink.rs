@@ -25,7 +25,10 @@ mod unix {
         copy_dir_recursive(&src, &dst).expect("copy");
 
         let copied_link = dst.join("link_to_outside");
-        assert!(copied_link.is_symlink(), "symlink must be copied as symlink");
+        assert!(
+            copied_link.is_symlink(),
+            "symlink must be copied as symlink"
+        );
         assert!(!copied_link.join("..").exists() || copied_link.is_symlink());
     }
 }

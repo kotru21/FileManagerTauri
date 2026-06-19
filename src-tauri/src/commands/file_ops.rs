@@ -577,8 +577,8 @@ pub async fn move_entries(
 fn get_file_content_sync(path: &str) -> Result<String> {
     validate_absolute_path(path)?;
     let file_path = Path::new(path);
-    let meta = fs::metadata(file_path)
-        .map_err(|e| FileManagerError::ReadFileError(e.to_string()))?;
+    let meta =
+        fs::metadata(file_path).map_err(|e| FileManagerError::ReadFileError(e.to_string()))?;
     if meta.len() > MAX_FILE_CONTENT_SIZE {
         return Err(FileManagerError::FileTooLarge(
             meta.len(),

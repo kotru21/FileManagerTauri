@@ -35,6 +35,7 @@ export default defineConfig({
         "src/**/*.spec.ts",
         "src/test/**",
         "src/shared/api/tauri/bindings.ts",
+        "src/shared/lib/index.ts",
       ],
       thresholds: CORE_COVERAGE_BASELINE,
     },

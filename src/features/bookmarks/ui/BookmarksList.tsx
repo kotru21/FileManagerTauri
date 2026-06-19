@@ -110,7 +110,10 @@ export function BookmarksList({ onSelect, currentPath, className }: BookmarksLis
   return (
     <ScrollArea className={cn("h-full", className)}>
       <div
-        className={cn("space-y-0.5 p-2 min-h-[4rem] rounded-md transition-colors", dropZoneClassName)}
+        className={cn(
+          "space-y-0.5 p-2 min-h-[4rem] rounded-md transition-colors",
+          dropZoneClassName,
+        )}
         onDragOver={handleDragOver}
         onDragLeave={handleDragLeave}
         onDrop={handleDrop}
