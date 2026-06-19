@@ -3,7 +3,7 @@
 //! This crate provides the backend functionality for the file manager,
 //! including file operations, search, preview, and filesystem watching.
 
-pub mod commands;
+mod commands;
 mod constants;
 mod error;
 mod models;

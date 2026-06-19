@@ -12,7 +12,7 @@ use tauri::{AppHandle, Emitter};
 use tokio::sync::Semaphore;
 use tokio::task::{spawn_blocking, JoinSet};
 
-use crate::constants::DIRECTORY_BATCH_SIZE;
+use crate::constants::{DIRECTORY_BATCH_SIZE, MAX_FILE_CONTENT_SIZE};
 use crate::error::{FileManagerError, Result};
 use crate::models::{CopyProgress, DriveInfo, FileEntry};
 
@@ -564,16 +564,28 @@ pub async fn move_entries(
     .map_err(Into::into)
 }
 
+fn get_file_content_sync(path: &str) -> Result<String> {
+    let file_path = Path::new(path);
+    let meta = fs::metadata(file_path)
+        .map_err(|e| FileManagerError::ReadFileError(e.to_string()))?;
+    if meta.len() > MAX_FILE_CONTENT_SIZE {
+        return Err(FileManagerError::FileTooLarge(
+            meta.len(),
+            MAX_FILE_CONTENT_SIZE,
+        ));
+    }
+    fs::read_to_string(file_path).map_err(|e| FileManagerError::ReadFileError(e.to_string()))
+}
+
 /// Reads the content of a text file.
 #[tauri::command]
 #[specta::specta]
 pub async fn get_file_content(path: String) -> std::result::Result<String, String> {
-    spawn_blocking(move || -> Result<String> {
-        fs::read_to_string(&path).map_err(|e| FileManagerError::ReadFileError(e.to_string()))
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(Into::into)
+    let path_clone = path.clone();
+    spawn_blocking(move || get_file_content_sync(&path_clone))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(Into::into)
 }
 
 /// Returns the parent directory of a path.
@@ -591,7 +603,31 @@ pub async fn path_exists(path: String) -> std::result::Result<bool, String> {
     Ok(Path::new(&path).exists())
 }
 
-pub fn get_file_content_sync(path: &str) -> crate::error::Result<String> {
-    let _ = path;
-    unimplemented!()
+#[cfg(test)]
+mod tests {
+    use std::fs;
+    use std::io::Write;
+
+    use tempfile::tempdir;
+
+    use super::*;
+
+    #[test]
+    fn get_file_content_rejects_files_over_limit() {
+        let dir = tempdir().expect("tempdir");
+        let file_path = dir.path().join("large.txt");
+        let mut file = fs::File::create(&file_path).expect("create");
+        // MAX_FILE_CONTENT_SIZE = 4MB; write 4MB + 1 byte
+        let chunk = vec![b'a'; 1024];
+        for _ in 0..(4 * 1024 + 1) {
+            file.write_all(&chunk).expect("write");
+        }
+        drop(file);
+
+        let path = file_path.to_string_lossy().to_string();
+        let result = get_file_content_sync(&path);
+        assert!(result.is_err());
+        let err = result.unwrap_err().to_string();
+        assert!(err.contains("too large") || err.contains("File too large"));
+    }
 }
