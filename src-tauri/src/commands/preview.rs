@@ -554,7 +554,6 @@ fn local_name(full: &[u8]) -> &[u8] {
 }
 
 /// Generates a thumbnail (resized image) as base64 with given max side length.
-#[allow(dead_code)]
 #[tauri::command]
 #[specta::specta]
 pub async fn get_thumbnail(
