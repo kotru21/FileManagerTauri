@@ -1,6 +1,7 @@
 import { Folder, Star, Trash2 } from "lucide-react"
-import { useCallback } from "react"
+import { useCallback, useState } from "react"
 import { cn } from "@/shared/lib"
+import { parseDragData } from "@/shared/lib/drag-drop"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -51,7 +52,8 @@ function BookmarkItem({ bookmark, isActive, onSelect, onRemove }: BookmarkItemPr
 }
 
 export function BookmarksList({ onSelect, currentPath, className }: BookmarksListProps) {
-  const { bookmarks, removeBookmark } = useBookmarksStore()
+  const { bookmarks, removeBookmark, addBookmark } = useBookmarksStore()
+  const [isDragOver, setIsDragOver] = useState(false)
 
   const handleRemove = useCallback(
     (id: string) => {
@@ -60,9 +62,44 @@ export function BookmarksList({ onSelect, currentPath, className }: BookmarksLis
     [removeBookmark],
   )
 
+  const handleDragOver = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    e.stopPropagation()
+    e.dataTransfer.dropEffect = "copy"
+    setIsDragOver(true)
+  }, [])
+
+  const handleDragLeave = useCallback((e: React.DragEvent) => {
+    e.preventDefault()
+    setIsDragOver(false)
+  }, [])
+
+  const handleDrop = useCallback(
+    (e: React.DragEvent) => {
+      e.preventDefault()
+      e.stopPropagation()
+      setIsDragOver(false)
+      const data = parseDragData(e.dataTransfer)
+      const first = data?.paths?.[0]
+      if (first) addBookmark(first)
+    },
+    [addBookmark],
+  )
+
+  const dropZoneClassName = cn(
+    "rounded-md transition-colors",
+    isDragOver && "bg-accent/70 ring-2 ring-primary ring-inset",
+    className,
+  )
+
   if (bookmarks.length === 0) {
     return (
-      <div className={cn("px-2 py-4 text-center text-sm text-muted-foreground", className)}>
+      <div
+        className={cn("px-2 py-4 text-center text-sm text-muted-foreground", dropZoneClassName)}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         <Star className="mx-auto mb-2 h-8 w-8 opacity-50" />
         <p>Нет закладок</p>
         <p className="text-xs mt-1">Перетащите папку сюда или используйте Ctrl+D</p>
@@ -71,7 +108,12 @@ export function BookmarksList({ onSelect, currentPath, className }: BookmarksLis
   }
 
   return (
-    <ScrollArea className={cn("h-full", className)}>
+    <ScrollArea
+      className={cn("h-full", dropZoneClassName)}
+      onDragOver={handleDragOver}
+      onDragLeave={handleDragLeave}
+      onDrop={handleDrop}
+    >
       <div className="space-y-0.5 p-2">
         {bookmarks
           .sort((a, b) => a.order - b.order)

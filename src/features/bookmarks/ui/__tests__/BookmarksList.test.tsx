@@ -107,4 +107,26 @@ describe("BookmarksList", () => {
       expect(screen.getByText(`Folder ${i}`)).toBeTruthy()
     }
   })
+
+  it("drops a dragged folder path into bookmarks", () => {
+    render(<BookmarksList onSelect={() => {}} />)
+
+    const dropZone = screen.getByText("Нет закладок").closest("div")!
+    const payload = JSON.stringify({ paths: ["/home/user/Documents"], action: "move" })
+
+    fireEvent.dragOver(dropZone, {
+      dataTransfer: { dropEffect: "none" },
+    })
+    fireEvent.drop(dropZone, {
+      dataTransfer: {
+        getData: (type: string) =>
+          type === "application/x-file-manager-paths" || type === "application/json"
+            ? payload
+            : "",
+      },
+    })
+
+    expect(useBookmarksStore.getState().bookmarks).toHaveLength(1)
+    expect(useBookmarksStore.getState().bookmarks[0]?.path).toBe("/home/user/Documents")
+  })
 })

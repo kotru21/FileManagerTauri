@@ -100,7 +100,8 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
 
   const handleDragOver = (e: React.DragEvent) => {
     e.preventDefault()
-    e.dataTransfer.dropEffect = "link"
+    // Must match FileRow effectAllowed ("copyMove"); "link" blocks the drop in WebView2.
+    e.dataTransfer.dropEffect = "copy"
   }
 
   useEffect(() => {

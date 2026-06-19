@@ -6,9 +6,17 @@ use std::time::SystemTime;
 
 use crate::error::{FileManagerError, Result};
 
-/// Validates an absolute filesystem path for use in destructive/read commands.
+/// Returns true when the path is a filesystem root (e.g. `/`, `C:\`).
+pub fn is_filesystem_root(path: &Path) -> bool {
+    path.is_absolute()
+        && !path
+            .components()
+            .any(|c| matches!(c, Component::Normal(_)))
+}
+
+/// Validates an absolute filesystem path for read/write commands.
 ///
-/// Security: rejects empty, relative, and filesystem root paths.
+/// Security: rejects empty and relative paths. Drive roots like `C:\` are allowed.
 pub fn validate_absolute_path(path: &str) -> Result<()> {
     if path.is_empty() {
         return Err(FileManagerError::EmptyPath);
@@ -20,12 +28,19 @@ pub fn validate_absolute_path(path: &str) -> Result<()> {
         return Err(FileManagerError::NotAbsolutePath(path.to_string()));
     }
 
-    let has_normal_component = entry_path
-        .components()
-        .any(|c| matches!(c, Component::Normal(_)));
-    if !has_normal_component {
+    Ok(())
+}
+
+/// Validates an absolute path before destructive delete operations.
+///
+/// Security: rejects filesystem roots such as `/` and `C:\`.
+pub fn validate_deletable_path(path: &str) -> Result<()> {
+    validate_absolute_path(path)?;
+
+    let entry_path = Path::new(path);
+    if is_filesystem_root(entry_path) {
         return Err(FileManagerError::InvalidPath(format!(
-            "Refusing root path: {path}"
+            "Refusing to delete root path: {path}"
         )));
     }
 
@@ -105,3 +120,36 @@ pub fn get_filename(path: &Path) -> String {
 //         None => false,
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn validate_absolute_path_rejects_empty() {
+        assert!(validate_absolute_path("").is_err());
+    }
+
+    #[test]
+    fn validate_absolute_path_rejects_relative() {
+        assert!(validate_absolute_path("relative/path").is_err());
+    }
+
+    #[test]
+    fn validate_absolute_path_accepts_windows_drive_root() {
+        #[cfg(windows)]
+        {
+            assert!(validate_absolute_path("C:\\").is_ok());
+            assert!(validate_absolute_path("D:\\").is_ok());
+        }
+    }
+
+    #[test]
+    fn validate_deletable_path_rejects_windows_drive_root() {
+        #[cfg(windows)]
+        {
+            let err = validate_deletable_path("C:\\").unwrap_err().to_string();
+            assert!(err.contains("root") || err.contains("Root") || err.contains("Refusing"));
+        }
+    }
+}

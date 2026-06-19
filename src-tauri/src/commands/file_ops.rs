@@ -14,7 +14,7 @@ use tokio::task::{spawn_blocking, JoinSet};
 use crate::constants::{DIRECTORY_BATCH_SIZE, MAX_FILE_CONTENT_SIZE};
 use crate::error::{FileManagerError, Result};
 use crate::models::{CopyProgress, DriveInfo, FileEntry};
-use crate::utils::validate_absolute_path;
+use crate::utils::{validate_absolute_path, validate_deletable_path};
 
 #[derive(Clone, Serialize)]
 struct DirectoryBatchEvent {
@@ -315,7 +315,7 @@ pub async fn create_file(path: String) -> std::result::Result<(), String> {
 pub async fn delete_entries(paths: Vec<String>) -> std::result::Result<(), String> {
     spawn_blocking(move || -> Result<()> {
         for path in paths {
-            validate_absolute_path(&path)?;
+            validate_deletable_path(&path)?;
 
             let entry_path = Path::new(&path);
 
