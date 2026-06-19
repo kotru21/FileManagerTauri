@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test"
+import { DEV_SERVER_URL } from "./constants"
 
 test.describe("Search flow", () => {
   test("search input is visible with placeholder", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const searchInput = page.locator('input[placeholder*="Поиск"]')
     if ((await searchInput.count()) === 0) {
@@ -21,8 +21,6 @@ test.describe("Search flow", () => {
   })
 
   test("typing in search input updates its value", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-
     await page.addInitScript(() => {
       try {
         localStorage.setItem(
@@ -40,7 +38,7 @@ test.describe("Search flow", () => {
       }
     })
 
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const searchInput = page.locator('input[placeholder*="Поиск"]')
     if ((await searchInput.count()) === 0) {
@@ -54,8 +52,6 @@ test.describe("Search flow", () => {
   })
 
   test("content search toggle button exists", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-
     await page.addInitScript(() => {
       try {
         localStorage.setItem(
@@ -73,7 +69,7 @@ test.describe("Search flow", () => {
       }
     })
 
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const toggleBtn = page.locator('button[title*="содержимому"]')
     if ((await toggleBtn.count()) === 0) {

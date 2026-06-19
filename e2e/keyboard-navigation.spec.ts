@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test"
+import { DEV_SERVER_URL } from "./constants"
 
 test.describe("Keyboard navigation", () => {
   test("ArrowDown and ArrowUp navigate between file rows", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
     if ((await rows.count()) < 2) {
@@ -20,8 +20,7 @@ test.describe("Keyboard navigation", () => {
   })
 
   test("Home and End jump to first and last rows", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
     if ((await rows.count()) < 3) {
@@ -36,8 +35,7 @@ test.describe("Keyboard navigation", () => {
   })
 
   test("Enter on a directory triggers navigation", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
     if ((await rows.count()) === 0) {
@@ -53,8 +51,7 @@ test.describe("Keyboard navigation", () => {
   })
 
   test("keyboard events are ignored inside input elements", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     // Open edit mode in breadcrumbs via Ctrl+L
     await page.keyboard.press("Control+l")

@@ -1,9 +1,9 @@
 import { expect, test } from "@playwright/test"
+import { DEV_SERVER_URL } from "./constants"
 
 test.describe("File operations", () => {
   test("delete key triggers confirmation dialog", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
     if ((await rows.count()) === 0) {
@@ -23,8 +23,7 @@ test.describe("File operations", () => {
   })
 
   test("cancel button closes the delete dialog", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
     if ((await rows.count()) === 0) {
@@ -48,8 +47,7 @@ test.describe("File operations", () => {
   })
 
   test("copy shortcut Ctrl+C does not crash without selection", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     // Press Ctrl+C without any selection - should not cause errors
     await page.keyboard.press("Control+c")

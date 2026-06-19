@@ -1,9 +1,8 @@
 import { expect, test } from "@playwright/test"
+import { DEV_SERVER_URL } from "./constants"
 
 test.describe("Breadcrumbs", () => {
   test("displays path segments from navigation state", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-
     await page.addInitScript(() => {
       try {
         localStorage.setItem(
@@ -21,7 +20,7 @@ test.describe("Breadcrumbs", () => {
       }
     })
 
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     // Breadcrumb segments should contain path parts
     const segment = page.locator("[data-path]").first()
@@ -34,8 +33,7 @@ test.describe("Breadcrumbs", () => {
   })
 
   test("Ctrl+L opens breadcrumb edit mode", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     await page.keyboard.press("Control+l")
 
@@ -44,8 +42,7 @@ test.describe("Breadcrumbs", () => {
   })
 
   test("Escape cancels breadcrumb editing", async ({ page }) => {
-    const base = process.env.DEV_SERVER_URL ?? "http://localhost:5173"
-    await page.goto(base)
+    await page.goto(DEV_SERVER_URL)
 
     // Enter edit mode
     await page.keyboard.press("Control+l")
