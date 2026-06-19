@@ -1,10 +1,36 @@
 //! Utility functions for file operations.
 
 use std::fs;
-use std::path::Path;
+use std::path::{Component, Path};
 use std::time::SystemTime;
 
 use crate::error::{FileManagerError, Result};
+
+/// Validates an absolute filesystem path for use in destructive/read commands.
+///
+/// Security: rejects empty, relative, and filesystem root paths.
+pub fn validate_absolute_path(path: &str) -> Result<()> {
+    if path.is_empty() {
+        return Err(FileManagerError::EmptyPath);
+    }
+
+    let entry_path = Path::new(path);
+
+    if !entry_path.is_absolute() {
+        return Err(FileManagerError::NotAbsolutePath(path.to_string()));
+    }
+
+    let has_normal_component = entry_path
+        .components()
+        .any(|c| matches!(c, Component::Normal(_)));
+    if !has_normal_component {
+        return Err(FileManagerError::InvalidPath(format!(
+            "Refusing root path: {path}"
+        )));
+    }
+
+    Ok(())
+}
 
 /// Copies a symlink from `src` to `dst` without following it.
 pub fn copy_symlink(src: &Path, dst: &Path) -> Result<()> {

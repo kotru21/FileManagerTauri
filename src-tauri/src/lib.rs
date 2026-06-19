@@ -10,7 +10,7 @@ pub mod commands;
 mod constants;
 mod error;
 mod models;
-mod utils;
+pub mod utils;
 
 use commands::watcher::WatcherState;
 use tauri_specta::{collect_commands, Builder};
