@@ -4,10 +4,10 @@ import { defineConfig } from "vitest/config"
 // Coverage targets:
 // 80/70/80/80 globally, >90 in core.
 const COVERAGE_BASELINE = {
-  statements: 42,
-  branches: 37,
-  functions: 36,
-  lines: 43,
+  statements: 45,
+  branches: 40,
+  functions: 39,
+  lines: 46,
 } as const
 
 export default defineConfig({
