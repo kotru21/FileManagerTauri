@@ -1,6 +1,6 @@
 import { File, Folder, HardDrive, Loader2 } from "lucide-react"
 import { useMemo } from "react"
-import { useDirectoryContents } from "@/entities/file-entry"
+import { useDirectoryEntries } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard"
 import { useSelectionStore } from "@/features/file-selection"
 import { useNavigationStore } from "@/features/navigation"
@@ -15,7 +15,7 @@ interface StatusBarProps {
 
 export function StatusBar({ className }: StatusBarProps) {
   const { currentPath } = useNavigationStore()
-  const { data: files = [], isLoading, isFetching } = useDirectoryContents(currentPath)
+  const { files, isLoading } = useDirectoryEntries(currentPath)
   const { getSelectedPaths } = useSelectionStore()
   const { hasContent, paths: clipboardPaths, isCut } = useClipboardStore()
   const { filter, isActive: isFilterActive } = useQuickFilterStore()
@@ -56,7 +56,7 @@ export function StatusBar({ className }: StatusBarProps) {
       data-slot="status-bar"
     >
       <div className="flex items-center gap-3">
-        {(isLoading || isFetching || isSearching) && (
+        {(isLoading || isSearching) && (
           <div className="flex items-center gap-1 text-muted-foreground">
             <Loader2 className="h-3 w-3 animate-spin" />
             <span>{isSearching ? "Поиск..." : "Загрузка..."}</span>

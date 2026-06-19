@@ -1,5 +1,5 @@
 import { act, render, screen } from "@testing-library/react"
-import { useDirectoryContents } from "@/entities/file-entry"
+import { useDirectoryEntries } from "@/entities/file-entry"
 import { useClipboardStore } from "@/features/clipboard/model/store"
 import { useSelectionStore } from "@/features/file-selection/model/store"
 import { useNavigationStore } from "@/features/navigation/model/store"
@@ -9,14 +9,15 @@ import type { SearchResult } from "@/shared/api/tauri"
 import { StatusBar } from "../StatusBar"
 
 vi.mock("@/entities/file-entry", () => ({
-  useDirectoryContents: vi.fn(() => ({
-    data: [],
+  useDirectoryEntries: vi.fn(() => ({
+    files: [],
     isLoading: false,
-    isFetching: false,
+    error: null,
+    refetch: vi.fn(),
   })),
 }))
 
-const mockUseDirectoryContents = useDirectoryContents as ReturnType<typeof vi.fn>
+const mockUseDirectoryEntries = useDirectoryEntries as ReturnType<typeof vi.fn>
 
 describe("StatusBar", () => {
   beforeEach(() => {
@@ -46,16 +47,17 @@ describe("StatusBar", () => {
       })
     })
 
-    mockUseDirectoryContents.mockReturnValue({
-      data: [],
+    mockUseDirectoryEntries.mockReturnValue({
+      files: [],
       isLoading: false,
-      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
     })
   })
 
   it("shows folder count and file count from directory contents", () => {
-    mockUseDirectoryContents.mockReturnValue({
-      data: [
+    mockUseDirectoryEntries.mockReturnValue({
+      files: [
         { name: "folder1", path: "C:/folder1", is_dir: true, size: 0 },
         { name: "folder2", path: "C:/folder2", is_dir: true, size: 0 },
         { name: "file1.txt", path: "C:/file1.txt", is_dir: false, size: 100 },
@@ -63,7 +65,8 @@ describe("StatusBar", () => {
         { name: "file3.txt", path: "C:/file3.txt", is_dir: false, size: 300 },
       ],
       isLoading: false,
-      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
     })
 
     render(<StatusBar />)
@@ -74,10 +77,11 @@ describe("StatusBar", () => {
   })
 
   it("shows loading text when isLoading", () => {
-    mockUseDirectoryContents.mockReturnValue({
-      data: [],
+    mockUseDirectoryEntries.mockReturnValue({
+      files: [],
       isLoading: true,
-      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
     })
 
     render(<StatusBar />)
@@ -90,10 +94,11 @@ describe("StatusBar", () => {
       useSearchStore.setState({ isSearching: true, results: [] })
     })
 
-    mockUseDirectoryContents.mockReturnValue({
-      data: [],
+    mockUseDirectoryEntries.mockReturnValue({
+      files: [],
       isLoading: false,
-      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
     })
 
     render(<StatusBar />)
@@ -119,13 +124,14 @@ describe("StatusBar", () => {
   })
 
   it("shows selection count when files selected", () => {
-    mockUseDirectoryContents.mockReturnValue({
-      data: [
+    mockUseDirectoryEntries.mockReturnValue({
+      files: [
         { name: "file1.txt", path: "C:/file1.txt", is_dir: false, size: 100 },
         { name: "file2.txt", path: "C:/file2.txt", is_dir: false, size: 200 },
       ],
       isLoading: false,
-      isFetching: false,
+      error: null,
+      refetch: vi.fn(),
     })
 
     act(() => {
