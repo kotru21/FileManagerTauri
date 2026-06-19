@@ -11,6 +11,8 @@
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
     "test:coverage:core": "vitest run --coverage --config vitest.core.config.ts",
+    "test:e2e": "playwright test",
+    "test:e2e:ci": "playwright test --reporter=github",
     "dev": "vite",
     "build": "tsc && vite build",
     "preview": "vite preview",
