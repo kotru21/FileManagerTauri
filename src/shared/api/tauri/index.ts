@@ -8,7 +8,6 @@ export type {
   SearchResult,
   Thumbnail,
 } from "./bindings"
-export type { DocParagraph, PresentationSlide, SpreadsheetSheet } from "./preview-types"
 export type {
   CopyProgressEvent,
   DirectoryBatchEvent,
@@ -19,3 +18,4 @@ export type {
   SearchProgressEvent,
 } from "./events"
 export { tauriEvents } from "./events"
+export type { DocParagraph, PresentationSlide, SpreadsheetSheet } from "./preview-types"
