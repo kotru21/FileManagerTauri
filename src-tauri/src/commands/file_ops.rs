@@ -414,7 +414,8 @@ pub async fn copy_entries(
     .map_err(Into::into)
 }
 
-#[cfg(test)]
+/// Test-only wrapper for recursive directory copy (used by integration tests).
+#[doc(hidden)]
 pub fn copy_dir_recursive_for_test(src: &Path, dst: &Path) -> Result<()> {
     copy_dir_recursive(src, dst)
 }
