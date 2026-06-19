@@ -1,5 +1,5 @@
 /// <reference types="vitest" />
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, fireEvent, render, renderHook, screen, waitFor } from "@testing-library/react"
 
 vi.mock("@/shared/api/tauri/client", () => {
   return {
@@ -58,6 +58,48 @@ describe("useUndoToast integration", () => {
 
     // No toast should appear
     expect(screen.queryByText("Удаление")).toBeNull()
+  })
+
+  it("does not show toast for copy operations with canUndo false", async () => {
+    useOperationsHistoryStore.getState().clearHistory()
+    useOperationsHistoryStore.getState().addOperation({
+      type: "copy",
+      description: "copy test",
+      data: { sources: ["a"], destination: "b" },
+      canUndo: false,
+    })
+    const { result } = renderHook(() => useUndoToast())
+    await waitFor(() => {
+      expect(result.current.toast).toBeNull()
+    })
+  })
+
+  it("hides toast when latest operation becomes non-undoable", async () => {
+    render(<TestHost />)
+
+    act(() => {
+      useOperationsHistoryStore.getState().addOperation({
+        type: "create",
+        description: "Создание файла",
+        canUndo: true,
+        data: { newPath: "/a/new.txt" },
+      })
+    })
+
+    expect(await screen.findByText("Создание файла")).toBeTruthy()
+
+    act(() => {
+      useOperationsHistoryStore.getState().addOperation({
+        type: "copy",
+        description: "copy test",
+        data: { sources: ["a"], destination: "b" },
+        canUndo: false,
+      })
+    })
+
+    await waitFor(() => {
+      expect(screen.queryByText("Создание файла")).toBeNull()
+    })
   })
 
   it("clicking Undo calls undoLastOperation and hides toast on success", async () => {
