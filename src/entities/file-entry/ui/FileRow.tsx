@@ -2,13 +2,7 @@ import { memo, useCallback, useEffect, useRef, useState } from "react"
 import type { FileEntry } from "@/shared/api/tauri"
 import { cn, formatBytes, formatDate, formatRelativeDate, formatRelativeStrict } from "@/shared/lib"
 import { getPerfLog, setPerfLog } from "@/shared/lib/devLogger"
-import {
-  createDragData,
-  DRAG_DATA_TYPE,
-  getDragAction,
-  parseDragData,
-  setDragImage,
-} from "@/shared/lib/drag-drop"
+import { getDragAction, parseDragData, setDragImage, setDragPayload } from "@/shared/lib/drag-drop"
 import { FileIcon } from "./FileIcon"
 import { FileRowActions } from "./FileRowActions"
 
@@ -110,10 +104,7 @@ export const FileRow = memo(function FileRow({
     (e: React.DragEvent) => {
       const paths = getSelectedPaths?.() ?? [file.path]
       const action = getDragAction(e)
-      const payload = createDragData(paths, action)
-      e.dataTransfer.setData(DRAG_DATA_TYPE, payload)
-      e.dataTransfer.setData("application/json", payload)
-      e.dataTransfer.effectAllowed = "copyMove"
+      setDragPayload(e.dataTransfer, paths, action)
       setDragImage(e, paths.length)
     },
     [file.path, getSelectedPaths],

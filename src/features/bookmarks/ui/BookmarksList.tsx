@@ -108,13 +108,13 @@ export function BookmarksList({ onSelect, currentPath, className }: BookmarksLis
   }
 
   return (
-    <ScrollArea
-      className={cn("h-full", dropZoneClassName)}
-      onDragOver={handleDragOver}
-      onDragLeave={handleDragLeave}
-      onDrop={handleDrop}
-    >
-      <div className="space-y-0.5 p-2">
+    <ScrollArea className={cn("h-full", className)}>
+      <div
+        className={cn("space-y-0.5 p-2 min-h-[4rem] rounded-md transition-colors", dropZoneClassName)}
+        onDragOver={handleDragOver}
+        onDragLeave={handleDragLeave}
+        onDrop={handleDrop}
+      >
         {bookmarks
           .sort((a, b) => a.order - b.order)
           .map((bookmark) => (

@@ -1,5 +1,6 @@
 /// <reference types="vitest" />
 import { act, render } from "@testing-library/react"
+import { useBookmarksStore } from "@/features/bookmarks/model/store"
 import { useNavigationStore } from "@/features/navigation"
 import { useSettingsStore } from "@/features/settings"
 import type { UseFileExplorerKeyboardOptions } from "../lib/useFileExplorerKeyboard"
@@ -31,6 +32,7 @@ describe("useFileExplorerKeyboard normalization and matching", () => {
     // reset navigation
     act(() => {
       useNavigationStore.setState({ currentPath: "/", history: ["/"], historyIndex: 0 })
+      useBookmarksStore.setState({ bookmarks: [] })
       // set keyboard shortcuts to predictable set
       useSettingsStore.getState().updateKeyboard({
         shortcuts: [
@@ -81,6 +83,47 @@ describe("useFileExplorerKeyboard normalization and matching", () => {
     })
 
     expect(onStartRename).toHaveBeenCalled()
+  })
+
+  it("triggers copy on Ctrl+C while quick filter input is focused", () => {
+    const { onCopy } = setupComponent()
+
+    const input = document.createElement("input")
+    document.body.appendChild(input)
+    input.focus()
+
+    act(() => {
+      input.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "c", code: "KeyC", ctrlKey: true, bubbles: true }),
+      )
+    })
+
+    expect(onCopy).toHaveBeenCalled()
+    document.body.removeChild(input)
+  })
+
+  it("triggers bookmark toggle on Ctrl+D", () => {
+    act(() => {
+      useNavigationStore.setState({
+        currentPath: "C:\\Users\\test",
+        history: ["C:\\Users\\test"],
+        historyIndex: 0,
+      })
+      useSettingsStore.getState().updateKeyboard({
+        shortcuts: [{ id: "bookmark", action: "Закладка", keys: "Ctrl+D", enabled: true }],
+      })
+    })
+
+    setupComponent()
+
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "d", code: "KeyD", ctrlKey: true, bubbles: true }),
+      )
+    })
+
+    expect(useBookmarksStore.getState().bookmarks).toHaveLength(1)
+    expect(useBookmarksStore.getState().bookmarks[0]?.path).toBe("C:\\Users\\test")
   })
 
   it("handles Alt+ArrowLeft -> back navigation", () => {
