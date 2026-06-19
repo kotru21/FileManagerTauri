@@ -36,6 +36,9 @@ pub enum FileManagerError {
     #[error("Failed to read file: {0}")]
     ReadFileError(String),
 
+    #[error("File too large: {0} bytes (max {1})")]
+    FileTooLarge(u64, u64),
+
     #[error("Invalid path: {0}")]
     InvalidPath(String),
 

@@ -3,6 +3,9 @@
 /// Maximum file size for content search (4 MB).
 pub const MAX_SEARCH_FILE_SIZE: u64 = 4 * 1024 * 1024;
 
+/// Maximum file size for full text content reads (4 MB).
+pub const MAX_FILE_CONTENT_SIZE: u64 = 4 * 1024 * 1024;
+
 /// Maximum file size for preview (5 MB).
 pub const MAX_PREVIEW_FILE_SIZE: usize = 5_000_000;
 

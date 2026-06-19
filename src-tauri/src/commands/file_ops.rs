@@ -590,3 +590,8 @@ pub async fn get_parent_path(path: String) -> std::result::Result<Option<String>
 pub async fn path_exists(path: String) -> std::result::Result<bool, String> {
     Ok(Path::new(&path).exists())
 }
+
+pub fn get_file_content_sync(path: &str) -> crate::error::Result<String> {
+    let _ = path;
+    unimplemented!()
+}
