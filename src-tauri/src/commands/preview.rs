@@ -204,11 +204,9 @@ fn generate_document_preview(path: &str) -> Result<FilePreview, String> {
                             }
                         }
                     }
-                    b"numPr" => {
+                    b"numPr" if in_paragraph && current_style == "normal" => {
                         // Numbered/bulleted list item
-                        if in_paragraph && current_style == "normal" {
-                            current_style = String::from("listItem");
-                        }
+                        current_style = String::from("listItem");
                     }
                     _ => {}
                 }
@@ -481,10 +479,8 @@ fn extract_pptx_slide_text(xml: &str) -> (Option<String>, Vec<String>) {
                             current_paragraph.clear();
                         }
                     }
-                    b"t" => {
-                        if in_paragraph {
-                            in_a_t = true;
-                        }
+                    b"t" if in_paragraph => {
+                        in_a_t = true;
                     }
                     _ => {}
                 }
