@@ -416,7 +416,12 @@ pub async fn copy_entries(
                 .ok_or(FileManagerError::InvalidSourcePath)?;
             let target = dest_path.join(file_name);
 
-            if src_path.is_dir() {
+            let meta = fs::symlink_metadata(src_path)
+                .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)))?;
+
+            if meta.file_type().is_symlink() {
+                crate::utils::copy_symlink(src_path, &target)?;
+            } else if meta.is_dir() {
                 copy_dir_recursive(src_path, &target)?;
             } else {
                 fs::copy(src_path, &target)
@@ -431,7 +436,12 @@ pub async fn copy_entries(
     .map_err(Into::into)
 }
 
-/// Recursively copies a directory.
+#[cfg(test)]
+pub fn copy_dir_recursive_for_test(src: &Path, dst: &Path) -> Result<()> {
+    copy_dir_recursive(src, dst)
+}
+
+/// Recursively copies a directory without following symlinks.
 fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
     fs::create_dir_all(dst).map_err(|e| FileManagerError::CreateDirError(e.to_string()))?;
 
@@ -440,7 +450,16 @@ fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
         let src_path = entry.path();
         let dst_path = dst.join(entry.file_name());
 
-        if src_path.is_dir() {
+        // Use symlink_metadata so we don't follow symlinks (same pattern as delete_entries:351-359).
+        let meta = fs::symlink_metadata(&src_path)
+            .map_err(|e| FileManagerError::CopyError(e.to_string()))?;
+
+        if meta.file_type().is_symlink() {
+            crate::utils::copy_symlink(&src_path, &dst_path)?;
+            continue;
+        }
+
+        if meta.is_dir() {
             copy_dir_recursive(&src_path, &dst_path)?;
         } else {
             fs::copy(&src_path, &dst_path)
@@ -515,7 +534,12 @@ async fn copy_single_entry(source: &str, destination: &str) -> std::result::Resu
         .ok_or(FileManagerError::InvalidSourcePath.to_string())?;
     let target = dest_path.join(file_name);
 
-    if src_path.is_dir() {
+    let meta = fs::symlink_metadata(src_path)
+        .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)).to_string())?;
+
+    if meta.file_type().is_symlink() {
+        crate::utils::copy_symlink(src_path, &target).map_err(|e| e.to_string())
+    } else if meta.is_dir() {
         copy_dir_recursive(src_path, &target).map_err(|e| e.to_string())
     } else {
         fs::copy(src_path, &target)

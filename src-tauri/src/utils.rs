@@ -1,7 +1,30 @@
 //! Utility functions for file operations.
 
+use std::fs;
 use std::path::Path;
 use std::time::SystemTime;
+
+use crate::error::{FileManagerError, Result};
+
+/// Copies a symlink from `src` to `dst` without following it.
+pub fn copy_symlink(src: &Path, dst: &Path) -> Result<()> {
+    let target = fs::read_link(src)
+        .map_err(|e| FileManagerError::CopyError(format!("read_link: {e}")))?;
+    symlink_file(&target, dst)
+}
+
+#[cfg(unix)]
+fn symlink_file(target: &Path, dst: &Path) -> Result<()> {
+    std::os::unix::fs::symlink(target, dst)
+        .map_err(|e| FileManagerError::CopyError(format!("symlink: {e}")))
+}
+
+#[cfg(windows)]
+fn symlink_file(target: &Path, dst: &Path) -> Result<()> {
+    use std::os::windows::fs::symlink_file;
+    symlink_file(target, dst)
+        .map_err(|e| FileManagerError::CopyError(format!("symlink: {e}")))
+}
 
 /// Converts `SystemTime` to Unix timestamp (seconds since epoch).
 #[inline]
