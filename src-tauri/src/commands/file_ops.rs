@@ -658,7 +658,7 @@ mod tests {
     #[cfg(unix)]
     #[test]
     fn copy_dir_does_not_follow_symlink_to_directory() {
-        use std::os::unix::fs::symlink;
+        use std::os::unix::fs::symlink_dir;
 
         let dir = tempdir().expect("tempdir");
         let src = dir.path().join("src");
@@ -668,7 +668,7 @@ mod tests {
         let target_outside = dir.path().join("outside");
         fs::create_dir_all(&target_outside).expect("mkdir outside");
         let link = src.join("link_to_outside");
-        symlink(&target_outside, &link).expect("symlink");
+        symlink_dir(&target_outside, &link).expect("symlink");
 
         copy_dir_recursive(&src, &dst).expect("copy");
 
@@ -677,6 +677,5 @@ mod tests {
             copied_link.is_symlink(),
             "symlink must be copied as symlink"
         );
-        assert!(copied_link.is_symlink() || !copied_link.join("..").exists());
     }
 }

@@ -53,8 +53,14 @@ pub fn copy_symlink(src: &Path, dst: &Path) -> Result<()> {
 
 #[cfg(unix)]
 fn symlink_file(target: &Path, dst: &Path) -> Result<()> {
-    std::os::unix::fs::symlink(target, dst)
-        .map_err(|e| FileManagerError::CopyError(format!("symlink: {e}")))
+    use std::os::unix::fs::{symlink_dir, symlink_file as symlink_file_unix};
+
+    let link = if target.is_dir() {
+        symlink_dir(target, dst)
+    } else {
+        symlink_file_unix(target, dst)
+    };
+    link.map_err(|e| FileManagerError::CopyError(format!("symlink: {e}")))
 }
 
 #[cfg(windows)]
