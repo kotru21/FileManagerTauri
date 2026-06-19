@@ -22,6 +22,9 @@ jobs:
           node-version: 24
           cache: 'npm'
 
+      - name: Verify Node version
+        run: node -e "const v=process.versions.node.split('.')[0]; if(+v>=25) { console.error('Node 25+ breaks madge'); process.exit(1); }"
+
       - name: Install dependencies
         run: npm ci
 
