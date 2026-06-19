@@ -1161,7 +1161,7 @@ dependencies = [
 
 [[package]]
 name = "file-manager-tauri"
-version = "0.3.0"
+version = "0.8.5"
 dependencies = [
  "base64 0.22.1",
  "calamine",
