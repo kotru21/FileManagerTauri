@@ -102,8 +102,6 @@ export function useUndoToast(
   callbacksRef.current.onOperation = onOperation
   callbacksRef.current.onUndoSuccess = onUndoSuccess
 
-  const lastSeenOperationIdRef = useRef<string | null>(null)
-
   const showUndo = useCallback((operation: Operation) => {
     setCurrentOperation(operation)
   }, [])
@@ -127,14 +125,14 @@ export function useUndoToast(
 
   // Auto-show toasts for new operations and call optional callback
   useEffect(() => {
-    if (!operations || operations.length === 0) return
-    const op = operations[0]
-    if (op.id && lastSeenOperationIdRef.current === op.id) return
-
-    lastSeenOperationIdRef.current = op.id
-    callbacksRef.current.onOperation?.(op)
-    if (op.canUndo && !op.undone) showUndo(op)
-  }, [operations, showUndo])
+    const latest = operations[0]
+    if (!latest || latest.undone || !latest.canUndo) {
+      setCurrentOperation(null)
+      return
+    }
+    setCurrentOperation(latest)
+    callbacksRef.current.onOperation?.(latest)
+  }, [operations])
 
   const toastElement = currentOperation ? (
     <UndoToast operation={currentOperation} onUndo={handleUndo} />
