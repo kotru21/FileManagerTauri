@@ -48,6 +48,9 @@ export const KeyboardSettings = memo(function KeyboardSettings() {
             <Keyboard size={16} />
             Горячие клавиши
           </h3>
+          <p className="text-xs text-muted-foreground mb-2">
+            Комбинации клавиш пока нельзя изменить — доступно только включение/отключение.
+          </p>
           <div className="space-y-1">
             {keyboard.shortcuts.map((shortcut) => (
               <div
@@ -61,7 +64,12 @@ export const KeyboardSettings = memo(function KeyboardSettings() {
                   />
                   <span className="text-sm">{shortcut.action}</span>
                 </div>
-                <kbd className="px-2 py-1 text-xs bg-muted rounded font-mono">{shortcut.keys}</kbd>
+                <kbd
+                  aria-readonly="true"
+                  className="px-2 py-1 text-xs bg-muted rounded font-mono"
+                >
+                  {shortcut.keys}
+                </kbd>
               </div>
             ))}
           </div>
