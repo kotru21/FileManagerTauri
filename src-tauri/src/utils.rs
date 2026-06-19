@@ -141,11 +141,34 @@ mod tests {
     }
 
     #[test]
+    #[cfg(unix)]
+    fn validate_absolute_path_accepts_unix_root_for_reads() {
+        assert!(validate_absolute_path("/").is_ok());
+    }
+
+    #[test]
     fn validate_deletable_path_rejects_windows_drive_root() {
         #[cfg(windows)]
         {
             let err = validate_deletable_path("C:\\").unwrap_err().to_string();
             assert!(err.contains("root") || err.contains("Root") || err.contains("Refusing"));
         }
+    }
+
+    #[test]
+    #[cfg(unix)]
+    fn validate_deletable_path_rejects_unix_root() {
+        let err = validate_deletable_path("/").unwrap_err().to_string();
+        assert!(err.contains("root") || err.contains("Root") || err.contains("Refusing"));
+    }
+
+    #[test]
+    fn accepts_normal_absolute_path_for_read_and_delete() {
+        #[cfg(windows)]
+        let path = "C:\\Users\\test\\file.txt";
+        #[cfg(unix)]
+        let path = "/home/test/file.txt";
+        assert!(validate_absolute_path(path).is_ok());
+        assert!(validate_deletable_path(path).is_ok());
     }
 }
