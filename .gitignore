@@ -27,3 +27,6 @@ test-results/
 *.sw?
 .cursor/*
 .worktrees/
+
+# Rust build artifacts
+src-tauri/target/
