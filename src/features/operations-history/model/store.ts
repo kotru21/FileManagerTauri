@@ -1,6 +1,6 @@
 import { create } from "zustand"
 import { tauriClient } from "@/shared/api/tauri/client"
-import { getBasename, joinPath } from "@/shared/lib"
+import { getBasename, getDirname, joinPath } from "@/shared/lib"
 
 export type OperationType = "copy" | "move" | "delete" | "rename" | "create"
 
@@ -83,16 +83,6 @@ export const useOperationsHistoryStore = create<OperationsHistoryState>((set, ge
     return operations.find((op) => op.canUndo && !op.undone) || null
   },
 }))
-
-function getDirname(path: string): string {
-  const normalized = (path ?? "").replace(/\\/g, "/").replace(/\/+$/, "")
-  if (!normalized) return ""
-
-  const idx = normalized.lastIndexOf("/")
-  if (idx === -1) return ""
-  if (idx === 0) return "/"
-  return normalized.slice(0, idx)
-}
 
 async function undoOperation(operation: Operation): Promise<void> {
   const { type, data } = operation
