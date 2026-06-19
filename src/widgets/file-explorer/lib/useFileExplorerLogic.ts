@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import {
   filterEntries,
   sortEntries,
@@ -6,10 +6,9 @@ import {
   useCreateDirectory,
   useCreateFile,
   useDeleteEntries,
-  useDirectoryContents,
+  useDirectoryEntries,
   useMoveEntries,
   useRenameEntry,
-  useStreamingDirectory,
 } from "@/entities/file-entry"
 import { useAppearanceSettings, useFileDisplaySettings } from "@/features/settings"
 import { useSortingStore } from "@/features/sorting"
@@ -25,26 +24,7 @@ export function useFileExplorerLogic(
   const displaySettings = useFileDisplaySettings()
   const appearance = useAppearanceSettings()
 
-  const dirQuery = useDirectoryContents(currentPath)
-  const stream = useStreamingDirectory(currentPath)
-
-  // Streaming is primarily for fast incremental rendering while loading.
-  // After it completes, prefer the query as the canonical source of truth,
-  // because mutations + watcher invalidations refresh the query immediately.
-  const rawFiles = stream.isLoading
-    ? stream.entries.length > 0
-      ? stream.entries
-      : dirQuery.data
-    : (dirQuery.data ?? stream.entries)
-
-  const isLoading = dirQuery.isLoading || stream.isLoading
-
-  const refetch = useCallback(async () => {
-    // Keep both sources in sync.
-    // - query refetch is important for correctness
-    // - stream refresh fixes "not updating" when UI still shows stream entries
-    await Promise.all([dirQuery.refetch(), Promise.resolve(stream.refresh())])
-  }, [dirQuery.refetch, stream.refresh])
+  const { files: rawFiles, isLoading, refetch } = useDirectoryEntries(currentPath)
 
   const { sortConfig, setSortField } = useSortingStore()
 
