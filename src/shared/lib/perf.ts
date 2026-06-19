@@ -30,7 +30,7 @@ export function isPerfEnabled(): boolean {
   } catch {
     void 0
   }
-  return true
+  return false
 }
 
 export function withPerf<T>(
