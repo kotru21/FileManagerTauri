@@ -9,6 +9,7 @@ export {
   useCreateFile,
   useDeleteEntries,
   useDirectoryContents,
+  useDirectoryEntries,
   useDrives,
   useFileWatcher,
   useMoveEntries,
