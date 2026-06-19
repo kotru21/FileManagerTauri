@@ -28,6 +28,14 @@ jobs:
       - name: Install dependencies
         run: npm ci
 
+      - name: Setup Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: clippy
+
+      - name: Lint Rust (clippy)
+        run: npm run lint:rust
+
       - name: Check import cycles (madge)
         run: npm run check:imports
 
