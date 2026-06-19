@@ -1,6 +1,7 @@
 import type { Page } from "@playwright/test"
 import { expect, test } from "@playwright/test"
 import { DEV_SERVER_URL } from "./constants"
+import { requireBackend } from "./helpers"
 
 // NOTE: requires dev server running
 
@@ -8,7 +9,10 @@ test.describe("FileRow hover & cursor", () => {
   test("hover shows actions and cursor is pointer", async ({ page }: { page: Page }) => {
     await page.goto(DEV_SERVER_URL)
 
-    const row = page.locator('[data-testid^="file-row-"]').first()
+    const rows = page.locator('[data-testid^="file-row-"]')
+    requireBackend(await rows.count(), "No file rows — requires running Tauri backend")
+
+    const row = rows.first()
     await expect(row).toBeVisible()
 
     await row.hover()

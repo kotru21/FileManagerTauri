@@ -1,15 +1,13 @@
 import { expect, test } from "@playwright/test"
 import { DEV_SERVER_URL } from "./constants"
+import { requireBackend } from "./helpers"
 
 test.describe("File operations", () => {
   test("delete key triggers confirmation dialog", async ({ page }) => {
     await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
-    if ((await rows.count()) === 0) {
-      test.skip(true, "No file rows available — requires running Tauri backend")
-      return
-    }
+    requireBackend(await rows.count(), "No file rows — requires running Tauri backend")
 
     // Select a file first
     await rows.first().click()
@@ -26,10 +24,7 @@ test.describe("File operations", () => {
     await page.goto(DEV_SERVER_URL)
 
     const rows = page.locator('[data-testid^="file-row-"]')
-    if ((await rows.count()) === 0) {
-      test.skip(true, "No file rows available — requires running Tauri backend")
-      return
-    }
+    requireBackend(await rows.count(), "No file rows — requires running Tauri backend")
 
     await rows.first().click()
     await page.keyboard.press("Delete")
