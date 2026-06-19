@@ -1,7 +1,6 @@
 //! File system operations: read, create, copy, move, delete.
 
 use std::fs;
-use std::path::Component;
 use std::path::Path;
 use std::path::PathBuf;
 use std::sync::atomic::{AtomicUsize, Ordering};
@@ -15,6 +14,7 @@ use tokio::task::{spawn_blocking, JoinSet};
 use crate::constants::{DIRECTORY_BATCH_SIZE, MAX_FILE_CONTENT_SIZE};
 use crate::error::{FileManagerError, Result};
 use crate::models::{CopyProgress, DriveInfo, FileEntry};
+use crate::utils::validate_absolute_path;
 
 #[derive(Clone, Serialize)]
 struct DirectoryBatchEvent {
@@ -112,6 +112,7 @@ pub async fn read_directory(path: String) -> std::result::Result<Vec<FileEntry>,
 
 /// Synchronous directory reading implementation.
 fn read_directory_sync(path: &str) -> Result<Vec<FileEntry>> {
+    validate_absolute_path(path)?;
     let dir_path = Path::new(path);
 
     if !dir_path.exists() {
@@ -158,6 +159,7 @@ pub async fn read_directory_stream(
     let request_id_clone = request_id.clone();
 
     spawn_blocking(move || -> Result<()> {
+        validate_absolute_path(&path_clone)?;
         let dir_path = Path::new(&path_clone);
 
         if !dir_path.exists() {
@@ -266,14 +268,8 @@ pub async fn get_drives() -> std::result::Result<Vec<DriveInfo>, String> {
 pub async fn create_directory(path: String) -> std::result::Result<(), String> {
     let path_clone = path.clone();
     spawn_blocking(move || -> Result<()> {
-        if path_clone.is_empty() {
-            return Err(FileManagerError::EmptyPath);
-        }
-
+        validate_absolute_path(&path_clone)?;
         let dir_path = Path::new(&path_clone);
-        if !dir_path.is_absolute() {
-            return Err(FileManagerError::NotAbsolutePath(path_clone));
-        }
 
         fs::create_dir_all(dir_path).map_err(|e| {
             FileManagerError::CreateDirError(format!("{} (path: {})", e, path_clone))
@@ -292,11 +288,8 @@ pub async fn create_directory(path: String) -> std::result::Result<(), String> {
 pub async fn create_file(path: String) -> std::result::Result<(), String> {
     let path_clone = path.clone();
     spawn_blocking(move || -> Result<()> {
+        validate_absolute_path(&path_clone)?;
         let file_path = Path::new(&path_clone);
-
-        if !file_path.is_absolute() {
-            return Err(FileManagerError::NotAbsolutePath(path_clone));
-        }
 
         if let Some(parent) = file_path.parent() {
             if !parent.exists() {
@@ -322,30 +315,12 @@ pub async fn create_file(path: String) -> std::result::Result<(), String> {
 pub async fn delete_entries(paths: Vec<String>) -> std::result::Result<(), String> {
     spawn_blocking(move || -> Result<()> {
         for path in paths {
-            if path.is_empty() {
-                return Err(FileManagerError::EmptyPath);
-            }
+            validate_absolute_path(&path)?;
 
             let entry_path = Path::new(&path);
 
-            if !entry_path.is_absolute() {
-                return Err(FileManagerError::NotAbsolutePath(path));
-            }
-
             if !entry_path.exists() {
                 continue;
-            }
-
-            // Refuse deleting filesystem / drive roots.
-            // Root paths typically have no "Normal" components.
-            let has_normal_component = entry_path
-                .components()
-                .any(|c| matches!(c, Component::Normal(_)));
-            if !has_normal_component {
-                return Err(FileManagerError::InvalidPath(format!(
-                    "Refusing to delete root path: {}",
-                    path
-                )));
             }
 
             // Use symlink_metadata so we don't follow symlinks when deciding how to delete.
@@ -384,6 +359,7 @@ pub async fn rename_entry(
     validate_new_name(&new_name).map_err(|e| e.to_string())?;
 
     spawn_blocking(move || -> Result<String> {
+        validate_absolute_path(&old_path)?;
         let old = Path::new(&old_path);
         let new_path = old
             .parent()
@@ -407,9 +383,11 @@ pub async fn copy_entries(
     destination: String,
 ) -> std::result::Result<(), String> {
     spawn_blocking(move || -> Result<()> {
+        validate_absolute_path(&destination)?;
         let dest_path = Path::new(&destination);
 
         for source in sources {
+            validate_absolute_path(&source)?;
             let src_path = Path::new(&source);
             let file_name = src_path
                 .file_name()
@@ -556,9 +534,11 @@ pub async fn move_entries(
     destination: String,
 ) -> std::result::Result<(), String> {
     spawn_blocking(move || -> Result<()> {
+        validate_absolute_path(&destination)?;
         let dest_path = Path::new(&destination);
 
         for source in sources {
+            validate_absolute_path(&source)?;
             let src_path = Path::new(&source);
             let file_name = src_path
                 .file_name()
@@ -589,6 +569,7 @@ pub async fn move_entries(
 }
 
 fn get_file_content_sync(path: &str) -> Result<String> {
+    validate_absolute_path(path)?;
     let file_path = Path::new(path);
     let meta = fs::metadata(file_path)
         .map_err(|e| FileManagerError::ReadFileError(e.to_string()))?;
