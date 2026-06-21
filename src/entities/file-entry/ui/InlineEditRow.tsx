@@ -104,6 +104,7 @@ export function InlineEditRow({
 
   return (
     <div
+      data-inline-edit
       className={cn(
         "flex items-center gap-2 h-7 px-3 text-sm",
         "bg-accent text-accent-foreground border border-primary rounded",
@@ -124,7 +125,7 @@ export function InlineEditRow({
           onBlur={handleBlur}
           placeholder={placeholder}
           className={cn(
-            "flex-1 bg-transparent outline-none",
+            "inline-edit-input flex-1 bg-transparent outline-none",
             "border-none focus:ring-0",
             "text-accent-foreground placeholder:text-accent-foreground-muted",
             error && "text-destructive",
