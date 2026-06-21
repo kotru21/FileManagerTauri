@@ -144,6 +144,7 @@ export function RubberBandOverlay({
 
   return (
     <div
+      data-rubber-band
       className={cn(
         "absolute border border-primary/50 bg-primary/10 pointer-events-none z-50",
         className,
