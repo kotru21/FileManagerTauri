@@ -5,6 +5,7 @@ use std::path::Path;
 use std::sync::Mutex;
 
 use notify::{recommended_watcher, Event, RecursiveMode, Watcher};
+
 use tauri::{AppHandle, Emitter, Manager};
 
 use crate::error::FileManagerError;
@@ -76,7 +77,7 @@ fn normalize_watch_key(raw: &str) -> String {
 
 /// Global state for managing filesystem watchers.
 pub struct WatcherState {
-    watchers: Mutex<HashMap<String, notify::RecommendedWatcher>>,
+    watchers: Mutex<HashMap<String, Box<dyn Watcher + Send>>>,
 }
 
 impl WatcherState {
@@ -84,6 +85,28 @@ impl WatcherState {
         Self {
             watchers: Mutex::new(HashMap::new()),
         }
+    }
+
+    #[doc(hidden)]
+    pub fn active_watcher_count(&self) -> usize {
+        self.watchers.lock().map(|w| w.len()).unwrap_or(0)
+    }
+
+    #[doc(hidden)]
+    pub fn register_null_watcher_for_test(&self, path: &str) -> std::result::Result<(), String> {
+        let watch_path = validate_watch_path(path)?;
+        let key = normalize_watch_key(&watch_path);
+        let mut watcher: Box<dyn Watcher + Send> = Box::new(
+            notify::NullWatcher::new(|_| {}, notify::Config::default())
+                .map_err(|e| e.to_string())?,
+        );
+        watcher
+            .watch(Path::new(&watch_path), RecursiveMode::NonRecursive)
+            .map_err(|e| e.to_string())?;
+
+        let mut watchers = self.watchers.lock().map_err(|e| e.to_string())?;
+        watchers.insert(key, watcher);
+        Ok(())
     }
 }
 
@@ -93,17 +116,12 @@ impl Default for WatcherState {
     }
 }
 
-/// Starts watching a directory for filesystem changes.
-#[tauri::command]
-#[specta::specta]
-pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Result<(), String> {
+fn validate_watch_path(path: &str) -> std::result::Result<String, String> {
     if path.trim().is_empty() {
         return Err(FileManagerError::EmptyPath.to_string());
     }
 
-    let watch_path = path.clone();
-    let key = normalize_watch_key(&watch_path);
-
+    let watch_path = path.to_string();
     let watch_path_ref = Path::new(&watch_path);
     if !watch_path_ref.is_absolute() {
         return Err(FileManagerError::NotAbsolutePath(watch_path).to_string());
@@ -115,52 +133,100 @@ pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Resul
         return Err(FileManagerError::NotADirectory(watch_path).to_string());
     }
 
-    // Get watcher state
-    let state = app.state::<WatcherState>();
+    Ok(watch_path)
+}
 
-    // Check if already watching this path
+fn watch_directory_inner(
+    path: &str,
+    state: &WatcherState,
+    app: Option<AppHandle>,
+    use_null_watcher: bool,
+) -> std::result::Result<(), String> {
+    let watch_path = validate_watch_path(path)?;
+    let key = normalize_watch_key(&watch_path);
+    let watch_path_ref = Path::new(&watch_path);
+
     {
         let watchers = state.watchers.lock().map_err(|e| e.to_string())?;
         if watchers.contains_key(&key) {
-            return Ok(()); // Already watching
+            return Ok(());
         }
     }
 
-    let app_clone = app.clone();
+    let mut watcher: Box<dyn Watcher + Send> = if use_null_watcher {
+        Box::new(
+            notify::NullWatcher::new(|_| {}, notify::Config::default())
+                .map_err(|e| e.to_string())?,
+        )
+    } else {
+        let app_clone = app.clone();
+        Box::new(
+            recommended_watcher(move |res: std::result::Result<Event, notify::Error>| {
+                if let Ok(event) = res {
+                    let kind_str = format!("{:?}", event.kind);
 
-    let mut watcher = recommended_watcher(move |res: std::result::Result<Event, notify::Error>| {
-        if let Ok(event) = res {
-            // Debounce rapid events by checking event kind
-            let kind_str = format!("{:?}", event.kind);
+                    if kind_str.contains("Access") {
+                        return;
+                    }
 
-            // Skip noisy events
-            if kind_str.contains("Access") {
-                return;
-            }
-
-            let _ = app_clone.emit(
-                "fs-change",
-                FsChangeEvent {
-                    kind: kind_str,
-                    paths: event
-                        .paths
-                        .iter()
-                        .map(|p| p.to_string_lossy().to_string())
-                        .collect(),
-                },
-            );
-        }
-    })
-    .map_err(|e| e.to_string())?;
+                    if let Some(app) = app_clone.clone() {
+                        let _ = app.emit(
+                            "fs-change",
+                            FsChangeEvent {
+                                kind: kind_str,
+                                paths: event
+                                    .paths
+                                    .iter()
+                                    .map(|p| p.to_string_lossy().to_string())
+                                    .collect(),
+                            },
+                        );
+                    }
+                }
+            })
+            .map_err(|e| e.to_string())?,
+        )
+    };
 
     watcher
-        .watch(Path::new(&watch_path), RecursiveMode::NonRecursive)
+        .watch(watch_path_ref, RecursiveMode::NonRecursive)
         .map_err(|e| e.to_string())?;
 
-    // Store watcher in state
     {
         let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
         watchers.insert(key, watcher);
+    }
+
+    Ok(())
+}
+
+#[doc(hidden)]
+pub fn validate_watch_directory_path(path: &str) -> std::result::Result<(), String> {
+    validate_watch_path(path).map(|_| ())
+}
+
+#[doc(hidden)]
+pub fn watch_directory_sync(path: &str, state: &WatcherState) -> std::result::Result<(), String> {
+    watch_directory_inner(path, state, None, true)
+}
+
+/// Starts watching a directory for filesystem changes.
+#[tauri::command]
+#[specta::specta]
+pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Result<(), String> {
+    let emit_app = app.clone();
+    let state = app.state::<WatcherState>();
+    watch_directory_inner(&path, &state, Some(emit_app), false)
+}
+
+#[doc(hidden)]
+pub fn unwatch_directory_sync(path: &str, state: &WatcherState) -> std::result::Result<(), String> {
+    let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
+
+    let key = normalize_watch_key(path);
+
+    if let Some(mut watcher) = watchers.remove(&key) {
+        let _ = watcher.unwatch(Path::new(path));
     }
 
     Ok(())
@@ -171,15 +237,7 @@ pub async fn watch_directory(path: String, app: AppHandle) -> std::result::Resul
 #[specta::specta]
 pub async fn unwatch_directory(path: String, app: AppHandle) -> std::result::Result<(), String> {
     let state = app.state::<WatcherState>();
-    let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
-
-    let key = normalize_watch_key(&path);
-
-    if let Some(mut watcher) = watchers.remove(&key) {
-        let _ = watcher.unwatch(Path::new(&path));
-    }
-
-    Ok(())
+    unwatch_directory_sync(&path, &state)
 }
 
 #[doc(hidden)]

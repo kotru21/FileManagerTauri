@@ -22,4 +22,6 @@ pub use preview::{get_file_preview_sync, get_thumbnail_sync};
 #[doc(hidden)]
 pub use search::{search_by_name_sync, search_content_sync, search_files_sync};
 #[doc(hidden)]
-pub use watcher::unwatch_all_sync;
+pub use watcher::{
+    unwatch_all_sync, unwatch_directory_sync, validate_watch_directory_path, watch_directory_sync,
+};
