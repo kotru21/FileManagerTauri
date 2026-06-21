@@ -9,7 +9,7 @@ use std::sync::Arc;
 use serde::Serialize;
 use tauri::{AppHandle, Emitter};
 use tokio::sync::Semaphore;
-use tokio::task::{spawn_blocking, JoinSet};
+use tokio::task::spawn_blocking;
 
 use crate::constants::{DIRECTORY_BATCH_SIZE, MAX_FILE_CONTENT_SIZE};
 use crate::error::{FileManagerError, Result};
@@ -484,6 +484,47 @@ pub async fn copy_entries_parallel(
     destination: String,
     app: AppHandle,
 ) -> std::result::Result<(), String> {
+    copy_entries_parallel_inner(sources, destination, Some(app)).await
+}
+
+/// Parallel copy without progress events (integration tests).
+#[doc(hidden)]
+pub async fn copy_entries_parallel_for_test(
+    sources: Vec<String>,
+    destination: String,
+) -> std::result::Result<(), String> {
+    copy_entries_parallel_threads(sources, &destination)
+}
+
+fn copy_entries_parallel_threads(
+    sources: Vec<String>,
+    destination: &str,
+) -> std::result::Result<(), String> {
+    validate_absolute_path(destination).map_err(|e| e.to_string())?;
+
+    let mut handles = Vec::with_capacity(sources.len());
+    for source in sources {
+        validate_absolute_path(&source).map_err(|e| e.to_string())?;
+        let dest = destination.to_string();
+        handles.push(std::thread::spawn(move || {
+            copy_single_entry_sync(&source, &dest).map_err(|e| e.to_string())
+        }));
+    }
+
+    for handle in handles {
+        handle
+            .join()
+            .map_err(|_| "copy thread panicked".to_string())??;
+    }
+
+    Ok(())
+}
+
+async fn copy_entries_parallel_inner(
+    sources: Vec<String>,
+    destination: String,
+    app: Option<AppHandle>,
+) -> std::result::Result<(), String> {
     validate_absolute_path(&destination).map_err(|e| e.to_string())?;
 
     // Prevent spawning unbounded number of tasks for huge selections.
@@ -492,8 +533,8 @@ pub async fn copy_entries_parallel(
 
     let total = sources.len();
     let counter = Arc::new(AtomicUsize::new(0));
-    let mut set = JoinSet::new();
     let semaphore = Arc::new(Semaphore::new(COPY_PARALLELISM));
+    let mut tasks = Vec::with_capacity(sources.len());
 
     for source in sources {
         validate_absolute_path(&source).map_err(|e| e.to_string())?;
@@ -502,41 +543,39 @@ pub async fn copy_entries_parallel(
         let counter = counter.clone();
         let semaphore = semaphore.clone();
 
-        // Acquire a permit BEFORE spawning to avoid creating thousands of tasks.
         let permit = semaphore.acquire_owned().await.map_err(|e| e.to_string())?;
 
-        set.spawn(async move {
+        tasks.push(spawn_blocking(move || {
             let _permit = permit;
-            let result = copy_single_entry(&source, &dest).await;
+            let result = copy_single_entry_sync(&source, &dest).map_err(|e| e.to_string());
             let current = counter.fetch_add(1, Ordering::SeqCst) + 1;
 
-            let file_name = Path::new(&source)
-                .file_name()
-                .map(|n| n.to_string_lossy().to_string())
-                .unwrap_or_default();
+            if let Some(app) = app {
+                let file_name = Path::new(&source)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_default();
 
-            let _ = app.emit(
-                "copy-progress",
-                CopyProgress {
-                    current: u32::try_from(current).unwrap_or(u32::MAX),
-                    total: u32::try_from(total).unwrap_or(u32::MAX),
-                    file: file_name,
-                },
-            );
+                let _ = app.emit(
+                    "copy-progress",
+                    CopyProgress {
+                        current: u32::try_from(current).unwrap_or(u32::MAX),
+                        total: u32::try_from(total).unwrap_or(u32::MAX),
+                        file: file_name,
+                    },
+                );
+            }
             result
-        });
+        }));
     }
 
-    while let Some(result) = set.join_next().await {
-        result.map_err(|e| e.to_string())?.map_err(|e: String| e)?;
+    for task in tasks {
+        task.await
+            .map_err(|e| e.to_string())?
+            .map_err(|e: String| e)?;
     }
 
     Ok(())
-}
-
-/// Copies a single file or directory entry.
-async fn copy_single_entry(source: &str, destination: &str) -> std::result::Result<(), String> {
-    copy_single_entry_sync(source, destination).map_err(|e| e.to_string())
 }
 
 #[doc(hidden)]
@@ -653,21 +692,21 @@ mod tests {
         assert!(err.contains("too large") || err.contains("File too large"));
     }
 
-    #[tokio::test]
-    async fn copy_single_entry_rejects_relative_paths() {
+    #[test]
+    fn copy_single_entry_rejects_relative_paths() {
         #[cfg(windows)]
         let abs_path = "C:\\Users\\test\\file.txt";
         #[cfg(not(windows))]
         let abs_path = "/home/test/file.txt";
 
-        let result = copy_single_entry("relative/source.txt", abs_path).await;
+        let result = copy_single_entry_sync("relative/source.txt", abs_path);
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err = result.unwrap_err().to_string();
         assert!(err.contains("absolute") || err.contains("Absolute"));
 
-        let result = copy_single_entry(abs_path, "relative/dest").await;
+        let result = copy_single_entry_sync(abs_path, "relative/dest");
         assert!(result.is_err());
-        let err = result.unwrap_err();
+        let err = result.unwrap_err().to_string();
         assert!(err.contains("absolute") || err.contains("Absolute"));
     }
 

@@ -3,8 +3,8 @@ mod common;
 use std::path::Path;
 
 use file_manager_lib::commands::file_ops::{
-    create_directory_sync, create_file_sync, delete_entries_sync, read_directory_batched_sync,
-    read_directory_sync, rename_entry_sync,
+    copy_entries_sync, create_directory_sync, create_file_sync, delete_entries_sync,
+    move_entries_sync, read_directory_batched_sync, read_directory_sync, rename_entry_sync,
 };
 
 use common::{child_path, create_fixture_tree, setup_temp_workspace};
@@ -52,6 +52,59 @@ fn rename_entry_renames_file() {
     let new_path = rename_entry_sync(&old, "renamed.txt").expect("rename");
     assert!(Path::new(&new_path).exists());
     assert!(!Path::new(&old).exists());
+}
+
+#[test]
+fn copy_entries_copies_file_tree() {
+    let (dir, root) = setup_temp_workspace();
+    create_fixture_tree(dir.path());
+    let dest = child_path(&root, "copy-dest");
+    std::fs::create_dir_all(&dest).unwrap();
+    let src = child_path(&root, "readme.txt");
+    copy_entries_sync(&[src], &dest).expect("copy");
+    assert!(Path::new(&child_path(&dest, "readme.txt")).exists());
+}
+
+#[test]
+fn copy_entries_rejects_missing_source() {
+    let (_dir, root) = setup_temp_workspace();
+    let dest = child_path(&root, "dest");
+    std::fs::create_dir_all(&dest).unwrap();
+    let missing = child_path(&root, "nope.txt");
+    assert!(copy_entries_sync(&[missing], &dest).is_err());
+}
+
+#[test]
+fn move_entries_moves_file() {
+    let (dir, root) = setup_temp_workspace();
+    create_fixture_tree(dir.path());
+    let dest = child_path(&root, "move-dest");
+    std::fs::create_dir_all(&dest).unwrap();
+    let src = child_path(&root, "readme.txt");
+    move_entries_sync(&[src.clone()], &dest).expect("move");
+    assert!(!Path::new(&src).exists());
+    assert!(Path::new(&child_path(&dest, "readme.txt")).exists());
+}
+
+#[test]
+fn copy_entries_parallel_copies_multiple_files() {
+    let (dir, root) = setup_temp_workspace();
+    create_fixture_tree(dir.path());
+    let dest = child_path(&root, "parallel-dest");
+    std::fs::create_dir_all(&dest).unwrap();
+    let sources = vec![
+        child_path(&root, "readme.txt"),
+        child_path(&root, "subdir/nested.txt"),
+    ];
+    let result = tauri::async_runtime::block_on(
+        file_manager_lib::commands::file_ops::copy_entries_parallel_for_test(
+            sources,
+            dest.clone(),
+        ),
+    );
+    result.expect("parallel copy");
+    assert!(Path::new(&child_path(&dest, "readme.txt")).exists());
+    assert!(Path::new(&child_path(&dest, "nested.txt")).exists());
 }
 
 #[test]
