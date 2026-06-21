@@ -599,7 +599,8 @@ pub fn move_entries_sync(sources: &[String], destination: &str) -> Result<()> {
                 fs::remove_dir_all(src_path)
                     .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
             } else {
-                fs::copy(src_path, &target).map_err(|e| FileManagerError::CopyError(e.to_string()))?;
+                fs::copy(src_path, &target)
+                    .map_err(|e| FileManagerError::CopyError(e.to_string()))?;
                 fs::remove_file(src_path)
                     .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
             }

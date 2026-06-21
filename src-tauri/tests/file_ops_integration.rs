@@ -98,10 +98,7 @@ fn copy_entries_parallel_copies_multiple_files() {
         child_path(&root, "subdir/nested.txt"),
     ];
     let result = tauri::async_runtime::block_on(
-        file_manager_lib::commands::file_ops::copy_entries_parallel_for_test(
-            sources,
-            dest.clone(),
-        ),
+        file_manager_lib::commands::file_ops::copy_entries_parallel_for_test(sources, dest.clone()),
     );
     result.expect("parallel copy");
     assert!(Path::new(&child_path(&dest, "readme.txt")).exists());
@@ -113,7 +110,9 @@ fn rename_entry_rejects_existing_target() {
     let (dir, root) = setup_temp_workspace();
     create_fixture_tree(dir.path());
     let old = child_path(&root, "readme.txt");
-    let err = rename_entry_sync(&old, "nested.txt").unwrap_err().to_string();
+    let err = rename_entry_sync(&old, "nested.txt")
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("exists") || err.contains("already"));
 }
 
@@ -125,9 +124,7 @@ fn create_directory_rejects_file_parent() {
     let nested = child_path(&root, "parent.txt/child");
     let err = create_directory_sync(&nested).unwrap_err().to_string();
     assert!(
-        err.contains("Not a directory")
-            || err.contains("directory")
-            || err.contains("CreateDir")
+        err.contains("Not a directory") || err.contains("directory") || err.contains("CreateDir")
     );
 }
 
@@ -167,14 +164,12 @@ fn path_exists_true_and_false() {
     create_fixture_tree(dir.path());
     let existing = child_path(&root, "readme.txt");
     let missing = child_path(&root, "missing.txt");
-    let exists = tauri::async_runtime::block_on(
-        file_manager_lib::commands::file_ops::path_exists(existing),
-    )
-    .expect("exists");
-    let not_exists = tauri::async_runtime::block_on(
-        file_manager_lib::commands::file_ops::path_exists(missing),
-    )
-    .expect("not exists");
+    let exists =
+        tauri::async_runtime::block_on(file_manager_lib::commands::file_ops::path_exists(existing))
+            .expect("exists");
+    let not_exists =
+        tauri::async_runtime::block_on(file_manager_lib::commands::file_ops::path_exists(missing))
+            .expect("not exists");
     assert!(exists);
     assert!(!not_exists);
 }

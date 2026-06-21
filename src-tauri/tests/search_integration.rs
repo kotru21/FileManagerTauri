@@ -34,8 +34,7 @@ fn search_by_name_matches_fixture() {
 fn search_content_finds_text() {
     let (dir, root) = setup_temp_workspace();
     create_fixture_tree(dir.path());
-    let results =
-        search_content_sync(&root, "nested content", None, None).expect("search_content");
+    let results = search_content_sync(&root, "nested content", None, None).expect("search_content");
     assert!(!results.is_empty());
 }
 

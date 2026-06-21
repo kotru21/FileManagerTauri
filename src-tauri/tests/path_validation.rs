@@ -10,7 +10,9 @@ fn rejects_empty_path() {
 #[test]
 fn rejects_relative_path() {
     assert!(validate_absolute_path("relative/path").is_err());
-    let err = validate_absolute_path("relative/path").unwrap_err().to_string();
+    let err = validate_absolute_path("relative/path")
+        .unwrap_err()
+        .to_string();
     assert!(err.contains("absolute"));
 }
 
