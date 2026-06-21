@@ -15,40 +15,7 @@ const FEATURES_ROOT = path.join(PROJECT_ROOT, "src", "features")
  * This test is intentionally edge-based (slice -> slice) rather than line-based
  * to be robust to refactors.
  */
-const ALLOWED_EDGES = new Set<string>([
-  // command-palette currently orchestrates multiple stores across features.
-  "command-palette->bookmarks",
-  "command-palette->clipboard",
-  "command-palette->file-selection",
-  "command-palette->inline-edit",
-  "command-palette->navigation",
-  "command-palette->quick-filter",
-  "command-palette->settings",
-  "command-palette->view-mode",
-
-  // context-menu currently depends on selection + bookmarks.
-  "context-menu->bookmarks",
-  "context-menu->file-selection",
-
-  // layout currently syncs with settings.
-  "layout->settings",
-
-  // quick-filter reads performance settings.
-  "quick-filter->settings",
-
-  // rubber-band depends on selection.
-  "rubber-band->file-selection",
-
-  // search-content depends on navigation + settings.
-  "search-content->navigation",
-  "search-content->settings",
-
-  // settings depends on layout types/presets.
-  "settings->layout",
-
-  // view-mode toggles depend on settings.
-  "view-mode->settings",
-])
+const ALLOWED_EDGES = new Set<string>([])
 
 function walkFiles(dir: string): string[] {
   const entries = fs.readdirSync(dir, { withFileTypes: true })
