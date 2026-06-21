@@ -41,6 +41,7 @@ try {
 vi.mock("@tauri-apps/api/core", () => ({
   invoke: vi.fn(),
   Channel: vi.fn(),
+  isTauri: vi.fn(() => false),
 }))
 
 vi.mock("@tauri-apps/api/event", () => ({

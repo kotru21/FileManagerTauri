@@ -1,6 +1,6 @@
 import type { Page } from "@playwright/test"
-import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
+import { expect, test } from "./fixtures"
 import { requireBackend } from "./helpers"
 
 test.describe("FileRow hover & cursor", () => {

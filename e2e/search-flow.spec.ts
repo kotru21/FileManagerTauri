@@ -1,5 +1,5 @@
-import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
+import { expect, test } from "./fixtures"
 
 test.describe("Search flow", () => {
   test("search input is visible with placeholder", async ({ page }) => {

@@ -1,5 +1,5 @@
-import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
+import { expect, test } from "./fixtures"
 import { pressAddressBarShortcut } from "./helpers"
 
 test.describe("Breadcrumbs", () => {

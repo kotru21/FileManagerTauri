@@ -1,5 +1,5 @@
-import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
+import { expect, test } from "./fixtures"
 
 test.describe("Tab management", () => {
   test("pre-populated tabs render in the tab bar", async ({ page }) => {

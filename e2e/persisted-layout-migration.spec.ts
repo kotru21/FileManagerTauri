@@ -1,5 +1,5 @@
-import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
+import { expect, test } from "./fixtures"
 
 test("Migrates legacy numeric layout values in localStorage to percent-strings on first load", async ({
   page,

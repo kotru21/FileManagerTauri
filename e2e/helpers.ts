@@ -1,5 +1,5 @@
-import { test } from "@playwright/test"
 import type { Page } from "@playwright/test"
+import { test } from "@playwright/test"
 
 export function requireBackend(rowsCount: number, reason: string) {
   if (rowsCount > 0) return
@@ -17,4 +17,3 @@ export async function pressAddressBarShortcut(page: Page) {
     )
   })
 }
-
