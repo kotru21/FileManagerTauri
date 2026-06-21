@@ -11,6 +11,6 @@ test("selecting file shows preview panel content", async ({ page }) => {
     await page.locator('[data-testid^="file-row-"]').filter({ hasText: "sample.txt" }).click()
 
     await expect(page.locator('[data-testid="preview-panel"]')).toBeVisible({ timeout: 5000 })
-    await expect(page.getByText(/sample\.txt|Тип|Размер/i)).toBeVisible()
+    await expect(page.getByTestId("preview-panel").getByText("Тип:")).toBeVisible()
   })
 })

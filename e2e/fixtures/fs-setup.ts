@@ -29,17 +29,21 @@ export async function withTempWorkspace(
   try {
     await fn(workspacePath)
   } finally {
-    await page.evaluate(async (ws) => {
-      const tauri = (window as unknown as {
-        __TAURI__?: { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }
-      }).__TAURI__
-      if (!tauri) return
-      try {
-        await tauri.core.invoke("delete_entries", { paths: [ws] })
-      } catch {
-        /* best-effort cleanup */
-      }
-    }, workspacePath)
+    try {
+      await page.evaluate(async (ws) => {
+        const tauri = (window as unknown as {
+          __TAURI__?: { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }
+        }).__TAURI__
+        if (!tauri) return
+        try {
+          await tauri.core.invoke("delete_entries", { paths: [ws] })
+        } catch {
+          /* best-effort cleanup */
+        }
+      }, workspacePath)
+    } catch {
+      /* page may already be closed */
+    }
   }
 }
 

@@ -9,7 +9,7 @@ test.describe("Search real files", () => {
     await withTempWorkspace(page, async (ws) => {
       await navigateToPath(page, ws)
 
-      const input = page.locator('input[placeholder*="Поиск"]')
+      const input = page.getByPlaceholder("Поиск файлов...")
       await input.fill("nested")
       await input.press("Enter")
 

@@ -10,7 +10,7 @@ test.describe("FileRow hover & cursor", () => {
     await withTempWorkspace(page, async (ws) => {
       await navigateToPath(page, ws)
 
-      const row = page.locator('[data-testid^="file-row-"]').first()
+      const row = page.locator('[data-testid^="file-row-"]').filter({ hasText: "subdir" })
       await expect(row).toBeVisible()
 
       await row.hover()

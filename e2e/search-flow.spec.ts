@@ -9,7 +9,7 @@ test.describe("Search flow", () => {
     await withTempWorkspace(page, async (ws) => {
       await navigateToPath(page, ws)
 
-      const searchInput = page.locator('input[placeholder*="Поиск"]')
+      const searchInput = page.getByPlaceholder("Поиск файлов...")
       await expect(searchInput).toBeVisible()
     })
   })
@@ -20,7 +20,7 @@ test.describe("Search flow", () => {
     await withTempWorkspace(page, async (ws) => {
       await navigateToPath(page, ws)
 
-      const searchInput = page.locator('input[placeholder*="Поиск"]')
+      const searchInput = page.getByPlaceholder("Поиск файлов...")
       await searchInput.fill("sample")
       await searchInput.press("Enter")
 
@@ -34,7 +34,7 @@ test.describe("Search flow", () => {
     await withTempWorkspace(page, async (ws) => {
       await navigateToPath(page, ws)
 
-      const toggleBtn = page.locator('button[title*="содержимому"]')
+      const toggleBtn = page.getByTitle(/Поиск по содержимому/)
       await expect(toggleBtn).toBeVisible()
       await toggleBtn.click()
     })

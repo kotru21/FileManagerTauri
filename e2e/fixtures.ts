@@ -25,26 +25,35 @@ async function waitForTauriCdpPage(timeoutMs = 180_000): Promise<void> {
 }
 
 export const test = base.extend({
-  browser: async ({ playwright }, use) => {
-    await waitForTauriCdpPage()
-    const browser = await playwright.chromium.connectOverCDP(CDP_URL)
-    await use(browser)
-  },
-  context: async ({ browser }, use) => {
-    const context = browser.contexts()[0]
-    if (!context) {
-      throw new Error("No browser context from Tauri CDP connection")
-    }
-    await use(context)
-  },
-  page: async ({ context }, use) => {
-    const page =
-      context.pages().find((p) => p.url().startsWith(APP_ORIGIN)) ?? context.pages()[0]
-    if (!page) {
-      throw new Error("No Tauri webview page found via CDP")
-    }
-    await use(page)
-  },
+  browser: [
+    async ({ playwright }, use) => {
+      await waitForTauriCdpPage()
+      const browser = await playwright.chromium.connectOverCDP(CDP_URL)
+      await use(browser)
+    },
+    { scope: "worker" },
+  ],
+  context: [
+    async ({ browser }, use) => {
+      const context = browser.contexts()[0]
+      if (!context) {
+        throw new Error("No browser context from Tauri CDP connection")
+      }
+      await use(context)
+    },
+    { scope: "worker" },
+  ],
+  page: [
+    async ({ context }, use) => {
+      const page =
+        context.pages().find((p) => p.url().startsWith(APP_ORIGIN)) ?? context.pages()[0]
+      if (!page) {
+        throw new Error("No Tauri webview page found via CDP")
+      }
+      await use(page)
+    },
+    { scope: "worker" },
+  ],
 })
 
 export { expect }
