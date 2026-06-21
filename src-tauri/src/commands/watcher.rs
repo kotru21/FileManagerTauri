@@ -182,12 +182,16 @@ pub async fn unwatch_directory(path: String, app: AppHandle) -> std::result::Res
     Ok(())
 }
 
+pub(crate) fn unwatch_all_sync(state: &WatcherState) -> std::result::Result<(), String> {
+    let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
+    watchers.clear();
+    Ok(())
+}
+
 /// Stops watching all directories. Called on app cleanup.
 #[tauri::command]
 #[specta::specta]
 pub async fn unwatch_all(app: AppHandle) -> std::result::Result<(), String> {
     let state = app.state::<WatcherState>();
-    let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
-    watchers.clear();
-    Ok(())
+    unwatch_all_sync(&state)
 }

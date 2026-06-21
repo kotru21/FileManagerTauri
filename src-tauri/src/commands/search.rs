@@ -130,7 +130,7 @@ fn search_files_with_progress(
 }
 
 /// Synchronous search implementation.
-fn search_files_sync(options: &SearchOptions) -> Result<Vec<SearchResult>> {
+pub(crate) fn search_files_sync(options: &SearchOptions) -> Result<Vec<SearchResult>> {
     let search_path = Path::new(&options.search_path);
 
     if !search_path.exists() {
@@ -299,4 +299,35 @@ pub async fn search_content(
         file_extensions: extensions,
     })
     .await
+}
+
+pub(crate) fn search_by_name_sync(
+    search_path: &str,
+    query: &str,
+    max_results: Option<u32>,
+) -> Result<Vec<SearchResult>> {
+    search_files_sync(&SearchOptions {
+        query: query.to_string(),
+        search_path: search_path.to_string(),
+        search_content: false,
+        case_sensitive: false,
+        max_results,
+        file_extensions: None,
+    })
+}
+
+pub(crate) fn search_content_sync(
+    search_path: &str,
+    query: &str,
+    extensions: Option<Vec<String>>,
+    max_results: Option<u32>,
+) -> Result<Vec<SearchResult>> {
+    search_files_sync(&SearchOptions {
+        query: query.to_string(),
+        search_path: search_path.to_string(),
+        search_content: true,
+        case_sensitive: false,
+        max_results,
+        file_extensions: extensions,
+    })
 }

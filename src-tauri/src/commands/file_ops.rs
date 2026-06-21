@@ -111,7 +111,7 @@ pub async fn read_directory(path: String) -> std::result::Result<Vec<FileEntry>,
 }
 
 /// Synchronous directory reading implementation.
-fn read_directory_sync(path: &str) -> Result<Vec<FileEntry>> {
+pub(crate) fn read_directory_sync(path: &str) -> Result<Vec<FileEntry>> {
     validate_absolute_path(path)?;
     let dir_path = Path::new(path);
 
@@ -262,24 +262,42 @@ pub async fn get_drives() -> std::result::Result<Vec<DriveInfo>, String> {
     }
 }
 
+pub(crate) fn create_directory_sync(path: &str) -> Result<()> {
+    validate_absolute_path(path)?;
+    let dir_path = Path::new(path);
+
+    fs::create_dir_all(dir_path)
+        .map_err(|e| FileManagerError::CreateDirError(format!("{} (path: {})", e, path)))?;
+
+    Ok(())
+}
+
 /// Creates a new directory at the specified path.
 #[tauri::command]
 #[specta::specta]
 pub async fn create_directory(path: String) -> std::result::Result<(), String> {
     let path_clone = path.clone();
-    spawn_blocking(move || -> Result<()> {
-        validate_absolute_path(&path_clone)?;
-        let dir_path = Path::new(&path_clone);
+    spawn_blocking(move || create_directory_sync(&path_clone))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(Into::into)
+}
 
-        fs::create_dir_all(dir_path).map_err(|e| {
-            FileManagerError::CreateDirError(format!("{} (path: {})", e, path_clone))
-        })?;
+pub(crate) fn create_file_sync(path: &str) -> Result<()> {
+    validate_absolute_path(path)?;
+    let file_path = Path::new(path);
 
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(Into::into)
+    if let Some(parent) = file_path.parent() {
+        if !parent.exists() {
+            fs::create_dir_all(parent)
+                .map_err(|e| FileManagerError::CreateDirError(e.to_string()))?;
+        }
+    }
+
+    fs::File::create(file_path)
+        .map_err(|e| FileManagerError::CreateFileError(format!("{} (path: {})", e, path)))?;
+
+    Ok(())
 }
 
 /// Creates a new empty file at the specified path.
@@ -287,66 +305,66 @@ pub async fn create_directory(path: String) -> std::result::Result<(), String> {
 #[specta::specta]
 pub async fn create_file(path: String) -> std::result::Result<(), String> {
     let path_clone = path.clone();
-    spawn_blocking(move || -> Result<()> {
-        validate_absolute_path(&path_clone)?;
-        let file_path = Path::new(&path_clone);
+    spawn_blocking(move || create_file_sync(&path_clone))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(Into::into)
+}
 
-        if let Some(parent) = file_path.parent() {
-            if !parent.exists() {
-                fs::create_dir_all(parent)
-                    .map_err(|e| FileManagerError::CreateDirError(e.to_string()))?;
-            }
+pub(crate) fn delete_entries_sync(paths: &[String]) -> Result<()> {
+    for path in paths {
+        validate_deletable_path(path)?;
+
+        let entry_path = Path::new(path);
+
+        if !entry_path.exists() {
+            continue;
         }
 
-        fs::File::create(file_path).map_err(|e| {
-            FileManagerError::CreateFileError(format!("{} (path: {})", e, path_clone))
-        })?;
+        // Use symlink_metadata so we don't follow symlinks when deciding how to delete.
+        let meta = fs::symlink_metadata(entry_path)
+            .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
 
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(Into::into)
+        // If a user selected a symlink, delete the link itself (not the target).
+        if meta.file_type().is_symlink() {
+            fs::remove_file(entry_path)
+                .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
+            continue;
+        }
+
+        if meta.is_dir() {
+            fs::remove_dir_all(entry_path)
+                .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
+        } else {
+            fs::remove_file(entry_path)
+                .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
+        }
+    }
+    Ok(())
 }
 
 /// Deletes files or directories.
 #[tauri::command]
 #[specta::specta]
 pub async fn delete_entries(paths: Vec<String>) -> std::result::Result<(), String> {
-    spawn_blocking(move || -> Result<()> {
-        for path in paths {
-            validate_deletable_path(&path)?;
+    spawn_blocking(move || delete_entries_sync(&paths))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(Into::into)
+}
 
-            let entry_path = Path::new(&path);
+pub(crate) fn rename_entry_sync(old_path: &str, new_name: &str) -> Result<String> {
+    validate_new_name(new_name)?;
+    validate_absolute_path(old_path)?;
+    let old = Path::new(old_path);
+    let new_path = old
+        .parent()
+        .ok_or_else(|| FileManagerError::InvalidPath(old_path.to_string()))?
+        .join(new_name);
 
-            if !entry_path.exists() {
-                continue;
-            }
+    fs::rename(old, &new_path).map_err(|e| FileManagerError::RenameError(e.to_string()))?;
 
-            // Use symlink_metadata so we don't follow symlinks when deciding how to delete.
-            let meta = fs::symlink_metadata(entry_path)
-                .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
-
-            // If a user selected a symlink, delete the link itself (not the target).
-            if meta.file_type().is_symlink() {
-                fs::remove_file(entry_path)
-                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
-                continue;
-            }
-
-            if meta.is_dir() {
-                fs::remove_dir_all(entry_path)
-                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
-            } else {
-                fs::remove_file(entry_path)
-                    .map_err(|e| FileManagerError::DeleteError(format!("{}: {}", path, e)))?;
-            }
-        }
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(Into::into)
+    Ok(new_path.to_string_lossy().to_string())
 }
 
 /// Renames a file or directory. Returns the new path.
@@ -356,23 +374,46 @@ pub async fn rename_entry(
     old_path: String,
     new_name: String,
 ) -> std::result::Result<String, String> {
-    validate_new_name(&new_name).map_err(|e| e.to_string())?;
+    spawn_blocking(move || rename_entry_sync(&old_path, &new_name))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(Into::into)
+}
 
-    spawn_blocking(move || -> Result<String> {
-        validate_absolute_path(&old_path)?;
-        let old = Path::new(&old_path);
-        let new_path = old
-            .parent()
-            .ok_or_else(|| FileManagerError::InvalidPath(old_path.clone()))?
-            .join(&new_name);
+pub(crate) fn copy_single_entry_sync(source: &str, destination: &str) -> Result<()> {
+    validate_absolute_path(destination)?;
+    validate_absolute_path(source)?;
 
-        fs::rename(old, &new_path).map_err(|e| FileManagerError::RenameError(e.to_string()))?;
+    let src_path = Path::new(source);
+    let dest_path = Path::new(destination);
+    let file_name = src_path
+        .file_name()
+        .ok_or(FileManagerError::InvalidSourcePath)?;
+    let target = dest_path.join(file_name);
 
-        Ok(new_path.to_string_lossy().to_string())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(Into::into)
+    let meta = fs::symlink_metadata(src_path)
+        .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)))?;
+
+    if meta.file_type().is_symlink() {
+        crate::utils::copy_symlink(src_path, &target)?;
+    } else if meta.is_dir() {
+        copy_dir_recursive(src_path, &target)?;
+    } else {
+        fs::copy(src_path, &target)
+            .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)))?;
+    }
+
+    Ok(())
+}
+
+pub(crate) fn copy_entries_sync(sources: &[String], destination: &str) -> Result<()> {
+    validate_absolute_path(destination)?;
+
+    for source in sources {
+        copy_single_entry_sync(source, destination)?;
+    }
+
+    Ok(())
 }
 
 /// Copies files or directories to a destination.
@@ -382,40 +423,15 @@ pub async fn copy_entries(
     sources: Vec<String>,
     destination: String,
 ) -> std::result::Result<(), String> {
-    spawn_blocking(move || -> Result<()> {
-        validate_absolute_path(&destination)?;
-        let dest_path = Path::new(&destination);
-
-        for source in sources {
-            validate_absolute_path(&source)?;
-            let src_path = Path::new(&source);
-            let file_name = src_path
-                .file_name()
-                .ok_or(FileManagerError::InvalidSourcePath)?;
-            let target = dest_path.join(file_name);
-
-            let meta = fs::symlink_metadata(src_path)
-                .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)))?;
-
-            if meta.file_type().is_symlink() {
-                crate::utils::copy_symlink(src_path, &target)?;
-            } else if meta.is_dir() {
-                copy_dir_recursive(src_path, &target)?;
-            } else {
-                fs::copy(src_path, &target)
-                    .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)))?;
-            }
-        }
-
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(Into::into)
+    let destination_clone = destination.clone();
+    spawn_blocking(move || copy_entries_sync(&sources, &destination_clone))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(Into::into)
 }
 
 /// Recursively copies a directory without following symlinks.
-fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
+pub(crate) fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
     fs::create_dir_all(dst).map_err(|e| FileManagerError::CreateDirError(e.to_string()))?;
 
     for entry in fs::read_dir(src).map_err(|e| FileManagerError::ReadDirError(e.to_string()))? {
@@ -503,28 +519,37 @@ pub async fn copy_entries_parallel(
 
 /// Copies a single file or directory entry.
 async fn copy_single_entry(source: &str, destination: &str) -> std::result::Result<(), String> {
-    validate_absolute_path(destination).map_err(|e| e.to_string())?;
-    validate_absolute_path(source).map_err(|e| e.to_string())?;
+    copy_single_entry_sync(source, destination).map_err(|e| e.to_string())
+}
 
-    let src_path = Path::new(source);
+pub(crate) fn move_entries_sync(sources: &[String], destination: &str) -> Result<()> {
+    validate_absolute_path(destination)?;
     let dest_path = Path::new(destination);
-    let file_name = src_path
-        .file_name()
-        .ok_or(FileManagerError::InvalidSourcePath.to_string())?;
-    let target = dest_path.join(file_name);
 
-    let meta = fs::symlink_metadata(src_path)
-        .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)).to_string())?;
+    for source in sources {
+        validate_absolute_path(source)?;
+        let src_path = Path::new(source);
+        let file_name = src_path
+            .file_name()
+            .ok_or(FileManagerError::InvalidSourcePath)?;
+        let target = dest_path.join(file_name);
 
-    if meta.file_type().is_symlink() {
-        crate::utils::copy_symlink(src_path, &target).map_err(|e| e.to_string())
-    } else if meta.is_dir() {
-        copy_dir_recursive(src_path, &target).map_err(|e| e.to_string())
-    } else {
-        fs::copy(src_path, &target)
-            .map(|_| ())
-            .map_err(|e| FileManagerError::CopyError(format!("{}: {}", source, e)).to_string())
+        // Try rename first (fast path for same filesystem)
+        if fs::rename(src_path, &target).is_err() {
+            // Fall back to copy + delete for cross-filesystem moves
+            if src_path.is_dir() {
+                copy_dir_recursive(src_path, &target)?;
+                fs::remove_dir_all(src_path)
+                    .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
+            } else {
+                fs::copy(src_path, &target).map_err(|e| FileManagerError::CopyError(e.to_string()))?;
+                fs::remove_file(src_path)
+                    .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
+            }
+        }
     }
+
+    Ok(())
 }
 
 /// Moves files or directories to a destination.
@@ -534,42 +559,14 @@ pub async fn move_entries(
     sources: Vec<String>,
     destination: String,
 ) -> std::result::Result<(), String> {
-    spawn_blocking(move || -> Result<()> {
-        validate_absolute_path(&destination)?;
-        let dest_path = Path::new(&destination);
-
-        for source in sources {
-            validate_absolute_path(&source)?;
-            let src_path = Path::new(&source);
-            let file_name = src_path
-                .file_name()
-                .ok_or(FileManagerError::InvalidSourcePath)?;
-            let target = dest_path.join(file_name);
-
-            // Try rename first (fast path for same filesystem)
-            if fs::rename(src_path, &target).is_err() {
-                // Fall back to copy + delete for cross-filesystem moves
-                if src_path.is_dir() {
-                    copy_dir_recursive(src_path, &target)?;
-                    fs::remove_dir_all(src_path)
-                        .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
-                } else {
-                    fs::copy(src_path, &target)
-                        .map_err(|e| FileManagerError::CopyError(e.to_string()))?;
-                    fs::remove_file(src_path)
-                        .map_err(|e| FileManagerError::DeleteError(e.to_string()))?;
-                }
-            }
-        }
-
-        Ok(())
-    })
-    .await
-    .map_err(|e| e.to_string())?
-    .map_err(Into::into)
+    let destination_clone = destination.clone();
+    spawn_blocking(move || move_entries_sync(&sources, &destination_clone))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(Into::into)
 }
 
-fn get_file_content_sync(path: &str) -> Result<String> {
+pub(crate) fn get_file_content_sync(path: &str) -> Result<String> {
     validate_absolute_path(path)?;
     let file_path = Path::new(path);
     let meta =

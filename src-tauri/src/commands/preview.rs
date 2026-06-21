@@ -22,42 +22,45 @@ use crate::utils::get_extension;
 #[tauri::command]
 #[specta::specta]
 pub async fn get_file_preview(path: String) -> Result<FilePreview, String> {
-    spawn_blocking(move || {
-        let file_path = Path::new(&path);
-        let extension = get_extension(file_path).unwrap_or_default();
+    let path_clone = path.clone();
+    spawn_blocking(move || get_file_preview_sync(&path_clone))
+        .await
+        .map_err(|e| e.to_string())?
+}
 
-        // Text files
-        if TEXT_EXTENSIONS.contains(&extension.as_str()) {
-            return generate_text_preview(&path);
-        }
+pub(crate) fn get_file_preview_sync(path: &str) -> Result<FilePreview, String> {
+    let file_path = Path::new(path);
+    let extension = get_extension(file_path).unwrap_or_default();
 
-        // Image files
-        if IMAGE_EXTENSIONS.contains(&extension.as_str()) {
-            return generate_image_preview(&path, &extension);
-        }
+    // Text files
+    if TEXT_EXTENSIONS.contains(&extension.as_str()) {
+        return generate_text_preview(path);
+    }
 
-        // Office documents
-        if DOCUMENT_EXTENSIONS.contains(&extension.as_str()) {
-            return generate_document_preview(&path);
-        }
+    // Image files
+    if IMAGE_EXTENSIONS.contains(&extension.as_str()) {
+        return generate_image_preview(path, &extension);
+    }
 
-        if SPREADSHEET_EXTENSIONS.contains(&extension.as_str()) {
-            return generate_spreadsheet_preview(&path);
-        }
+    // Office documents
+    if DOCUMENT_EXTENSIONS.contains(&extension.as_str()) {
+        return generate_document_preview(path);
+    }
 
-        if PRESENTATION_EXTENSIONS.contains(&extension.as_str()) {
-            return generate_presentation_preview(&path);
-        }
+    if SPREADSHEET_EXTENSIONS.contains(&extension.as_str()) {
+        return generate_spreadsheet_preview(path);
+    }
 
-        // Unsupported file type
-        let mime = mime_guess::from_path(&path)
-            .first_or_octet_stream()
-            .to_string();
+    if PRESENTATION_EXTENSIONS.contains(&extension.as_str()) {
+        return generate_presentation_preview(path);
+    }
 
-        Ok(FilePreview::Unsupported { mime })
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    // Unsupported file type
+    let mime = mime_guess::from_path(path)
+        .first_or_octet_stream()
+        .to_string();
+
+    Ok(FilePreview::Unsupported { mime })
 }
 
 /// Generates a text preview with truncation.
@@ -560,6 +563,12 @@ pub async fn get_thumbnail(
     path: String,
     max_side: u32,
 ) -> Result<crate::models::Thumbnail, String> {
+    spawn_blocking(move || get_thumbnail_sync(&path, max_side))
+        .await
+        .map_err(|e| e.to_string())?
+}
+
+pub(crate) fn get_thumbnail_sync(path: &str, max_side: u32) -> Result<crate::models::Thumbnail, String> {
     use image::imageops::FilterType;
     use image::io::Reader as ImageReader;
 
@@ -567,67 +576,63 @@ pub async fn get_thumbnail(
         MAX_THUMBNAIL_FILE_SIZE, MAX_THUMBNAIL_PIXELS, MAX_THUMBNAIL_SIDE, MIN_THUMBNAIL_SIDE,
     };
 
-    spawn_blocking(move || {
-        let path = path.trim().to_string();
-        if path.is_empty() {
-            return Err("Empty path".to_string());
-        }
+    let path = path.trim();
+    if path.is_empty() {
+        return Err("Empty path".to_string());
+    }
 
-        let file_path = Path::new(&path);
-        let extension = get_extension(file_path).unwrap_or_default();
+    let file_path = Path::new(path);
+    let extension = get_extension(file_path).unwrap_or_default();
 
-        if !IMAGE_EXTENSIONS.contains(&extension.as_str()) {
-            return Err(format!(
-                "Unsupported image extension for thumbnail: {extension}"
-            ));
-        }
+    if !IMAGE_EXTENSIONS.contains(&extension.as_str()) {
+        return Err(format!(
+            "Unsupported image extension for thumbnail: {extension}"
+        ));
+    }
 
-        let meta = fs::metadata(&path).map_err(|e| e.to_string())?;
-        if !meta.is_file() {
-            return Err("Not a file".to_string());
-        }
-        if meta.len() > MAX_THUMBNAIL_FILE_SIZE {
-            return Err("File is too large for thumbnail generation".to_string());
-        }
+    let meta = fs::metadata(path).map_err(|e| e.to_string())?;
+    if !meta.is_file() {
+        return Err("Not a file".to_string());
+    }
+    if meta.len() > MAX_THUMBNAIL_FILE_SIZE {
+        return Err("File is too large for thumbnail generation".to_string());
+    }
 
-        let mut max_side = max_side.clamp(MIN_THUMBNAIL_SIDE, MAX_THUMBNAIL_SIDE);
+    let mut max_side = max_side.clamp(MIN_THUMBNAIL_SIDE, MAX_THUMBNAIL_SIDE);
 
-        let (w, h) = image::image_dimensions(&path).map_err(|e| e.to_string())?;
-        if w == 0 || h == 0 {
-            return Err("Invalid image dimensions".to_string());
-        }
-        let pixels = (w as u64).saturating_mul(h as u64);
-        if pixels > MAX_THUMBNAIL_PIXELS {
-            return Err("Image is too large for thumbnail generation".to_string());
-        }
+    let (w, h) = image::image_dimensions(path).map_err(|e| e.to_string())?;
+    if w == 0 || h == 0 {
+        return Err("Invalid image dimensions".to_string());
+    }
+    let pixels = (w as u64).saturating_mul(h as u64);
+    if pixels > MAX_THUMBNAIL_PIXELS {
+        return Err("Image is too large for thumbnail generation".to_string());
+    }
 
-        let max_dim = w.max(h);
-        if max_side > max_dim {
-            max_side = max_dim.max(MIN_THUMBNAIL_SIDE);
-        }
+    let max_dim = w.max(h);
+    if max_side > max_dim {
+        max_side = max_dim.max(MIN_THUMBNAIL_SIDE);
+    }
 
-        let img = ImageReader::open(&path)
-            .map_err(|e| e.to_string())?
-            .with_guessed_format()
-            .map_err(|e| e.to_string())?
-            .decode()
-            .map_err(|e| e.to_string())?;
+    let img = ImageReader::open(path)
+        .map_err(|e| e.to_string())?
+        .with_guessed_format()
+        .map_err(|e| e.to_string())?
+        .decode()
+        .map_err(|e| e.to_string())?;
 
-        let resized = img.resize(max_side, max_side, FilterType::Lanczos3);
+    let resized = img.resize(max_side, max_side, FilterType::Lanczos3);
 
-        let mut buf: Vec<u8> = Vec::new();
-        resized
-            .write_to(
-                &mut std::io::Cursor::new(&mut buf),
-                image::ImageOutputFormat::Png,
-            )
-            .map_err(|e| e.to_string())?;
+    let mut buf: Vec<u8> = Vec::new();
+    resized
+        .write_to(
+            &mut std::io::Cursor::new(&mut buf),
+            image::ImageOutputFormat::Png,
+        )
+        .map_err(|e| e.to_string())?;
 
-        let base64 = STANDARD.encode(&buf);
-        let mime = "image/png".to_string();
+    let base64 = STANDARD.encode(&buf);
+    let mime = "image/png".to_string();
 
-        Ok(crate::models::Thumbnail { base64, mime })
-    })
-    .await
-    .map_err(|e| e.to_string())?
+    Ok(crate::models::Thumbnail { base64, mime })
 }
