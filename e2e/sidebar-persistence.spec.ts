@@ -6,12 +6,14 @@ test("Sidebar sections persist collapsed state across reload", async ({ page }) 
   await page.goto(DEV_SERVER_URL)
 
   await withTempWorkspace(page, async (ws) => {
+    await page.evaluate(() => {
+      localStorage.setItem("recent-folders", JSON.stringify({ state: { folders: [] } }))
+    })
+
     await navigateToPath(page, ws)
 
     await page.waitForSelector("text=Недавние", { state: "visible" })
-
-    const folderBtn = page.locator('[aria-label^="Open "]').first()
-    await expect(folderBtn).toBeVisible({ timeout: 10_000 })
+    await expect(page.locator('[aria-label^="Open "]')).toHaveCount(1, { timeout: 10_000 })
 
     await page.click("text=Недавние")
 
