@@ -1,29 +1,27 @@
 import type { Page } from "@playwright/test"
 import { DEV_SERVER_URL } from "./constants"
 import { expect, test } from "./fixtures"
-import { requireBackend } from "./helpers"
+import { navigateToPath, withTempWorkspace } from "./fixtures/fs-setup"
 
 test.describe("FileRow hover & cursor", () => {
   test("hover shows actions and cursor is pointer", async ({ page }: { page: Page }) => {
     await page.goto(DEV_SERVER_URL)
 
-    const rows = page.locator('[data-testid^="file-row-"]')
-    requireBackend(await rows.count(), "No file rows — requires running Tauri backend")
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
 
-    const row = rows.first()
-    await expect(row).toBeVisible()
+      const row = page.locator('[data-testid^="file-row-"]').first()
+      await expect(row).toBeVisible()
 
-    await row.hover()
-    const cursor = await row.evaluate((el: HTMLElement) => getComputedStyle(el).cursor)
-    expect(cursor).toBe("pointer")
+      await row.hover()
+      const cursor = await row.evaluate((el: HTMLElement) => getComputedStyle(el).cursor)
+      expect(cursor).toBe("pointer")
 
-    const actions = row.locator('[data-testid="file-actions"]')
-    if ((await actions.count()) === 0) {
-      test.skip(true, "Row actions not rendered for this file entry")
-      return
-    }
+      const actions = row.locator('[data-testid="file-actions"]')
+      await expect(actions).toBeVisible({ timeout: 5000 })
 
-    const actionOpacity = await actions.evaluate((el: HTMLElement) => getComputedStyle(el).opacity)
-    expect(Number(actionOpacity)).toBeGreaterThan(0)
+      const actionOpacity = await actions.evaluate((el: HTMLElement) => getComputedStyle(el).opacity)
+      expect(Number(actionOpacity)).toBeGreaterThan(0)
+    })
   })
 })

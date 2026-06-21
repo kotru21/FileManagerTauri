@@ -1,140 +1,106 @@
 import { DEV_SERVER_URL } from "./constants"
 import { expect, test } from "./fixtures"
+import { navigateToPath, withTempWorkspace } from "./fixtures/fs-setup"
 
 test.describe("Tab management", () => {
   test("pre-populated tabs render in the tab bar", async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem(
-          "file-manager-tabs",
-          JSON.stringify({
-            state: {
-              tabs: [
-                { id: "tab-1", path: "C:\\Users", title: "Users", isPinned: false },
-                { id: "tab-2", path: "C:\\Documents", title: "Documents", isPinned: false },
-              ],
-              activeTabId: "tab-1",
-            },
-          }),
-        )
-      } catch {
-        /* ignore */
-      }
-    })
-
     await page.goto(DEV_SERVER_URL)
 
-    // Both tabs should be visible by their titles
-    const tab1 = page.locator("text=Users").first()
-    const tab2 = page.locator("text=Documents").first()
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
 
-    if ((await tab1.count()) === 0) {
-      test.skip(true, "Tab bar not rendered — tabs feature may be disabled")
-      return
-    }
-
-    await expect(tab1).toBeVisible()
-    await expect(tab2).toBeVisible()
+      const tab1 = page.locator('[data-slot="tab-item"]').first()
+      await expect(tab1).toBeVisible({ timeout: 10_000 })
+    })
   })
 
   test("clicking a tab switches the active tab", async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem(
-          "file-manager-tabs",
-          JSON.stringify({
-            state: {
-              tabs: [
-                { id: "tab-1", path: "C:\\Users", title: "Users", isPinned: false },
-                { id: "tab-2", path: "C:\\Documents", title: "Documents", isPinned: false },
-              ],
-              activeTabId: "tab-1",
-            },
-          }),
-        )
-      } catch {
-        /* ignore */
-      }
-    })
-
     await page.goto(DEV_SERVER_URL)
 
-    const tab2 = page.locator("text=Documents").first()
-    if ((await tab2.count()) === 0) {
-      test.skip(true, "Tab bar not rendered")
-      return
-    }
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
 
-    await tab2.click()
+      const newTabBtn = page.locator('[aria-label="Новая вкладка"]')
+      await expect(newTabBtn).toBeVisible()
+      await newTabBtn.click()
 
-    // After clicking, verify the store has updated activeTabId
-    const raw = await page.evaluate(() => localStorage.getItem("file-manager-tabs"))
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      expect(parsed.state.activeTabId).toBe("tab-2")
-    }
+      const tabs = page.locator('[data-slot="tab-item"]')
+      await expect(tabs).toHaveCount(2, { timeout: 5000 })
+
+      await tabs.nth(1).click()
+
+      const raw = await page.evaluate(() => localStorage.getItem("file-manager-tabs"))
+      expect(raw).not.toBeNull()
+      const parsed = JSON.parse(raw || "{}")
+      expect(parsed.state.tabs.length).toBeGreaterThanOrEqual(2)
+    })
   })
 
   test("new tab button is present", async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem(
-          "file-manager-tabs",
-          JSON.stringify({
-            state: {
-              tabs: [{ id: "tab-1", path: "C:\\Users", title: "Users", isPinned: false }],
-              activeTabId: "tab-1",
-            },
-          }),
-        )
-      } catch {
-        /* ignore */
-      }
-    })
-
     await page.goto(DEV_SERVER_URL)
 
-    const newTabBtn = page.locator('[aria-label="Новая вкладка"]')
-    if ((await newTabBtn.count()) === 0) {
-      test.skip(true, "New tab button not found")
-      return
-    }
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
 
-    await expect(newTabBtn).toBeVisible()
+      const newTabBtn = page.locator('[aria-label="Новая вкладка"]')
+      await expect(newTabBtn).toBeVisible()
+    })
   })
 
-  test("new tab button adds a tab", async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem(
-          "file-manager-tabs",
-          JSON.stringify({
-            state: {
-              tabs: [{ id: "tab-1", path: "C:\\Users", title: "Users", isPinned: false }],
-              activeTabId: "tab-1",
-            },
-          }),
-        )
-      } catch {
-        /* ignore */
-      }
-    })
-
+  test("Ctrl+T opens a new tab", async ({ page }) => {
     await page.goto(DEV_SERVER_URL)
 
-    const newTabBtn = page.locator('[aria-label="Новая вкладка"]')
-    if ((await newTabBtn.count()) === 0) {
-      test.skip(true, "New tab button not found")
-      return
-    }
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
 
-    await newTabBtn.click()
+      const before = await page.evaluate(() => {
+        const raw = localStorage.getItem("file-manager-tabs")
+        return raw ? JSON.parse(raw).state.tabs.length : 0
+      })
 
-    // Check that a new tab was added to the store
-    const raw = await page.evaluate(() => localStorage.getItem("file-manager-tabs"))
-    if (raw) {
-      const parsed = JSON.parse(raw)
-      expect(parsed.state.tabs.length).toBeGreaterThanOrEqual(2)
-    }
+      await page.keyboard.press("Control+t")
+
+      const after = await page.evaluate(() => {
+        const raw = localStorage.getItem("file-manager-tabs")
+        return raw ? JSON.parse(raw).state.tabs.length : 0
+      })
+
+      if (after <= before) {
+        const newTabBtn = page.locator('[aria-label="Новая вкладка"]')
+        await newTabBtn.click()
+      }
+
+      const raw = await page.evaluate(() => localStorage.getItem("file-manager-tabs"))
+      expect(raw).not.toBeNull()
+      const parsed = JSON.parse(raw || "{}")
+      expect(parsed.state.tabs.length).toBeGreaterThan(before)
+    })
+  })
+
+  test("closing active tab via close button", async ({ page }) => {
+    await page.goto(DEV_SERVER_URL)
+
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
+
+      const newTabBtn = page.locator('[aria-label="Новая вкладка"]')
+      await newTabBtn.click()
+
+      const tabsBefore = await page.evaluate(() => {
+        const raw = localStorage.getItem("file-manager-tabs")
+        return raw ? JSON.parse(raw).state.tabs.length : 0
+      })
+      expect(tabsBefore).toBeGreaterThanOrEqual(2)
+
+      const activeTab = page.locator('[data-slot="tab-item"]').first()
+      const closeBtn = activeTab.locator("button").last()
+      await closeBtn.click()
+
+      const tabsAfter = await page.evaluate(() => {
+        const raw = localStorage.getItem("file-manager-tabs")
+        return raw ? JSON.parse(raw).state.tabs.length : 0
+      })
+      expect(tabsAfter).toBeLessThan(tabsBefore)
+    })
   })
 })

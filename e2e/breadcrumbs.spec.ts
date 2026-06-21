@@ -1,36 +1,18 @@
 import { DEV_SERVER_URL } from "./constants"
 import { expect, test } from "./fixtures"
+import { navigateToPath, withTempWorkspace } from "./fixtures/fs-setup"
 import { pressAddressBarShortcut } from "./helpers"
 
 test.describe("Breadcrumbs", () => {
   test("displays path segments from navigation state", async ({ page }) => {
-    await page.addInitScript(() => {
-      try {
-        localStorage.setItem(
-          "navigation-storage",
-          JSON.stringify({
-            state: {
-              currentPath: "C:\\Users\\TestUser\\Documents",
-              history: ["C:\\", "C:\\Users", "C:\\Users\\TestUser\\Documents"],
-              historyIndex: 2,
-            },
-          }),
-        )
-      } catch {
-        /* ignore */
-      }
-    })
-
     await page.goto(DEV_SERVER_URL)
 
-    // Breadcrumb segments should contain path parts
-    const segment = page.locator("[data-path]").first()
-    if ((await segment.count()) === 0) {
-      test.skip(true, "Breadcrumb segments not rendered")
-      return
-    }
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
 
-    await expect(segment).toBeVisible()
+      const segment = page.locator("[data-path]").filter({ hasText: "e2e-workspace" })
+      await expect(segment).toBeVisible()
+    })
   })
 
   test("Ctrl+L opens breadcrumb edit mode", async ({ page }) => {
@@ -45,19 +27,14 @@ test.describe("Breadcrumbs", () => {
   test("Escape cancels breadcrumb editing", async ({ page }) => {
     await page.goto(DEV_SERVER_URL)
 
-    // Enter edit mode
     await pressAddressBarShortcut(page)
 
     const input = page.locator('input[placeholder="Введите путь..."]')
-    if ((await input.count()) === 0) {
-      test.skip(true, "Breadcrumb edit mode not available")
-      return
-    }
+    await expect(input).toBeVisible({ timeout: 2000 })
 
     await input.fill("/some/random/path")
     await page.keyboard.press("Escape")
 
-    // Input should disappear after Escape
     await expect(input).not.toBeVisible({ timeout: 2000 })
   })
 })
