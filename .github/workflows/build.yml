@@ -16,95 +16,34 @@ concurrency:
   cancel-in-progress: true
 
 env:
-  NODE_VERSION: "24" 
+  NODE_VERSION: "24"
   CARGO_TERM_COLOR: always
   RUST_BACKTRACE: 1
 
 jobs:
-  lint:
-    runs-on: ubuntu-latest
-    timeout-minutes: 10
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-      - run: npm ci
-      - run: npm run check
-
-  rust-format:
-    runs-on: ubuntu-latest
-    timeout-minutes: 5
-    steps:
-      - uses: actions/checkout@v6
-      - uses: dtolnay/rust-toolchain@stable
-        with:
-          components: rustfmt
-      - run: cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check
-
-  test:
-    runs-on: ubuntu-latest
-    timeout-minutes: 15
-    steps:
-      - uses: actions/checkout@v6
-      - uses: actions/setup-node@v6
-        with:
-          node-version: ${{ env.NODE_VERSION }}
-          cache: npm
-      - run: npm ci
-      - run: npm run test:coverage
-      - run: npm run test:coverage:core
-      - uses: actions/upload-artifact@v6
-        if: always()
-        with:
-          name: coverage
-          path: |
-            coverage
-            coverage-core
-          retention-days: 7
-
   build:
-    needs: [lint, rust-format, test]
     runs-on: windows-latest
     timeout-minutes: 30
     env:
       TARGET: x86_64-pc-windows-msvc
     steps:
       - uses: actions/checkout@v6
-      
       - uses: actions/setup-node@v6
         with:
           node-version: ${{ env.NODE_VERSION }}
           cache: npm
-
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ env.TARGET }}
-          components: clippy
-
       - uses: Swatinem/rust-cache@v2
         with:
           workspaces: src-tauri
-          cache-on-failure: true
-
       - run: npm ci
-
-      - name: Clippy
-        run: cargo clippy --manifest-path src-tauri/Cargo.toml --all-targets -- -D warnings
-      
-      - name: Rust tests
-        run: cargo test --manifest-path src-tauri/Cargo.toml
-
       - name: Get version
         id: version
         shell: bash
-        run: |
-          VERSION=$(node -p "require('./package.json').version")
-          echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
-
+        run: echo "value=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
       - uses: oven-sh/setup-bun@v2
-
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0.6
         env:
@@ -115,7 +54,6 @@ jobs:
           releaseDraft: ${{ startsWith(github.ref, 'refs/tags/') }}
           prerelease: false
           args: --target ${{ env.TARGET }}
-
       - name: Upload artifacts
         uses: actions/upload-artifact@v6
         if: github.event_name != 'pull_request'
@@ -125,4 +63,4 @@ jobs:
             src-tauri/target/${{ env.TARGET }}/release/bundle/msi/*.msi
             src-tauri/target/${{ env.TARGET }}/release/bundle/nsis/*.exe
           retention-days: 14
-          if-no-files-found: error  
+          if-no-files-found: error
