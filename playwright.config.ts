@@ -22,9 +22,9 @@ export default defineConfig({
     },
   ],
   webServer: {
-    command: "npm run dev",
+    command: "npm run tauri dev",
     url: DEV_SERVER_URL,
     reuseExistingServer: !isCi,
-    timeout: 120_000,
+    timeout: 180_000,
   },
 })
