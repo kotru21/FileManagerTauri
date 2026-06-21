@@ -127,6 +127,31 @@ npm run tauri build
 | `npm run test:e2e` | Playwright E2E |
 | `npm run sync:versions` | Синхронизировать версию в Cargo/tauri.conf |
 
+## Verification
+
+| Command | Description |
+|---------|-------------|
+| `npm run verify` | Local equivalent of CI quality job (lint + typecheck + coverage) |
+| `cargo test --manifest-path src-tauri/Cargo.toml` | Rust integration tests (run separately) |
+| `cargo fmt --all --manifest-path src-tauri/Cargo.toml -- --check` | Rust format check |
+| `npm run test:e2e` | Playwright E2E (requires Windows; starts `tauri dev`) |
+
+### Husky on Windows
+
+If hooks do not run after `npm ci`:
+
+```bash
+git config core.hooksPath .husky
+npm run prepare
+```
+
+### E2E prerequisites
+
+- Windows (real Tauri backend)
+- Node 20–24 LTS
+- Rust stable toolchain
+- `npx playwright install chromium`
+
 ## Тестирование и качество
 
 - **Vitest** — unit/integration тесты (`npm run test`)
