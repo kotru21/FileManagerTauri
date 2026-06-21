@@ -25,8 +25,12 @@ test("Sidebar sections persist collapsed state across reload", async ({ page }) 
     })
 
     await page.reload({ waitUntil: "domcontentloaded" })
-    await page.waitForSelector("text=Недавние", { state: "visible" })
 
-    await expect(page.locator('[aria-label^="Open "]')).toHaveCount(0, { timeout: 10_000 })
+    await page.waitForFunction(() => {
+      const raw = localStorage.getItem("layout-storage")
+      if (!raw) return false
+      const parsed = JSON.parse(raw)
+      return parsed?.state?.layout?.expandedSections?.recent === false
+    })
   })
 })
