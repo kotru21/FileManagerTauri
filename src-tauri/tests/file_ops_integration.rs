@@ -3,7 +3,8 @@ mod common;
 use std::path::Path;
 
 use file_manager_lib::commands::file_ops::{
-    create_directory_sync, create_file_sync, read_directory_batched_sync, read_directory_sync,
+    create_directory_sync, create_file_sync, delete_entries_sync, read_directory_batched_sync,
+    read_directory_sync, rename_entry_sync,
 };
 
 use common::{child_path, create_fixture_tree, setup_temp_workspace};
@@ -32,6 +33,34 @@ fn create_file_writes_empty_file() {
     let file = child_path(&root, "new.txt");
     create_file_sync(&file).expect("create_file");
     assert!(Path::new(&file).is_file());
+}
+
+#[test]
+fn delete_entries_removes_file() {
+    let (dir, root) = setup_temp_workspace();
+    create_fixture_tree(dir.path());
+    let target = child_path(&root, "readme.txt");
+    delete_entries_sync(&[target.clone()]).expect("delete");
+    assert!(!Path::new(&target).exists());
+}
+
+#[test]
+fn rename_entry_renames_file() {
+    let (dir, root) = setup_temp_workspace();
+    create_fixture_tree(dir.path());
+    let old = child_path(&root, "readme.txt");
+    let new_path = rename_entry_sync(&old, "renamed.txt").expect("rename");
+    assert!(Path::new(&new_path).exists());
+    assert!(!Path::new(&old).exists());
+}
+
+#[test]
+fn rename_entry_rejects_existing_target() {
+    let (dir, root) = setup_temp_workspace();
+    create_fixture_tree(dir.path());
+    let old = child_path(&root, "readme.txt");
+    let err = rename_entry_sync(&old, "nested.txt").unwrap_err().to_string();
+    assert!(err.contains("exists") || err.contains("already"));
 }
 
 #[test]

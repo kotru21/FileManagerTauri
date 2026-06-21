@@ -369,6 +369,13 @@ pub fn rename_entry_sync(old_path: &str, new_name: &str) -> Result<String> {
         .ok_or_else(|| FileManagerError::InvalidPath(old_path.to_string()))?
         .join(new_name);
 
+    if new_path.exists() {
+        return Err(FileManagerError::RenameError(format!(
+            "Target already exists: {}",
+            new_path.to_string_lossy()
+        )));
+    }
+
     fs::rename(old, &new_path).map_err(|e| FileManagerError::RenameError(e.to_string()))?;
 
     Ok(new_path.to_string_lossy().to_string())

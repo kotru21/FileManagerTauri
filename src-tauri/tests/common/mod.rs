@@ -11,12 +11,14 @@ pub fn setup_temp_workspace() -> (TempDir, String) {
 
 /// Creates a small fixture tree under `root`:
 /// - readme.txt
+/// - nested.txt
 /// - subdir/nested.txt
 /// - empty-dir/
 pub fn create_fixture_tree(root: &Path) {
     fs::create_dir_all(root.join("subdir")).expect("mkdir subdir");
     fs::create_dir_all(root.join("empty-dir")).expect("mkdir empty-dir");
     fs::write(root.join("readme.txt"), "hello fixture").expect("write readme");
+    fs::write(root.join("nested.txt"), "root nested").expect("write nested root");
     fs::write(root.join("subdir").join("nested.txt"), "nested content").expect("write nested");
 }
 
