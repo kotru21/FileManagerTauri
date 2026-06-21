@@ -111,7 +111,8 @@ pub async fn read_directory(path: String) -> std::result::Result<Vec<FileEntry>,
 }
 
 /// Synchronous directory reading implementation.
-pub(crate) fn read_directory_sync(path: &str) -> Result<Vec<FileEntry>> {
+#[doc(hidden)]
+pub fn read_directory_sync(path: &str) -> Result<Vec<FileEntry>> {
     validate_absolute_path(path)?;
     let dir_path = Path::new(path);
 
@@ -262,7 +263,8 @@ pub async fn get_drives() -> std::result::Result<Vec<DriveInfo>, String> {
     }
 }
 
-pub(crate) fn create_directory_sync(path: &str) -> Result<()> {
+#[doc(hidden)]
+pub fn create_directory_sync(path: &str) -> Result<()> {
     validate_absolute_path(path)?;
     let dir_path = Path::new(path);
 
@@ -283,7 +285,8 @@ pub async fn create_directory(path: String) -> std::result::Result<(), String> {
         .map_err(Into::into)
 }
 
-pub(crate) fn create_file_sync(path: &str) -> Result<()> {
+#[doc(hidden)]
+pub fn create_file_sync(path: &str) -> Result<()> {
     validate_absolute_path(path)?;
     let file_path = Path::new(path);
 
@@ -311,7 +314,8 @@ pub async fn create_file(path: String) -> std::result::Result<(), String> {
         .map_err(Into::into)
 }
 
-pub(crate) fn delete_entries_sync(paths: &[String]) -> Result<()> {
+#[doc(hidden)]
+pub fn delete_entries_sync(paths: &[String]) -> Result<()> {
     for path in paths {
         validate_deletable_path(path)?;
 
@@ -353,7 +357,8 @@ pub async fn delete_entries(paths: Vec<String>) -> std::result::Result<(), Strin
         .map_err(Into::into)
 }
 
-pub(crate) fn rename_entry_sync(old_path: &str, new_name: &str) -> Result<String> {
+#[doc(hidden)]
+pub fn rename_entry_sync(old_path: &str, new_name: &str) -> Result<String> {
     validate_new_name(new_name)?;
     validate_absolute_path(old_path)?;
     let old = Path::new(old_path);
@@ -380,7 +385,8 @@ pub async fn rename_entry(
         .map_err(Into::into)
 }
 
-pub(crate) fn copy_single_entry_sync(source: &str, destination: &str) -> Result<()> {
+#[doc(hidden)]
+pub fn copy_single_entry_sync(source: &str, destination: &str) -> Result<()> {
     validate_absolute_path(destination)?;
     validate_absolute_path(source)?;
 
@@ -406,7 +412,8 @@ pub(crate) fn copy_single_entry_sync(source: &str, destination: &str) -> Result<
     Ok(())
 }
 
-pub(crate) fn copy_entries_sync(sources: &[String], destination: &str) -> Result<()> {
+#[doc(hidden)]
+pub fn copy_entries_sync(sources: &[String], destination: &str) -> Result<()> {
     validate_absolute_path(destination)?;
 
     for source in sources {
@@ -431,7 +438,8 @@ pub async fn copy_entries(
 }
 
 /// Recursively copies a directory without following symlinks.
-pub(crate) fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
+#[doc(hidden)]
+pub fn copy_dir_recursive(src: &Path, dst: &Path) -> Result<()> {
     fs::create_dir_all(dst).map_err(|e| FileManagerError::CreateDirError(e.to_string()))?;
 
     for entry in fs::read_dir(src).map_err(|e| FileManagerError::ReadDirError(e.to_string()))? {
@@ -522,7 +530,8 @@ async fn copy_single_entry(source: &str, destination: &str) -> std::result::Resu
     copy_single_entry_sync(source, destination).map_err(|e| e.to_string())
 }
 
-pub(crate) fn move_entries_sync(sources: &[String], destination: &str) -> Result<()> {
+#[doc(hidden)]
+pub fn move_entries_sync(sources: &[String], destination: &str) -> Result<()> {
     validate_absolute_path(destination)?;
     let dest_path = Path::new(destination);
 
@@ -566,7 +575,8 @@ pub async fn move_entries(
         .map_err(Into::into)
 }
 
-pub(crate) fn get_file_content_sync(path: &str) -> Result<String> {
+#[doc(hidden)]
+pub fn get_file_content_sync(path: &str) -> Result<String> {
     validate_absolute_path(path)?;
     let file_path = Path::new(path);
     let meta =

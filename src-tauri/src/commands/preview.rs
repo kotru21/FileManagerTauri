@@ -28,7 +28,8 @@ pub async fn get_file_preview(path: String) -> Result<FilePreview, String> {
         .map_err(|e| e.to_string())?
 }
 
-pub(crate) fn get_file_preview_sync(path: &str) -> Result<FilePreview, String> {
+#[doc(hidden)]
+pub fn get_file_preview_sync(path: &str) -> Result<FilePreview, String> {
     let file_path = Path::new(path);
     let extension = get_extension(file_path).unwrap_or_default();
 
@@ -568,7 +569,8 @@ pub async fn get_thumbnail(
         .map_err(|e| e.to_string())?
 }
 
-pub(crate) fn get_thumbnail_sync(path: &str, max_side: u32) -> Result<crate::models::Thumbnail, String> {
+#[doc(hidden)]
+pub fn get_thumbnail_sync(path: &str, max_side: u32) -> Result<crate::models::Thumbnail, String> {
     use image::imageops::FilterType;
     use image::io::Reader as ImageReader;
 

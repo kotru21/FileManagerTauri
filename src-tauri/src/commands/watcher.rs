@@ -182,7 +182,8 @@ pub async fn unwatch_directory(path: String, app: AppHandle) -> std::result::Res
     Ok(())
 }
 
-pub(crate) fn unwatch_all_sync(state: &WatcherState) -> std::result::Result<(), String> {
+#[doc(hidden)]
+pub fn unwatch_all_sync(state: &WatcherState) -> std::result::Result<(), String> {
     let mut watchers = state.watchers.lock().map_err(|e| e.to_string())?;
     watchers.clear();
     Ok(())

@@ -130,7 +130,8 @@ fn search_files_with_progress(
 }
 
 /// Synchronous search implementation.
-pub(crate) fn search_files_sync(options: &SearchOptions) -> Result<Vec<SearchResult>> {
+#[doc(hidden)]
+pub fn search_files_sync(options: &SearchOptions) -> Result<Vec<SearchResult>> {
     let search_path = Path::new(&options.search_path);
 
     if !search_path.exists() {
@@ -270,15 +271,12 @@ pub async fn search_by_name(
     query: String,
     max_results: Option<u32>,
 ) -> std::result::Result<Vec<SearchResult>, String> {
-    search_files(SearchOptions {
-        query,
-        search_path,
-        search_content: false,
-        case_sensitive: false,
-        max_results,
-        file_extensions: None,
-    })
-    .await
+    let search_path_clone = search_path.clone();
+    let query_clone = query.clone();
+    spawn_blocking(move || search_by_name_sync(&search_path_clone, &query_clone, max_results))
+        .await
+        .map_err(|e| e.to_string())?
+        .map_err(Into::into)
 }
 
 /// Searches file contents.
@@ -290,18 +288,24 @@ pub async fn search_content(
     extensions: Option<Vec<String>>,
     max_results: Option<u32>,
 ) -> std::result::Result<Vec<SearchResult>, String> {
-    search_files(SearchOptions {
-        query,
-        search_path,
-        search_content: true,
-        case_sensitive: false,
-        max_results,
-        file_extensions: extensions,
+    let search_path_clone = search_path.clone();
+    let query_clone = query.clone();
+    let extensions_clone = extensions.clone();
+    spawn_blocking(move || {
+        search_content_sync(
+            &search_path_clone,
+            &query_clone,
+            extensions_clone,
+            max_results,
+        )
     })
     .await
+    .map_err(|e| e.to_string())?
+    .map_err(Into::into)
 }
 
-pub(crate) fn search_by_name_sync(
+#[doc(hidden)]
+pub fn search_by_name_sync(
     search_path: &str,
     query: &str,
     max_results: Option<u32>,
@@ -316,7 +320,8 @@ pub(crate) fn search_by_name_sync(
     })
 }
 
-pub(crate) fn search_content_sync(
+#[doc(hidden)]
+pub fn search_content_sync(
     search_path: &str,
     query: &str,
     extensions: Option<Vec<String>>,

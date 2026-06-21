@@ -2,12 +2,17 @@ use std::fs;
 use std::path::{Path, PathBuf};
 use tempfile::TempDir;
 
+/// Returns an absolute path string for the temp workspace root.
 pub fn setup_temp_workspace() -> (TempDir, String) {
     let dir = tempfile::tempdir().expect("tempdir");
     let root = dir.path().to_string_lossy().to_string();
     (dir, root)
 }
 
+/// Creates a small fixture tree under `root`:
+/// - readme.txt
+/// - subdir/nested.txt
+/// - empty-dir/
 pub fn create_fixture_tree(root: &Path) {
     fs::create_dir_all(root.join("subdir")).expect("mkdir subdir");
     fs::create_dir_all(root.join("empty-dir")).expect("mkdir empty-dir");
@@ -15,6 +20,7 @@ pub fn create_fixture_tree(root: &Path) {
     fs::write(root.join("subdir").join("nested.txt"), "nested content").expect("write nested");
 }
 
+/// Joins `name` under the workspace `root` and returns an absolute path string.
 pub fn child_path(root: &str, name: &str) -> String {
     PathBuf::from(root).join(name).to_string_lossy().to_string()
 }
