@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useRef } from "react"
-import { useSelectionStore } from "@/features/file-selection"
+import { useSelectionStore } from "@/entities/file-selection"
 import { cn } from "@/shared/lib"
 import { elementIntersectsRect, getNormalizedRect, useRubberBandStore } from "../model/store"
 

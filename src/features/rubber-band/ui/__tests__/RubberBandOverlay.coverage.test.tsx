@@ -6,7 +6,7 @@ import { act } from "react"
 import { useRubberBandStore } from "../../model/store"
 import { RubberBandOverlay } from "../RubberBandOverlay"
 
-vi.mock("@/features/file-selection", () => ({
+vi.mock("@/entities/file-selection", () => ({
   useSelectionStore: () => ({
     selectFile: vi.fn(),
     clearSelection: vi.fn(),

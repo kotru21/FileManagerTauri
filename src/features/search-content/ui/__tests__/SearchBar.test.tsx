@@ -1,5 +1,5 @@
 import { act, fireEvent, render, screen } from "@testing-library/react"
-import { useNavigationStore } from "@/features/navigation/model/store"
+import { useNavigationStore } from "@/entities/navigation"
 import { useSearchStore } from "@/features/search-content/model/store"
 
 const mockSearchFn = vi.fn()

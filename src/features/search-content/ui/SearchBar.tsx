@@ -1,6 +1,6 @@
 import { FileText, Loader2, Search, StopCircle, X } from "lucide-react"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { useNavigationStore } from "@/features/navigation"
+import { useNavigationStore } from "@/entities/navigation"
 import { cn } from "@/shared/lib"
 import { Button, Input } from "@/shared/ui"
 import { useSearchWithProgress } from "../hooks/useSearchWithProgress"

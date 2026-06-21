@@ -3,7 +3,7 @@
 import { fireEvent, render } from "@testing-library/react"
 import { createRef } from "react"
 import { act } from "react"
-import { useSelectionStore } from "@/features/file-selection"
+import { useSelectionStore } from "@/entities/file-selection"
 import { useRubberBandStore } from "../../model/store"
 import { RubberBandOverlay } from "../RubberBandOverlay"
 
