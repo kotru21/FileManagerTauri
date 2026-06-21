@@ -1,54 +1,49 @@
 import { DEV_SERVER_URL } from "./constants"
 import { expect, test } from "./fixtures"
-import { requireBackend } from "./helpers"
+import { navigateToPath, withTempWorkspace } from "./fixtures/fs-setup"
 
 test.describe("File operations", () => {
   test("delete key triggers confirmation dialog", async ({ page }) => {
     await page.goto(DEV_SERVER_URL)
 
-    const rows = page.locator('[data-testid^="file-row-"]')
-    requireBackend(await rows.count(), "No file rows — requires running Tauri backend")
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
 
-    // Select a file first
-    await rows.first().click()
+      const rows = page.locator('[data-testid^="file-row-"]')
+      await rows.first().click()
+      await page.keyboard.press("Delete")
 
-    // Press Delete
-    await page.keyboard.press("Delete")
-
-    // Confirmation dialog should appear
-    const dialog = page.locator("text=Удалить")
-    await expect(dialog.first()).toBeVisible({ timeout: 2000 })
+      await expect(page.locator("text=Удалить").first()).toBeVisible({ timeout: 5000 })
+    })
   })
 
   test("cancel button closes the delete dialog", async ({ page }) => {
     await page.goto(DEV_SERVER_URL)
 
-    const rows = page.locator('[data-testid^="file-row-"]')
-    requireBackend(await rows.count(), "No file rows — requires running Tauri backend")
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
 
-    await rows.first().click()
-    await page.keyboard.press("Delete")
+      const rows = page.locator('[data-testid^="file-row-"]')
+      await rows.first().click()
+      await page.keyboard.press("Delete")
 
-    const cancelBtn = page.locator("text=Отмена")
-    if ((await cancelBtn.count()) === 0) {
-      test.skip(true, "Delete confirmation dialog not shown")
-      return
-    }
+      const cancelBtn = page.locator("text=Отмена")
+      await expect(cancelBtn.first()).toBeVisible({ timeout: 5000 })
+      await cancelBtn.first().click()
 
-    await cancelBtn.click()
-
-    // The dialog should disappear
-    await expect(cancelBtn).not.toBeVisible({ timeout: 2000 })
+      await expect(cancelBtn.first()).not.toBeVisible({ timeout: 2000 })
+    })
   })
 
   test("copy shortcut Ctrl+C does not crash without selection", async ({ page }) => {
     await page.goto(DEV_SERVER_URL)
 
-    // Press Ctrl+C without any selection - should not cause errors
-    await page.keyboard.press("Control+c")
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
 
-    // Page should still be functional
-    const body = page.locator("body")
-    await expect(body).toBeVisible()
+      await page.keyboard.press("Control+c")
+
+      await expect(page.locator("body")).toBeVisible()
+    })
   })
 })
