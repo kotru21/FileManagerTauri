@@ -12,7 +12,7 @@ test("F2 inline rename updates file name", async ({ page }) => {
     await row.click()
     await page.keyboard.press("F2")
 
-    const input = page.locator('input.inline-edit-input, [data-inline-edit] input').first()
+    const input = page.locator("input.inline-edit-input, [data-inline-edit] input").first()
     await expect(input).toBeVisible({ timeout: 5000 })
     await input.press("Control+a")
     await input.fill("renamed.txt")

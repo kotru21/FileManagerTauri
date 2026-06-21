@@ -13,6 +13,7 @@ const searchOptions = (
   file_extensions: null,
   ...overrides,
 })
+
 import { searchKeys, useSearch, useSearchByName, useSearchContent } from "../queries"
 
 vi.mock("@/shared/api/tauri/client", () => ({
@@ -42,10 +43,9 @@ describe("search queries coverage", () => {
   it("runs search hooks when enabled", async () => {
     renderHook(() => useSearchByName("/", "abc"), { wrapper })
     renderHook(() => useSearchContent("/", "abc", ["txt"], 5), { wrapper })
-    renderHook(
-      () => useSearch(searchOptions({ search_path: "/", query: "abc" }), true),
-      { wrapper },
-    )
+    renderHook(() => useSearch(searchOptions({ search_path: "/", query: "abc" }), true), {
+      wrapper,
+    })
 
     await waitFor(() => {
       expect(tauriClient.searchByName).toHaveBeenCalled()

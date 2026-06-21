@@ -6,10 +6,10 @@ import { act } from "react"
 import { useSettingsStore } from "@/entities/app-settings"
 import { AppearanceSettings } from "../AppearanceSettings"
 import { BehaviorSettings } from "../BehaviorSettings"
-import { LayoutSettings } from "../LayoutSettings"
-import { PerformanceSettings } from "../PerformanceSettings"
 import { FileDisplaySettings } from "../FileDisplaySettings"
 import { KeyboardSettings } from "../KeyboardSettings"
+import { LayoutSettings } from "../LayoutSettings"
+import { PerformanceSettings } from "../PerformanceSettings"
 
 describe("settings panels coverage", () => {
   beforeEach(() => {
@@ -67,7 +67,9 @@ describe("settings panels coverage", () => {
     const trash = deleteButtons.find((btn) => btn.className.includes("h-7"))
     if (trash) fireEvent.click(trash)
 
-    expect(useSettingsStore.getState().settings.layout.customLayouts.length).toBeGreaterThanOrEqual(0)
+    expect(useSettingsStore.getState().settings.layout.customLayouts.length).toBeGreaterThanOrEqual(
+      0,
+    )
   })
 
   it("PerformanceSettings and FileDisplaySettings render and toggle", () => {

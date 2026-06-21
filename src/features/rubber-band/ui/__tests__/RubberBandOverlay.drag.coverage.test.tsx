@@ -1,8 +1,7 @@
 /// <reference types="vitest" />
 
 import { fireEvent, render } from "@testing-library/react"
-import { createRef } from "react"
-import { act } from "react"
+import { act, createRef } from "react"
 import { useSelectionStore } from "@/entities/file-selection"
 import { useRubberBandStore } from "../../model/store"
 import { RubberBandOverlay } from "../RubberBandOverlay"
@@ -31,7 +30,17 @@ describe("RubberBandOverlay drag completion coverage", () => {
 
     const row = document.createElement("div")
     row.setAttribute("data-file-row", "1")
-    row.getBoundingClientRect = () => ({ left: 10, top: 10, right: 110, bottom: 40, width: 100, height: 30, x: 10, y: 10, toJSON: () => ({}) })
+    row.getBoundingClientRect = () => ({
+      left: 10,
+      top: 10,
+      right: 110,
+      bottom: 40,
+      width: 100,
+      height: 30,
+      x: 10,
+      y: 10,
+      toJSON: () => ({}),
+    })
     div.appendChild(row)
 
     render(

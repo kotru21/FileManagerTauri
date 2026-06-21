@@ -18,9 +18,9 @@ vi.mock("@/shared/ui", async (importOriginal) => {
   }
 })
 
+import { useCopyEntries, useMoveEntries } from "@/entities/file-entry"
 import { tauriClient } from "@/shared/api/tauri/client"
 import { toast } from "@/shared/ui"
-import { useCopyEntries, useMoveEntries } from "@/entities/file-entry"
 
 function wrapper(qc: QueryClient) {
   return ({ children }: { children: ReactNode }) => (

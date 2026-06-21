@@ -57,7 +57,9 @@ describe("FileExplorerSimpleList coverage", () => {
   })
 
   it("renders rows with column header and inline rename", () => {
-    act(() => useInlineEditStore.setState({ mode: "rename", targetPath: "/list.txt", parentPath: null }))
+    act(() =>
+      useInlineEditStore.setState({ mode: "rename", targetPath: "/list.txt", parentPath: null }),
+    )
 
     render(
       <FileExplorerSimpleList
@@ -79,7 +81,9 @@ describe("FileExplorerSimpleList coverage", () => {
   })
 
   it("shows inline new folder row when list is empty", () => {
-    act(() => useInlineEditStore.setState({ mode: "new-folder", parentPath: "/", targetPath: null }))
+    act(() =>
+      useInlineEditStore.setState({ mode: "new-folder", parentPath: "/", targetPath: null }),
+    )
 
     render(
       <FileExplorerSimpleList

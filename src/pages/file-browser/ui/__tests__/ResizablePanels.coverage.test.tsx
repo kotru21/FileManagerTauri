@@ -7,8 +7,8 @@ import { beforeAll } from "vitest"
 import { useLayoutStore } from "@/entities/layout"
 import { useNavigationStore } from "@/features/navigation"
 import { useSearchStore } from "@/features/search-content"
-import { tauriClient } from "@/shared/api/tauri/client"
 import type { FileEntry } from "@/shared/api/tauri"
+import { tauriClient } from "@/shared/api/tauri/client"
 import { ResizablePanels } from "../ResizablePanels"
 
 beforeAll(() => {

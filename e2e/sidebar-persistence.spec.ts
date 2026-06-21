@@ -29,7 +29,9 @@ test("Sidebar sections persist collapsed state across reload", async ({ page }) 
     await page.waitForSelector("text=Недавние", { state: "visible" })
     await expect(page.locator('[aria-label^="Open "]')).toHaveCount(1, { timeout: 10_000 })
 
-    const recentHeader = page.locator('[data-slot="section-header"]').filter({ hasText: "Недавние" })
+    const recentHeader = page
+      .locator('[data-slot="section-header"]')
+      .filter({ hasText: "Недавние" })
     await recentHeader.click()
 
     await page.waitForFunction(() => {

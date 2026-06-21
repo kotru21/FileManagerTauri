@@ -16,7 +16,9 @@ vi.mock("@/features/navigation", () => ({
     goUp: vi.fn(),
   }),
 }))
-vi.mock("@/features/clipboard", () => ({ useClipboardStore: () => ({ copy: vi.fn(), cut: vi.fn() }) }))
+vi.mock("@/features/clipboard", () => ({
+  useClipboardStore: () => ({ copy: vi.fn(), cut: vi.fn() }),
+}))
 vi.mock("@/features/file-selection", () => ({
   useSelectionStore: () => ({ getSelectedPaths: () => [], clearSelection: vi.fn() }),
 }))

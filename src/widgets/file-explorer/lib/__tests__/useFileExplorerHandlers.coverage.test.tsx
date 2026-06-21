@@ -1,11 +1,11 @@
 /// <reference types="vitest" />
 
-import { act, render } from "@testing-library/react"
 import { openPath } from "@tauri-apps/plugin-opener"
+import { act, render } from "@testing-library/react"
 import { useClipboardStore } from "@/features/clipboard"
+import { useSelectionStore } from "@/features/file-selection"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
-import { useSelectionStore } from "@/features/file-selection"
 import { useSettingsStore } from "@/features/settings"
 import { useTabsStore } from "@/features/tabs"
 import type { FileEntry } from "@/shared/api/tauri"

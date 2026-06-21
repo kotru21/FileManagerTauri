@@ -1,9 +1,9 @@
-import { act, renderHook, waitFor } from "@testing-library/react"
 import type { EventCallback } from "@tauri-apps/api/event"
+import { act, renderHook, waitFor } from "@testing-library/react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
+import type { SearchBatchEvent, SearchProgressEvent } from "@/shared/api/tauri/events"
 import { useSearchStore } from "../../model/store"
 import { useSearchWithProgress } from "../useSearchWithProgress"
-import type { SearchBatchEvent, SearchProgressEvent } from "@/shared/api/tauri/events"
 
 vi.mock("@/shared/api/tauri/client", () => ({
   tauriClient: { searchFilesStream: vi.fn() },
@@ -87,7 +87,11 @@ describe("useSearchWithProgress", () => {
 
     useSearchStore.setState({ query: "readme", searchPath: "C:/test", shouldCancel: false })
     vi.mocked(tauriClient.searchFilesStream).mockImplementation(async () => {
-      progressCb?.({ event: "search-progress", id: 1, payload: { scanned: 10, found: 1, current_path: "C:/test" } })
+      progressCb?.({
+        event: "search-progress",
+        id: 1,
+        payload: { scanned: 10, found: 1, current_path: "C:/test" },
+      })
       batchCb?.({
         event: "search-batch",
         id: 2,

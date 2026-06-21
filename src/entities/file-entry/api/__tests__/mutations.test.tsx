@@ -2,12 +2,7 @@ import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { act, renderHook } from "@testing-library/react"
 import type { ReactNode } from "react"
 import { beforeEach, describe, expect, it, vi } from "vitest"
-import {
-  useCopyEntries,
-  useDeleteEntries,
-  useMoveEntries,
-  useRenameEntry,
-} from "../mutations"
+import { useCopyEntries, useDeleteEntries, useMoveEntries, useRenameEntry } from "../mutations"
 
 vi.mock("@/shared/api/tauri/client", () => ({
   tauriClient: {

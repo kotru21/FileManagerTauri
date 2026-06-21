@@ -1,11 +1,6 @@
 import { renderHook } from "@testing-library/react"
 import { act } from "react"
-import {
-  useSelection,
-  useSelectionActions,
-  useSelectionState,
-  useSelectionUtils,
-} from "../hooks"
+import { useSelection, useSelectionActions, useSelectionState, useSelectionUtils } from "../hooks"
 import { useSelectionStore } from "../store"
 
 describe("file-selection hooks coverage", () => {

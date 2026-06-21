@@ -12,7 +12,10 @@ describe("SettingsDialog coverage", () => {
       useSettingsStore.getState().resetSettings()
       useSettingsStore.getState().close()
     })
-    vi.stubGlobal("confirm", vi.fn(() => true))
+    vi.stubGlobal(
+      "confirm",
+      vi.fn(() => true),
+    )
     URL.createObjectURL = vi.fn(() => "blob:settings")
     URL.revokeObjectURL = vi.fn()
   })

@@ -6,12 +6,14 @@ export async function withTempWorkspace(
   fn: (workspacePath: string) => Promise<void>,
 ): Promise<void> {
   const workspacePath = await page.evaluate(async () => {
-    const tauri = (window as unknown as {
-      __TAURI__?: {
-        core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> }
-        path: { tempDir: () => Promise<string>; join: (...paths: string[]) => Promise<string> }
+    const tauri = (
+      window as unknown as {
+        __TAURI__?: {
+          core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> }
+          path: { tempDir: () => Promise<string>; join: (...paths: string[]) => Promise<string> }
+        }
       }
-    }).__TAURI__
+    ).__TAURI__
     if (!tauri) {
       throw new Error("Tauri globals unavailable — is webServer running `tauri dev`?")
     }
@@ -31,9 +33,13 @@ export async function withTempWorkspace(
   } finally {
     try {
       await page.evaluate(async (ws) => {
-        const tauri = (window as unknown as {
-          __TAURI__?: { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }
-        }).__TAURI__
+        const tauri = (
+          window as unknown as {
+            __TAURI__?: {
+              core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> }
+            }
+          }
+        ).__TAURI__
         if (!tauri) return
         try {
           await tauri.core.invoke("delete_entries", { paths: [ws] })
@@ -67,8 +73,12 @@ export async function navigateToPath(page: Page, targetPath: string) {
     }
   }
 
-  await expect(page.locator('[data-testid^="file-row-"]').filter({ hasText: "sample.txt" })).toBeVisible({
+  await expect(
+    page.locator('[data-testid^="file-row-"]').filter({ hasText: "sample.txt" }),
+  ).toBeVisible({
     timeout: 15_000,
   })
-  await expect(page.locator('[data-testid^="file-row-"]').filter({ hasText: "subdir" })).toBeVisible()
+  await expect(
+    page.locator('[data-testid^="file-row-"]').filter({ hasText: "subdir" }),
+  ).toBeVisible()
 }

@@ -1,5 +1,5 @@
-import { tauriClient, unwrapResult } from "../client"
 import type { SearchOptions } from "../bindings"
+import { tauriClient, unwrapResult } from "../client"
 
 const searchOptions = (
   overrides: Pick<SearchOptions, "search_path" | "query"> & Partial<SearchOptions>,
@@ -42,7 +42,9 @@ vi.mock("../bindings", () => ({ commands: mocks }))
 
 describe("tauriClient coverage", () => {
   beforeEach(() => {
-    Object.values(mocks).forEach((m) => m.mockReset())
+    Object.values(mocks).forEach((m) => {
+      m.mockReset()
+    })
   })
 
   it("unwrapResult returns data on ok and throws on error", () => {
@@ -87,12 +89,19 @@ describe("tauriClient coverage", () => {
     await expect(tauriClient.getFileContent("/f")).resolves.toBe("text")
     await expect(tauriClient.getParentPath("/a/b")).resolves.toBe("/parent")
     await expect(tauriClient.pathExists("/a")).resolves.toBe(true)
-    await expect(tauriClient.searchFiles(searchOptions({ search_path: "/", query: "q" }))).resolves.toEqual([])
-    await expect(tauriClient.searchFilesStream(searchOptions({ search_path: "/", query: "q" }))).resolves.toEqual([])
+    await expect(
+      tauriClient.searchFiles(searchOptions({ search_path: "/", query: "q" })),
+    ).resolves.toEqual([])
+    await expect(
+      tauriClient.searchFilesStream(searchOptions({ search_path: "/", query: "q" })),
+    ).resolves.toEqual([])
     await expect(tauriClient.searchByName("/", "q", 10)).resolves.toEqual([])
     await expect(tauriClient.searchContent("/", "q", null, 10)).resolves.toEqual([])
     await expect(tauriClient.getFilePreview("/f")).resolves.toEqual({ kind: "text", content: "x" })
-    await expect(tauriClient.getThumbnail("/f", 64)).resolves.toEqual({ data: "abc", mime: "image/png" })
+    await expect(tauriClient.getThumbnail("/f", 64)).resolves.toEqual({
+      data: "abc",
+      mime: "image/png",
+    })
     await expect(tauriClient.watchDirectory("/")).resolves.toBeNull()
     await expect(tauriClient.unwatchDirectory("/")).resolves.toBeNull()
     await expect(tauriClient.unwatchAll()).resolves.toBeNull()

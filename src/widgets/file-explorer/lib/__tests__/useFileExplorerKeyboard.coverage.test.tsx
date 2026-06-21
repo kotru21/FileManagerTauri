@@ -13,8 +13,26 @@ import { setLastFiles } from "@/shared/lib/devLogger"
 import { useFileExplorerKeyboard } from "../useFileExplorerKeyboard"
 
 const files: FileEntry[] = [
-  { path: "/a", name: "a", is_dir: false, size: 1, modified: 1, created: null, is_hidden: false, extension: "txt" },
-  { path: "/b", name: "b", is_dir: false, size: 1, modified: 1, created: null, is_hidden: false, extension: "txt" },
+  {
+    path: "/a",
+    name: "a",
+    is_dir: false,
+    size: 1,
+    modified: 1,
+    created: null,
+    is_hidden: false,
+    extension: "txt",
+  },
+  {
+    path: "/b",
+    name: "b",
+    is_dir: false,
+    size: 1,
+    modified: 1,
+    created: null,
+    is_hidden: false,
+    extension: "txt",
+  },
 ]
 
 function mountKeyboard(overrides = {}) {
@@ -95,7 +113,9 @@ describe("useFileExplorerKeyboard extended coverage", () => {
   })
 
   it("triggers undo, settings, and command palette shortcuts", () => {
-    const undoSpy = vi.spyOn(useOperationsHistoryStore.getState(), "undoLastOperation").mockResolvedValue(null)
+    const undoSpy = vi
+      .spyOn(useOperationsHistoryStore.getState(), "undoLastOperation")
+      .mockResolvedValue(null)
     const openSettings = vi.spyOn(useSettingsStore.getState(), "open")
     const togglePalette = vi.spyOn(useCommandPaletteStore.getState(), "toggle")
 
@@ -112,18 +132,28 @@ describe("useFileExplorerKeyboard extended coverage", () => {
     const { unmount } = mountKeyboard()
 
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "z", code: "KeyZ", ctrlKey: true, bubbles: true }))
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "z", code: "KeyZ", ctrlKey: true, bubbles: true }),
+      )
     })
     expect(undoSpy).toHaveBeenCalled()
 
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: ",", code: "Comma", ctrlKey: true, bubbles: true }))
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: ",", code: "Comma", ctrlKey: true, bubbles: true }),
+      )
     })
     expect(openSettings).toHaveBeenCalled()
 
     act(() => {
       window.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "P", code: "KeyP", ctrlKey: true, shiftKey: true, bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "P",
+          code: "KeyP",
+          ctrlKey: true,
+          shiftKey: true,
+          bubbles: true,
+        }),
       )
     })
     expect(togglePalette).toHaveBeenCalled()
@@ -140,21 +170,36 @@ describe("useFileExplorerKeyboard extended coverage", () => {
 
     act(() => {
       window.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowLeft", code: "ArrowLeft", altKey: true, bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "ArrowLeft",
+          code: "ArrowLeft",
+          altKey: true,
+          bubbles: true,
+        }),
       )
     })
     expect(useNavigationStore.getState().currentPath).toBe("/")
 
     act(() => {
       window.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowRight", code: "ArrowRight", altKey: true, bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "ArrowRight",
+          code: "ArrowRight",
+          altKey: true,
+          bubbles: true,
+        }),
       )
     })
     expect(useNavigationStore.getState().currentPath).toBe("/a")
 
     act(() => {
       window.dispatchEvent(
-        new KeyboardEvent("keydown", { key: "ArrowUp", code: "ArrowUp", altKey: true, bubbles: true }),
+        new KeyboardEvent("keydown", {
+          key: "ArrowUp",
+          code: "ArrowUp",
+          altKey: true,
+          bubbles: true,
+        }),
       )
     })
     unmount()
@@ -170,7 +215,9 @@ describe("useFileExplorerKeyboard extended coverage", () => {
     })
 
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "c", code: "KeyC", ctrlKey: true, bubbles: true }))
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "c", code: "KeyC", ctrlKey: true, bubbles: true }),
+      )
     })
     expect(onCopy).not.toHaveBeenCalled()
     unmount()

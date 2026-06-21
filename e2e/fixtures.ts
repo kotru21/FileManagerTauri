@@ -42,8 +42,7 @@ export const test = base.extend({
     await use(context)
   },
   page: async ({ context }, use) => {
-    const page =
-      context.pages().find((p) => p.url().startsWith(APP_ORIGIN)) ?? context.pages()[0]
+    const page = context.pages().find((p) => p.url().startsWith(APP_ORIGIN)) ?? context.pages()[0]
     if (!page) {
       throw new Error("No Tauri webview page found via CDP")
     }

@@ -44,7 +44,10 @@ describe("Toolbar coverage", () => {
 
     const iconButtons = screen.getAllByRole("button")
     for (const btn of iconButtons) {
-      if (btn.getAttribute("title")?.includes("hidden") || btn.getAttribute("aria-label")?.includes("hidden")) {
+      if (
+        btn.getAttribute("title")?.includes("hidden") ||
+        btn.getAttribute("aria-label")?.includes("hidden")
+      ) {
         fireEvent.click(btn)
       }
     }

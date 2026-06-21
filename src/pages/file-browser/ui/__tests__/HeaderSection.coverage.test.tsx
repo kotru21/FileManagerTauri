@@ -26,7 +26,11 @@ function renderHeader() {
 describe("HeaderSection coverage", () => {
   beforeEach(() => {
     act(() => {
-      useNavigationStore.setState({ currentPath: "/workspace", history: ["/workspace"], historyIndex: 0 })
+      useNavigationStore.setState({
+        currentPath: "/workspace",
+        history: ["/workspace"],
+        historyIndex: 0,
+      })
       useSettingsStore.getState().resetSettings()
       useSettingsStore.getState().updateLayout({ showBreadcrumbs: true, showToolbar: true })
       useInlineEditStore.getState().reset()

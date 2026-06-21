@@ -2,8 +2,8 @@
 
 import "@testing-library/jest-dom/vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { homeDir } from "@tauri-apps/api/path"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { useNavigationStore } from "@/features/navigation"
 import { TooltipProvider } from "@/shared/ui"
 import { Sidebar } from "../Sidebar"

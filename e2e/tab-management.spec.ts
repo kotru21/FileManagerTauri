@@ -24,12 +24,15 @@ test.describe("Tab management", () => {
       await expect(newTabBtn).toBeVisible()
       await newTabBtn.click()
 
-      await page.waitForFunction(() => {
-        const raw = localStorage.getItem("file-manager-tabs")
-        if (!raw) return false
-        const parsed = JSON.parse(raw)
-        return parsed.state.tabs.length >= 2
-      }, { timeout: 15_000 })
+      await page.waitForFunction(
+        () => {
+          const raw = localStorage.getItem("file-manager-tabs")
+          if (!raw) return false
+          const parsed = JSON.parse(raw)
+          return parsed.state.tabs.length >= 2
+        },
+        { timeout: 15_000 },
+      )
 
       const raw = await page.evaluate(() => localStorage.getItem("file-manager-tabs"))
       expect(raw).not.toBeNull()

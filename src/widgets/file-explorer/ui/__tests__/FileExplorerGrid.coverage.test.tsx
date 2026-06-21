@@ -50,9 +50,16 @@ describe("FileExplorerGrid coverage", () => {
   })
 
   it("renders grid and inline create row", () => {
-    act(() => useInlineEditStore.setState({ mode: "new-folder", parentPath: "/", targetPath: null }))
+    act(() =>
+      useInlineEditStore.setState({ mode: "new-folder", parentPath: "/", targetPath: null }),
+    )
     render(
-      <FileExplorerGrid className="grid-test" files={[file]} selectedPaths={new Set()} handlers={handlers} />,
+      <FileExplorerGrid
+        className="grid-test"
+        files={[file]}
+        selectedPaths={new Set()}
+        handlers={handlers}
+      />,
     )
 
     const input = screen.getByPlaceholderText("Имя папки...")

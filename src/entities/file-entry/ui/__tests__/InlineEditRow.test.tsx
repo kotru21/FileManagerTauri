@@ -25,9 +25,7 @@ describe("InlineEditRow", () => {
   })
 
   it("shows validation error for empty name", async () => {
-    render(
-      <InlineEditRow mode="new-file" onConfirm={vi.fn()} onCancel={vi.fn()} />,
-    )
+    render(<InlineEditRow mode="new-file" onConfirm={vi.fn()} onCancel={vi.fn()} />)
     const input = screen.getByRole("textbox")
     await act(async () => {
       fireEvent.keyDown(input, { key: "Enter", code: "Enter" })

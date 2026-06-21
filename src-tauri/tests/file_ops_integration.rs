@@ -41,7 +41,7 @@ fn delete_entries_removes_file() {
     let (dir, root) = setup_temp_workspace();
     create_fixture_tree(dir.path());
     let target = child_path(&root, "readme.txt");
-    delete_entries_sync(&[target.clone()]).expect("delete");
+    delete_entries_sync(std::slice::from_ref(&target)).expect("delete");
     assert!(!Path::new(&target).exists());
 }
 
@@ -82,7 +82,7 @@ fn move_entries_moves_file() {
     let dest = child_path(&root, "move-dest");
     std::fs::create_dir_all(&dest).unwrap();
     let src = child_path(&root, "readme.txt");
-    move_entries_sync(&[src.clone()], &dest).expect("move");
+    move_entries_sync(std::slice::from_ref(&src), &dest).expect("move");
     assert!(!Path::new(&src).exists());
     assert!(Path::new(&child_path(&dest, "readme.txt")).exists());
 }

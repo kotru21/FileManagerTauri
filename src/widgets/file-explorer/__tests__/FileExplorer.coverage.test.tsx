@@ -2,8 +2,8 @@
 
 import "@testing-library/jest-dom/vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { isTauri } from "@tauri-apps/api/core"
+import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
 import { useDeleteConfirmStore } from "@/features/delete-confirm"
 import { useSelectionStore } from "@/features/file-selection"
 import { useNavigationStore } from "@/features/navigation"
@@ -171,7 +171,9 @@ describe("FileExplorer coverage", () => {
     renderExplorer()
 
     act(() => {
-      window.dispatchEvent(new KeyboardEvent("keydown", { key: "Delete", code: "Delete", bubbles: true }))
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", { key: "Delete", code: "Delete", bubbles: true }),
+      )
     })
 
     await waitFor(() => {

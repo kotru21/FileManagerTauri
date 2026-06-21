@@ -80,8 +80,7 @@ describe("FileRow drag and drop branches", () => {
     fireEvent.drop(row, {
       preventDefault: vi.fn(),
       dataTransfer: {
-        getData: (type: string) =>
-          type === "application/x-file-manager-paths" ? payload : "",
+        getData: (type: string) => (type === "application/x-file-manager-paths" ? payload : ""),
       },
     })
 

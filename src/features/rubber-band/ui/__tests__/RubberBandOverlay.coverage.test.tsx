@@ -1,8 +1,7 @@
 /// <reference types="vitest" />
 
 import { fireEvent, render } from "@testing-library/react"
-import { createRef } from "react"
-import { act } from "react"
+import { act, createRef } from "react"
 import { useRubberBandStore } from "../../model/store"
 import { RubberBandOverlay } from "../RubberBandOverlay"
 

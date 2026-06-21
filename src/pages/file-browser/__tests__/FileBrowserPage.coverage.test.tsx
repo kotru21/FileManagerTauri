@@ -2,8 +2,8 @@
 
 import "@testing-library/jest-dom/vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, render, waitFor } from "@testing-library/react"
 import { homeDir } from "@tauri-apps/api/path"
+import { act, render, waitFor } from "@testing-library/react"
 import { useLayoutStore } from "@/entities/layout"
 import { useSelectionStore } from "@/features/file-selection"
 import { useNavigationStore } from "@/features/navigation"
@@ -30,11 +30,7 @@ vi.mock("@tauri-apps/api/path", () => ({
 }))
 
 vi.mock("../ui/ResizablePanels", () => ({
-  ResizablePanels: ({
-    onFilesChange,
-  }: {
-    onFilesChange: (files: FileEntry[]) => void
-  }) => {
+  ResizablePanels: ({ onFilesChange }: { onFilesChange: (files: FileEntry[]) => void }) => {
     act(() => onFilesChange(mockFiles))
     return <div data-testid="resizable-panels-mock" />
   },
@@ -96,7 +92,11 @@ describe("FileBrowserPage coverage", () => {
 
   it("creates a tab when path is available", async () => {
     act(() => {
-      useNavigationStore.setState({ currentPath: "/workspace", history: ["/workspace"], historyIndex: 0 })
+      useNavigationStore.setState({
+        currentPath: "/workspace",
+        history: ["/workspace"],
+        historyIndex: 0,
+      })
     })
     renderPage()
     await waitFor(() => {
