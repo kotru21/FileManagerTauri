@@ -1,13 +1,12 @@
 import path from "node:path"
 import { defineConfig } from "vitest/config"
 
-// Coverage targets:
-// 80/70/80/80 globally, >90 in core.
+// Interim milestone (Task 16): 63.7/54.1/62.2/65.2 actual → floors below.
 const COVERAGE_BASELINE = {
-  statements: 45,
-  branches: 40,
-  functions: 39,
-  lines: 46,
+  statements: 63,
+  branches: 53,
+  functions: 62,
+  lines: 65,
 } as const
 
 export default defineConfig({
