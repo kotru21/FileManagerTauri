@@ -96,3 +96,5 @@ jobs:
         env:
           CI: true
           DEV_SERVER_URL: http://localhost:1420
+          TAURI_CDP_URL: http://localhost:9222
+          WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: --remote-debugging-port=9222

@@ -5,10 +5,10 @@ const isCi = !!process.env.CI
 
 export default defineConfig({
   testDir: "./e2e",
-  fullyParallel: !isCi,
+  fullyParallel: false,
   forbidOnly: isCi,
   retries: isCi ? 2 : 0,
-  workers: isCi ? 1 : undefined,
+  workers: 1,
   reporter: isCi ? "github" : "html",
   timeout: 60_000,
   use: {
@@ -26,5 +26,8 @@ export default defineConfig({
     url: DEV_SERVER_URL,
     reuseExistingServer: !isCi,
     timeout: 180_000,
+    env: {
+      WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9222",
+    },
   },
 })
