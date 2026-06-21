@@ -1,6 +1,7 @@
 import { DEV_SERVER_URL } from "./constants"
 import { expect, test } from "./fixtures"
 import { navigateToPath, withTempWorkspace } from "./fixtures/fs-setup"
+import { openSearchPanel } from "./helpers"
 
 test.describe("Search real files", () => {
   test("name search finds nested.txt", async ({ page }) => {
@@ -8,6 +9,7 @@ test.describe("Search real files", () => {
 
     await withTempWorkspace(page, async (ws) => {
       await navigateToPath(page, ws)
+      await openSearchPanel(page)
 
       const input = page.getByPlaceholder("Поиск файлов...")
       await input.fill("nested")

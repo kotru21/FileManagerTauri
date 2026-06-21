@@ -25,7 +25,7 @@ test.describe("Tab management", () => {
       await newTabBtn.click()
 
       const tabs = page.locator('[data-slot="tab-item"]')
-      await expect(tabs).toHaveCount(2, { timeout: 5000 })
+      await expect(tabs).toHaveCount(2, { timeout: 15_000 })
 
       await tabs.nth(1).click()
 

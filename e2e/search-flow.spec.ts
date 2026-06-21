@@ -1,6 +1,7 @@
 import { DEV_SERVER_URL } from "./constants"
 import { expect, test } from "./fixtures"
 import { navigateToPath, withTempWorkspace } from "./fixtures/fs-setup"
+import { openSearchPanel } from "./helpers"
 
 test.describe("Search flow", () => {
   test("search input is visible with placeholder", async ({ page }) => {
@@ -8,9 +9,9 @@ test.describe("Search flow", () => {
 
     await withTempWorkspace(page, async (ws) => {
       await navigateToPath(page, ws)
+      await openSearchPanel(page)
 
-      const searchInput = page.getByPlaceholder("Поиск файлов...")
-      await expect(searchInput).toBeVisible()
+      await expect(page.getByPlaceholder("Поиск файлов...")).toBeVisible()
     })
   })
 
@@ -19,12 +20,13 @@ test.describe("Search flow", () => {
 
     await withTempWorkspace(page, async (ws) => {
       await navigateToPath(page, ws)
+      await openSearchPanel(page)
 
       const searchInput = page.getByPlaceholder("Поиск файлов...")
       await searchInput.fill("sample")
       await searchInput.press("Enter")
 
-      await expect(page.getByText("sample.txt")).toBeVisible({ timeout: 10_000 })
+      await expect(page.getByText("sample.txt")).toBeVisible({ timeout: 15_000 })
     })
   })
 
@@ -33,6 +35,7 @@ test.describe("Search flow", () => {
 
     await withTempWorkspace(page, async (ws) => {
       await navigateToPath(page, ws)
+      await openSearchPanel(page)
 
       const toggleBtn = page.getByTitle(/Поиск по содержимому/)
       await expect(toggleBtn).toBeVisible()

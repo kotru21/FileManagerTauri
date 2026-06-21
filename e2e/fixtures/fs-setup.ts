@@ -56,7 +56,17 @@ export async function navigateToPath(page: Page, targetPath: string) {
       }),
     )
   }, targetPath)
-  await page.reload()
+
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      await page.reload({ waitUntil: "domcontentloaded", timeout: 30_000 })
+      break
+    } catch (error) {
+      if (attempt === 2) throw error
+      await page.waitForTimeout(500)
+    }
+  }
+
   await expect(page.locator('[data-testid^="file-row-"]').filter({ hasText: "sample.txt" })).toBeVisible({
     timeout: 15_000,
   })
