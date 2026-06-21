@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
 
 test.describe("Search flow", () => {

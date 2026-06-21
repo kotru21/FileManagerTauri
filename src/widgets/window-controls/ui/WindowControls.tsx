@@ -1,3 +1,4 @@
+import { isTauri } from "@tauri-apps/api/core"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { Minus, Square, X } from "lucide-react"
 import { useCallback, useEffect, useState } from "react"
@@ -11,6 +12,8 @@ export function WindowControls({ className }: WindowControlsProps) {
   const [isMaximized, setIsMaximized] = useState(false)
 
   useEffect(() => {
+    if (!isTauri()) return
+
     const window = getCurrentWindow()
 
     const checkMaximized = async () => {

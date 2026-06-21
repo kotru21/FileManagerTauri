@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
 
 // NOTE: ensure dev server and recent folders exist
@@ -34,7 +34,7 @@ test("Sidebar sections persist collapsed state across reload", async ({ page }) 
   expect(raw).toContain('"expandedSections"')
   expect(raw).toContain('"recent":false')
   const parsed = JSON.parse(raw || "{}")
-  expect(parsed?.layout?.expandedSections?.recent).toBe(false)
+  expect(parsed?.state?.layout?.expandedSections?.recent).toBe(false)
 
   await page.reload()
   await page.waitForSelector("text=Недавние", { state: "visible" })

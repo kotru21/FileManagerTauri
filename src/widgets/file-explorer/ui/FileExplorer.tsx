@@ -1,3 +1,4 @@
+import { isTauri } from "@tauri-apps/api/core"
 import { getCurrentWindow } from "@tauri-apps/api/window"
 import { useCallback, useEffect, useMemo } from "react"
 import { filterEntries, useFileWatcher } from "@/entities/file-entry"
@@ -163,6 +164,8 @@ export function FileExplorer({ className, onFilesChange }: FileExplorerProps) {
   )
 
   useEffect(() => {
+    if (!isTauri()) return
+
     const win = getCurrentWindow()
 
     const unlisten = win.onDragDropEvent(async (event) => {

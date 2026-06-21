@@ -1,5 +1,6 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
+import { pressAddressBarShortcut } from "./helpers"
 
 test.describe("Breadcrumbs", () => {
   test("displays path segments from navigation state", async ({ page }) => {
@@ -35,7 +36,7 @@ test.describe("Breadcrumbs", () => {
   test("Ctrl+L opens breadcrumb edit mode", async ({ page }) => {
     await page.goto(DEV_SERVER_URL)
 
-    await page.keyboard.press("Control+l")
+    await pressAddressBarShortcut(page)
 
     const input = page.locator('input[placeholder="Введите путь..."]')
     await expect(input).toBeVisible({ timeout: 2000 })
@@ -45,7 +46,7 @@ test.describe("Breadcrumbs", () => {
     await page.goto(DEV_SERVER_URL)
 
     // Enter edit mode
-    await page.keyboard.press("Control+l")
+    await pressAddressBarShortcut(page)
 
     const input = page.locator('input[placeholder="Введите путь..."]')
     if ((await input.count()) === 0) {

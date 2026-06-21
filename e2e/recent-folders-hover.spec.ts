@@ -1,5 +1,5 @@
 import type { Page } from "@playwright/test"
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
 
 // NOTE: ensure dev server and recent folders exist
@@ -27,13 +27,17 @@ test.describe("RecentFolders hover & cursor", () => {
     await expect(folder).toBeVisible()
 
     await folder.hover()
-    const cursor = await folder.evaluate((el: HTMLElement) => getComputedStyle(el).cursor)
+    const cursor = await folder.evaluate((el: HTMLElement) => {
+      const row = el.closest(".group") ?? el.parentElement ?? el
+      return getComputedStyle(row as HTMLElement).cursor
+    })
     expect(cursor).toBe("pointer")
 
     const aria = await folder.getAttribute("aria-label")
     const name = aria?.replace(/^Open\s*/, "") ?? ""
     const removeBtn = page.locator(`[aria-label="Remove ${name}"]`).first()
     if ((await removeBtn.count()) > 0) {
+      await removeBtn.hover()
       const opacity = await removeBtn.evaluate((el: HTMLElement) => getComputedStyle(el).opacity)
       expect(Number(opacity)).toBeGreaterThan(0)
     } else {

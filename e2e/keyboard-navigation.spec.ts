@@ -1,6 +1,6 @@
-import { expect, test } from "@playwright/test"
+import { expect, test } from "./fixtures"
 import { DEV_SERVER_URL } from "./constants"
-import { requireBackend } from "./helpers"
+import { pressAddressBarShortcut, requireBackend } from "./helpers"
 
 test.describe("Keyboard navigation", () => {
   test("ArrowDown and ArrowUp navigate between file rows", async ({ page }) => {
@@ -52,7 +52,7 @@ test.describe("Keyboard navigation", () => {
     await page.goto(DEV_SERVER_URL)
 
     // Open edit mode in breadcrumbs via Ctrl+L
-    await page.keyboard.press("Control+l")
+    await pressAddressBarShortcut(page)
 
     const input = page.locator('input[placeholder="Введите путь..."]')
     if ((await input.count()) === 0) {
