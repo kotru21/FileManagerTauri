@@ -48,7 +48,7 @@ export function PreviewPanel({ file, onClose, className }: PreviewPanelProps) {
   }
 
   return (
-    <div className={cn("flex flex-col h-full", className)}>
+    <div data-testid="preview-panel" className={cn("flex flex-col h-full", className)}>
       <div className="flex items-center justify-between border-b border-border px-4 py-3">
         <div className="flex-1 min-w-0">
           <h3
