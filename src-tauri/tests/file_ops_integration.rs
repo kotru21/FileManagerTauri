@@ -4,7 +4,8 @@ use std::path::Path;
 
 use file_manager_lib::commands::file_ops::{
     copy_entries_sync, create_directory_sync, create_file_sync, delete_entries_sync,
-    move_entries_sync, read_directory_batched_sync, read_directory_sync, rename_entry_sync,
+    get_file_content_sync, move_entries_sync, read_directory_batched_sync, read_directory_sync,
+    rename_entry_sync,
 };
 
 use common::{child_path, create_fixture_tree, setup_temp_workspace};
@@ -136,6 +137,46 @@ fn get_drives_returns_non_empty_list() {
     let drives = tauri::async_runtime::block_on(file_manager_lib::commands::file_ops::get_drives())
         .expect("get_drives");
     assert!(!drives.is_empty());
+}
+
+#[test]
+fn get_file_content_reads_text() {
+    let (dir, root) = setup_temp_workspace();
+    create_fixture_tree(dir.path());
+    let file = child_path(&root, "readme.txt");
+    let content = get_file_content_sync(&file).expect("read content");
+    assert_eq!(content, "hello fixture");
+}
+
+#[test]
+fn get_parent_path_returns_parent() {
+    let (_dir, root) = setup_temp_workspace();
+    let nested = child_path(&root, "a/b/file.txt");
+    std::fs::create_dir_all(Path::new(&nested).parent().unwrap()).unwrap();
+    std::fs::write(&nested, "x").unwrap();
+    let parent = tauri::async_runtime::block_on(
+        file_manager_lib::commands::file_ops::get_parent_path(nested),
+    )
+    .expect("parent");
+    assert_eq!(parent, Some(child_path(&root, "a/b")));
+}
+
+#[test]
+fn path_exists_true_and_false() {
+    let (dir, root) = setup_temp_workspace();
+    create_fixture_tree(dir.path());
+    let existing = child_path(&root, "readme.txt");
+    let missing = child_path(&root, "missing.txt");
+    let exists = tauri::async_runtime::block_on(
+        file_manager_lib::commands::file_ops::path_exists(existing),
+    )
+    .expect("exists");
+    let not_exists = tauri::async_runtime::block_on(
+        file_manager_lib::commands::file_ops::path_exists(missing),
+    )
+    .expect("not exists");
+    assert!(exists);
+    assert!(!not_exists);
 }
 
 #[test]
