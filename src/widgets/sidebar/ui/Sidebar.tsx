@@ -31,6 +31,7 @@ function CollapsedItem({ icon, label, isActive, onClick }: CollapsedItemProps) {
       <TooltipTrigger asChild>
         <button
           type="button"
+          aria-label={label}
           onClick={onClick}
           className={cn(
             "flex h-10 w-full items-center justify-center rounded-md transition-colors",
@@ -149,6 +150,14 @@ export function Sidebar({ className, collapsed = false }: SidebarProps) {
         )}
 
         <Separator className="my-1 w-6" />
+
+        {bookmarks.length === 0 && (
+          <CollapsedItem
+            icon={<Star className="h-5 w-5" />}
+            label="Закладки"
+            onClick={() => {}}
+          />
+        )}
 
         {bookmarks.slice(0, 4).map((bookmark) => (
           <CollapsedItem
