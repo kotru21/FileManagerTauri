@@ -3,7 +3,7 @@ mod common;
 use std::path::Path;
 
 use file_manager_lib::commands::file_ops::{
-    create_directory_sync, create_file_sync, read_directory_sync,
+    create_directory_sync, create_file_sync, read_directory_batched_sync, read_directory_sync,
 };
 
 use common::{child_path, create_fixture_tree, setup_temp_workspace};
@@ -57,9 +57,16 @@ fn get_drives_returns_non_empty_list() {
 }
 
 #[test]
-fn read_directory_stream_emits_batches_via_sync_read() {
+fn read_directory_batched_collects_same_entries_as_sync_read() {
     let (dir, root) = setup_temp_workspace();
     create_fixture_tree(dir.path());
-    let entries = read_directory_sync(&root).expect("read");
-    assert!(entries.len() >= 3);
+    let full = read_directory_sync(&root).expect("read");
+    let mut batched: Vec<_> = Vec::new();
+    read_directory_batched_sync(&root, |batch| batched.extend(batch)).expect("batched");
+    assert_eq!(batched.len(), full.len());
+    let mut a: Vec<_> = batched.iter().map(|e| e.name.as_str()).collect();
+    let mut b: Vec<_> = full.iter().map(|e| e.name.as_str()).collect();
+    a.sort_unstable();
+    b.sort_unstable();
+    assert_eq!(a, b);
 }

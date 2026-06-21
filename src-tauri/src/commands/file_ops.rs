@@ -148,6 +148,49 @@ pub fn read_directory_sync(path: &str) -> Result<Vec<FileEntry>> {
     Ok(entries)
 }
 
+/// Reads a directory in batches, invoking `on_batch` for each chunk.
+#[doc(hidden)]
+pub fn read_directory_batched_sync(
+    path: &str,
+    mut on_batch: impl FnMut(Vec<FileEntry>),
+) -> Result<()> {
+    validate_absolute_path(path)?;
+    let dir_path = Path::new(path);
+
+    if !dir_path.exists() {
+        return Err(FileManagerError::DirectoryNotFound(path.to_string()));
+    }
+
+    let read_dir =
+        fs::read_dir(dir_path).map_err(|e| FileManagerError::ReadDirError(e.to_string()))?;
+
+    let mut batch = Vec::with_capacity(DIRECTORY_BATCH_SIZE);
+
+    for entry in read_dir.flatten() {
+        if let Some(file_entry) = entry
+            .metadata()
+            .ok()
+            .map(|m| FileEntry::from_path(&entry.path(), &m))
+        {
+            batch.push(file_entry);
+
+            if batch.len() >= DIRECTORY_BATCH_SIZE {
+                let mut entries = Vec::new();
+                std::mem::swap(&mut entries, &mut batch);
+                on_batch(entries);
+            }
+        }
+    }
+
+    if !batch.is_empty() {
+        let mut entries = Vec::new();
+        std::mem::swap(&mut entries, &mut batch);
+        on_batch(entries);
+    }
+
+    Ok(())
+}
+
 /// Streams directory contents in batches for large directories.
 #[tauri::command]
 #[specta::specta]
@@ -160,48 +203,7 @@ pub async fn read_directory_stream(
     let request_id_clone = request_id.clone();
 
     spawn_blocking(move || -> Result<()> {
-        validate_absolute_path(&path_clone)?;
-        let dir_path = Path::new(&path_clone);
-
-        if !dir_path.exists() {
-            return Err(FileManagerError::DirectoryNotFound(path_clone));
-        }
-
-        let read_dir =
-            fs::read_dir(dir_path).map_err(|e| FileManagerError::ReadDirError(e.to_string()))?;
-
-        let mut batch = Vec::with_capacity(DIRECTORY_BATCH_SIZE);
-
-        for entry in read_dir.flatten() {
-            if let Some(file_entry) = entry
-                .metadata()
-                .ok()
-                .map(|m| FileEntry::from_path(&entry.path(), &m))
-            {
-                batch.push(file_entry);
-
-                if batch.len() >= DIRECTORY_BATCH_SIZE {
-                    // Move the batch out to avoid cloning FileEntry and to avoid
-                    // referencing a buffer that will be mutated after emit.
-                    let mut entries = Vec::new();
-                    std::mem::swap(&mut entries, &mut batch);
-
-                    let _ = app.emit(
-                        "directory-batch",
-                        DirectoryBatchEvent {
-                            path: path_clone.clone(),
-                            request_id: request_id_clone.clone(),
-                            entries,
-                        },
-                    );
-                }
-            }
-        }
-
-        // Emit remaining entries
-        if !batch.is_empty() {
-            let mut entries = Vec::new();
-            std::mem::swap(&mut entries, &mut batch);
+        read_directory_batched_sync(&path_clone, |entries| {
             let _ = app.emit(
                 "directory-batch",
                 DirectoryBatchEvent {
@@ -210,7 +212,7 @@ pub async fn read_directory_stream(
                     entries,
                 },
             );
-        }
+        })?;
 
         let _ = app.emit(
             "directory-complete",

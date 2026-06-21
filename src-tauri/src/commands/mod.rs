@@ -13,7 +13,8 @@ pub mod watcher;
 #[doc(hidden)]
 pub use file_ops::{
     copy_entries_sync, copy_single_entry_sync, create_directory_sync, create_file_sync,
-    delete_entries_sync, get_file_content_sync, move_entries_sync, read_directory_sync,
+    delete_entries_sync, get_file_content_sync, move_entries_sync, read_directory_batched_sync,
+    read_directory_sync,
     rename_entry_sync,
 };
 #[doc(hidden)]
