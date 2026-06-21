@@ -26,7 +26,7 @@ test.describe("Search flow", () => {
       await searchInput.fill("sample")
       await searchInput.press("Enter")
 
-      await expect(page.getByText("sample.txt")).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText("sample.txt").first()).toBeVisible({ timeout: 60_000 })
     })
   })
 

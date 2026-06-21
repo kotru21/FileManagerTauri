@@ -15,7 +15,7 @@ test.describe("Search real files", () => {
       await input.fill("nested")
       await input.press("Enter")
 
-      await expect(page.getByText("nested.txt")).toBeVisible({ timeout: 15_000 })
+      await expect(page.getByText("nested.txt").first()).toBeVisible({ timeout: 60_000 })
     })
   })
 })

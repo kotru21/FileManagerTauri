@@ -24,15 +24,24 @@ test.describe("Tab management", () => {
       await expect(newTabBtn).toBeVisible()
       await newTabBtn.click()
 
-      const tabs = page.locator('[data-slot="tab-item"]')
-      await expect(tabs).toHaveCount(2, { timeout: 15_000 })
-
-      await tabs.nth(1).click()
+      await page.waitForFunction(() => {
+        const raw = localStorage.getItem("file-manager-tabs")
+        if (!raw) return false
+        const parsed = JSON.parse(raw)
+        return parsed.state.tabs.length >= 2
+      }, { timeout: 15_000 })
 
       const raw = await page.evaluate(() => localStorage.getItem("file-manager-tabs"))
       expect(raw).not.toBeNull()
       const parsed = JSON.parse(raw || "{}")
-      expect(parsed.state.tabs.length).toBeGreaterThanOrEqual(2)
+      const secondTabId = parsed.state.tabs[1]?.id
+      expect(secondTabId).toBeTruthy()
+
+      await page.locator(`[data-slot="tab-item"]`).nth(1).click()
+
+      const rawAfter = await page.evaluate(() => localStorage.getItem("file-manager-tabs"))
+      const parsedAfter = JSON.parse(rawAfter || "{}")
+      expect(parsedAfter.state.activeTabId).toBe(secondTabId)
     })
   })
 
