@@ -1,0 +1,19 @@
+import { DEV_SERVER_URL } from "./constants"
+import { expect, test } from "./fixtures"
+import { navigateToPath, withTempWorkspace } from "./fixtures/fs-setup"
+
+test.describe("Search real files", () => {
+  test("name search finds nested.txt", async ({ page }) => {
+    await page.goto(DEV_SERVER_URL)
+
+    await withTempWorkspace(page, async (ws) => {
+      await navigateToPath(page, ws)
+
+      const input = page.locator('input[placeholder*="Поиск"]')
+      await input.fill("nested")
+      await input.press("Enter")
+
+      await expect(page.getByText("nested.txt")).toBeVisible({ timeout: 15_000 })
+    })
+  })
+})
