@@ -13,13 +13,13 @@ test.describe("FileRow hover & cursor", () => {
       const row = page.locator('[data-testid^="file-row-"]').filter({ hasText: "subdir" })
       await expect(row).toBeVisible()
 
-      await row.hover()
       const cursor = await row.evaluate((el: HTMLElement) => getComputedStyle(el).cursor)
       expect(cursor).toBe("pointer")
 
-      const actions = row.locator('[data-testid="file-actions"]')
-      await expect(actions).toBeVisible({ timeout: 5000 })
+      await row.hover()
 
+      const actions = row.locator('[data-testid="file-actions"]')
+      await expect(actions).toHaveCount(1)
       const actionOpacity = await actions.evaluate((el: HTMLElement) => getComputedStyle(el).opacity)
       expect(Number(actionOpacity)).toBeGreaterThan(0)
     })

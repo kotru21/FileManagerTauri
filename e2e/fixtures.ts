@@ -1,9 +1,11 @@
-import { test as base, expect } from "@playwright/test"
+import { type Browser, test as base, expect } from "@playwright/test"
 
 const CDP_URL = process.env.TAURI_CDP_URL ?? "http://localhost:9222"
 const APP_ORIGIN = process.env.DEV_SERVER_URL ?? "http://localhost:1420"
 
 type CdpPageTarget = { id: string; url: string }
+
+let cachedBrowser: Browser | null = null
 
 async function waitForTauriCdpPage(timeoutMs = 180_000): Promise<void> {
   const deadline = Date.now() + timeoutMs
@@ -25,35 +27,28 @@ async function waitForTauriCdpPage(timeoutMs = 180_000): Promise<void> {
 }
 
 export const test = base.extend({
-  browser: [
-    async ({ playwright }, use) => {
+  browser: async ({ playwright }, use) => {
+    if (!cachedBrowser?.isConnected()) {
       await waitForTauriCdpPage()
-      const browser = await playwright.chromium.connectOverCDP(CDP_URL)
-      await use(browser)
-    },
-    { scope: "worker" },
-  ],
-  context: [
-    async ({ browser }, use) => {
-      const context = browser.contexts()[0]
-      if (!context) {
-        throw new Error("No browser context from Tauri CDP connection")
-      }
-      await use(context)
-    },
-    { scope: "worker" },
-  ],
-  page: [
-    async ({ context }, use) => {
-      const page =
-        context.pages().find((p) => p.url().startsWith(APP_ORIGIN)) ?? context.pages()[0]
-      if (!page) {
-        throw new Error("No Tauri webview page found via CDP")
-      }
-      await use(page)
-    },
-    { scope: "worker" },
-  ],
+      cachedBrowser = await playwright.chromium.connectOverCDP(CDP_URL)
+    }
+    await use(cachedBrowser)
+  },
+  context: async ({ browser }, use) => {
+    const context = browser.contexts()[0]
+    if (!context) {
+      throw new Error("No browser context from Tauri CDP connection")
+    }
+    await use(context)
+  },
+  page: async ({ context }, use) => {
+    const page =
+      context.pages().find((p) => p.url().startsWith(APP_ORIGIN)) ?? context.pages()[0]
+    if (!page) {
+      throw new Error("No Tauri webview page found via CDP")
+    }
+    await use(page)
+  },
 })
 
 export { expect }
