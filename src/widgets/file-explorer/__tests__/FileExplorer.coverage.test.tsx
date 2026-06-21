@@ -125,7 +125,7 @@ describe("FileExplorer coverage", () => {
 
   it("handles external drag-drop copy in tauri mode", async () => {
     vi.mocked(isTauri).mockReturnValue(true)
-    vi.spyOn(tauriClient, "copyEntries").mockResolvedValue(undefined)
+    vi.spyOn(tauriClient, "copyEntries").mockResolvedValue(null)
     renderExplorer()
 
     await waitFor(() => expect(dragDropHandler).toBeTruthy())
@@ -142,7 +142,7 @@ describe("FileExplorer coverage", () => {
 
   it("uses parallel copy for many dropped files", async () => {
     vi.mocked(isTauri).mockReturnValue(true)
-    vi.spyOn(tauriClient, "copyEntriesParallel").mockResolvedValue(undefined)
+    vi.spyOn(tauriClient, "copyEntriesParallel").mockResolvedValue(null)
     renderExplorer()
 
     await waitFor(() => expect(dragDropHandler).toBeTruthy())

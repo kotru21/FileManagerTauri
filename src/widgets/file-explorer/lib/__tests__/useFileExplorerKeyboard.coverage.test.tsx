@@ -95,7 +95,7 @@ describe("useFileExplorerKeyboard extended coverage", () => {
   })
 
   it("triggers undo, settings, and command palette shortcuts", () => {
-    const undoSpy = vi.spyOn(useOperationsHistoryStore.getState(), "undoLastOperation").mockResolvedValue()
+    const undoSpy = vi.spyOn(useOperationsHistoryStore.getState(), "undoLastOperation").mockResolvedValue(null)
     const openSettings = vi.spyOn(useSettingsStore.getState(), "open")
     const togglePalette = vi.spyOn(useCommandPaletteStore.getState(), "toggle")
 

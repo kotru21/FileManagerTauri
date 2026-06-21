@@ -1,4 +1,15 @@
 import { tauriClient, unwrapResult } from "../client"
+import type { SearchOptions } from "../bindings"
+
+const searchOptions = (
+  overrides: Pick<SearchOptions, "search_path" | "query"> & Partial<SearchOptions>,
+): SearchOptions => ({
+  search_content: false,
+  case_sensitive: false,
+  max_results: null,
+  file_extensions: null,
+  ...overrides,
+})
 
 const ok = <T>(data: T) => ({ status: "ok" as const, data })
 
@@ -76,8 +87,8 @@ describe("tauriClient coverage", () => {
     await expect(tauriClient.getFileContent("/f")).resolves.toBe("text")
     await expect(tauriClient.getParentPath("/a/b")).resolves.toBe("/parent")
     await expect(tauriClient.pathExists("/a")).resolves.toBe(true)
-    await expect(tauriClient.searchFiles({ search_path: "/", query: "q" })).resolves.toEqual([])
-    await expect(tauriClient.searchFilesStream({ search_path: "/", query: "q" })).resolves.toEqual([])
+    await expect(tauriClient.searchFiles(searchOptions({ search_path: "/", query: "q" }))).resolves.toEqual([])
+    await expect(tauriClient.searchFilesStream(searchOptions({ search_path: "/", query: "q" }))).resolves.toEqual([])
     await expect(tauriClient.searchByName("/", "q", 10)).resolves.toEqual([])
     await expect(tauriClient.searchContent("/", "q", null, 10)).resolves.toEqual([])
     await expect(tauriClient.getFilePreview("/f")).resolves.toEqual({ kind: "text", content: "x" })

@@ -4,7 +4,7 @@ import { cn } from "@/shared/lib"
 import { elementIntersectsRect, getNormalizedRect, useRubberBandStore } from "../model/store"
 
 interface RubberBandOverlayProps {
-  containerRef: React.RefObject<HTMLElement>
+  containerRef: React.RefObject<HTMLElement | null>
   fileSelector: string // CSS selector for file items
   getPathFromElement: (element: Element) => string | null
   className?: string

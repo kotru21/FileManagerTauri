@@ -4,20 +4,18 @@ import { expect, test } from "./fixtures"
 test("Migrates legacy numeric layout values in localStorage to percent-strings on first load", async ({
   page,
 }) => {
-  // Put legacy numeric persisted layout into localStorage before app loads
-  await page.addInitScript(() => {
-    try {
-      const key = "layout-storage"
-      const payload = {
-        state: { layout: { sidebarSize: 15, mainPanelSize: 60, previewPanelSize: 25 } },
-      }
-      localStorage.setItem(key, JSON.stringify(payload))
-    } catch {
-      /* ignore */
+  // Seed legacy layout on the app origin, then reload so rehydrate migration runs.
+  // Avoid addInitScript — CDP reuses one browser context and init scripts persist across tests.
+  await page.goto(DEV_SERVER_URL)
+  await page.evaluate(() => {
+    const key = "layout-storage"
+    const payload = {
+      state: { layout: { sidebarSize: 15, mainPanelSize: 60, previewPanelSize: 25 } },
     }
+    localStorage.setItem(key, JSON.stringify(payload))
   })
 
-  await page.goto(DEV_SERVER_URL)
+  await page.reload({ waitUntil: "domcontentloaded" })
   await page.waitForSelector("text=Недавние", { state: "visible" })
 
   // After load the persisted storage should be migrated (or remain numeric until rehydrate completes)

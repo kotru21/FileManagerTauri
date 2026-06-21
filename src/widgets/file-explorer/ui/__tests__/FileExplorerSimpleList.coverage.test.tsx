@@ -18,6 +18,23 @@ const file: FileEntry = {
   extension: "txt",
 }
 
+const defaultDisplaySettings = {
+  showHiddenFiles: false,
+  showFileSizes: true,
+  showFileDates: true,
+  showFileExtensions: true,
+  dateFormat: "relative" as const,
+  thumbnailSize: "medium" as const,
+}
+
+const defaultAppearance = {
+  theme: "system" as const,
+  fontSize: "medium" as const,
+  accentColor: "#3b82f6",
+  enableAnimations: true,
+  reducedMotion: false,
+}
+
 const handlers = {
   handleSelect: vi.fn(),
   handleOpen: vi.fn(),
@@ -52,19 +69,8 @@ describe("FileExplorerSimpleList coverage", () => {
         setColumnWidth={vi.fn()}
         sortConfig={{ field: "name", direction: "asc" }}
         onSort={vi.fn()}
-        displaySettings={{
-          showHiddenFiles: false,
-          showFileSizes: true,
-          showFileDates: true,
-          thumbnailSize: "medium",
-        }}
-        appearanceLocal={{
-          theme: "system",
-          fontSize: "medium",
-          accentColor: "#3b82f6",
-          compactDensity: false,
-          animationsEnabled: true,
-        }}
+        displaySettings={defaultDisplaySettings}
+        appearanceLocal={defaultAppearance}
       />,
     )
 
@@ -83,19 +89,8 @@ describe("FileExplorerSimpleList coverage", () => {
         showColumnHeadersInSimpleList={false}
         columnWidths={{ size: 90, date: 140, padding: 16 }}
         setColumnWidth={vi.fn()}
-        displaySettings={{
-          showHiddenFiles: false,
-          showFileSizes: true,
-          showFileDates: true,
-          thumbnailSize: "medium",
-        }}
-        appearanceLocal={{
-          theme: "system",
-          fontSize: "medium",
-          accentColor: "#3b82f6",
-          compactDensity: false,
-          animationsEnabled: true,
-        }}
+        displaySettings={defaultDisplaySettings}
+        appearanceLocal={defaultAppearance}
       />,
     )
 

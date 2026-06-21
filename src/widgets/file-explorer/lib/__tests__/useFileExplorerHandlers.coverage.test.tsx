@@ -1,9 +1,8 @@
 /// <reference types="vitest" />
 
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, render } from "@testing-library/react"
 import { openPath } from "@tauri-apps/plugin-opener"
 import { useClipboardStore } from "@/features/clipboard"
-import { useConfirmStore } from "@/features/confirm"
 import { useInlineEditStore } from "@/features/inline-edit"
 import { useNavigationStore } from "@/features/navigation"
 import { useSelectionStore } from "@/features/file-selection"

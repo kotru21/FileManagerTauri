@@ -1,7 +1,9 @@
 import { act, renderHook, waitFor } from "@testing-library/react"
+import type { EventCallback } from "@tauri-apps/api/event"
 import { beforeEach, describe, expect, it, vi } from "vitest"
 import { useSearchStore } from "../../model/store"
 import { useSearchWithProgress } from "../useSearchWithProgress"
+import type { SearchBatchEvent, SearchProgressEvent } from "@/shared/api/tauri/events"
 
 vi.mock("@/shared/api/tauri/client", () => ({
   tauriClient: { searchFilesStream: vi.fn() },
@@ -71,8 +73,8 @@ describe("useSearchWithProgress", () => {
 
   it("streams progress and batch events with throttling", async () => {
     const { tauriEvents } = await import("@/shared/api/tauri")
-    let progressCb: ((event: { payload: { scanned: number; found: number; current_path: string } }) => void) | null = null
-    let batchCb: ((event: { payload: { path: string; name: string; is_dir: boolean; matches: [] }[] }) => void) | null = null
+    let progressCb: EventCallback<SearchProgressEvent> | null = null
+    let batchCb: EventCallback<SearchBatchEvent> | null = null
 
     vi.mocked(tauriEvents.searchProgress).mockImplementation(async (cb) => {
       progressCb = cb
@@ -85,8 +87,10 @@ describe("useSearchWithProgress", () => {
 
     useSearchStore.setState({ query: "readme", searchPath: "C:/test", shouldCancel: false })
     vi.mocked(tauriClient.searchFilesStream).mockImplementation(async () => {
-      progressCb?.({ payload: { scanned: 10, found: 1, current_path: "C:/test" } })
+      progressCb?.({ event: "search-progress", id: 1, payload: { scanned: 10, found: 1, current_path: "C:/test" } })
       batchCb?.({
+        event: "search-batch",
+        id: 2,
         payload: [{ path: "C:/test/readme.txt", name: "readme.txt", is_dir: false, matches: [] }],
       })
       return [{ path: "C:/test/readme.txt", name: "readme.txt", is_dir: false, matches: [] }]

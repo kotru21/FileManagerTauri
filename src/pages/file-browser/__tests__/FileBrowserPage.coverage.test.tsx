@@ -2,7 +2,7 @@
 
 import "@testing-library/jest-dom/vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
-import { act, fireEvent, render, screen, waitFor } from "@testing-library/react"
+import { act, render, waitFor } from "@testing-library/react"
 import { homeDir } from "@tauri-apps/api/path"
 import { useLayoutStore } from "@/entities/layout"
 import { useSelectionStore } from "@/features/file-selection"
@@ -68,7 +68,15 @@ describe("FileBrowserPage coverage", () => {
       useLayoutStore.getState().resetLayout()
     })
     vi.mocked(homeDir).mockResolvedValue("C:/Users/test")
-    vi.spyOn(tauriClient, "getDrives").mockResolvedValue([{ name: "C:", path: "C:/", label: "C:" }])
+    vi.spyOn(tauriClient, "getDrives").mockResolvedValue([
+      {
+        name: "C:",
+        path: "C:/",
+        total_space: 500_000_000_000,
+        free_space: 200_000_000_000,
+        drive_type: "Fixed",
+      },
+    ])
   })
 
   it("renders page shell and resolves initial path from homeDir", async () => {
