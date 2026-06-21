@@ -12,8 +12,6 @@ import {
   Terminal,
   Trash2,
 } from "lucide-react"
-import { useBookmarksStore } from "@/features/bookmarks"
-import { useSelectionStore } from "@/features/file-selection"
 import {
   ContextMenu,
   ContextMenuContent,
@@ -41,6 +39,8 @@ interface FileContextMenuProps {
   onOpenInExplorer?: () => void
   onOpenInTerminal?: () => void
   canPaste: boolean
+  isPathBookmarked: (path: string) => boolean
+  onToggleBookmark: (path: string) => void
 }
 
 export function FileContextMenu({
@@ -58,28 +58,19 @@ export function FileContextMenu({
   onOpenInExplorer,
   onOpenInTerminal,
   canPaste,
+  isPathBookmarked,
+  onToggleBookmark,
 }: FileContextMenuProps) {
-  // Derive selection from the selection store at render time to avoid race conditions
-  // where the context menu may render before parent props are updated on right-click.
-  // If a parent provides `selectedPaths` prop (used in tests), prefer that when non-empty.
-  const getSelectedPathsFromStore = useSelectionStore((s) => s.getSelectedPaths)
-  const selectedFromStore = getSelectedPathsFromStore()
-  const selected = (selectedFromStore.length > 0 ? selectedFromStore : selectedPaths) ?? []
+  const selected = selectedPaths ?? []
   const hasSelection = selected.length > 0
   const singleSelection = selected.length === 1
-  const { isBookmarked, addBookmark, removeBookmark, getBookmarkByPath } = useBookmarksStore()
 
   const selectedPath = singleSelection ? selected[0] : null
-  const isBookmark = selectedPath ? isBookmarked(selectedPath) : false
+  const isBookmark = selectedPath ? isPathBookmarked(selectedPath) : false
 
   const handleToggleBookmark = () => {
     if (!selectedPath) return
-    if (isBookmark) {
-      const bookmark = getBookmarkByPath(selectedPath)
-      if (bookmark) removeBookmark(bookmark.id)
-    } else {
-      addBookmark(selectedPath)
-    }
+    onToggleBookmark(selectedPath)
   }
 
   const handleCopyPath = () => {

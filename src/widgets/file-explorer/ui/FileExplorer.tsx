@@ -18,6 +18,7 @@ import { cn } from "@/shared/lib"
 import { toast } from "@/shared/ui"
 import { CopyProgressDialog } from "@/widgets/progress-dialog"
 import { useFileExplorerKeyboard, useFileExplorerLogic } from "../lib"
+import { useContextMenuBookmarks } from "@/processes/context-menu/hooks/useContextMenuBookmarks"
 import { FileExplorerView } from "./FileExplorer.view"
 
 interface FileExplorerProps {
@@ -43,6 +44,7 @@ export function FileExplorer({ className, onFilesChange }: FileExplorerProps) {
   const setColumnWidth = useLayoutStore((s) => s.setColumnWidth)
 
   const clipboardHasContent = useClipboardStore((s) => s.hasContent)
+  const { isPathBookmarked, toggleBookmark } = useContextMenuBookmarks()
 
   const {
     files: processedFiles,
@@ -252,6 +254,8 @@ export function FileExplorer({ className, onFilesChange }: FileExplorerProps) {
       onNewFile={handlers.handleStartNewFile}
       onRefresh={() => refetch()}
       canPaste={clipboardHasContent()}
+      isPathBookmarked={isPathBookmarked}
+      onToggleBookmark={toggleBookmark}
     >
       <div
         className={cn("flex flex-col h-full", className)}

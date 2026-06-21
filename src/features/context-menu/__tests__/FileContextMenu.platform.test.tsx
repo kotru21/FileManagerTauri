@@ -15,6 +15,8 @@ it("shows Open in Explorer when context menu is opened", async () => {
       onNewFile={() => {}}
       onRefresh={() => {}}
       canPaste={false}
+      isPathBookmarked={() => false}
+      onToggleBookmark={() => {}}
     >
       <div>Trigger</div>
     </FileContextMenu>,
@@ -40,6 +42,8 @@ it("opens Create submenu on click", async () => {
       onNewFile={() => {}}
       onRefresh={() => {}}
       canPaste={false}
+      isPathBookmarked={() => false}
+      onToggleBookmark={() => {}}
     >
       <div>Trigger</div>
     </FileContextMenu>,
@@ -79,6 +83,8 @@ it("clicking Create → File calls onNewFile", async () => {
       onNewFile={onNewFile}
       onRefresh={() => {}}
       canPaste={false}
+      isPathBookmarked={() => false}
+      onToggleBookmark={() => {}}
     >
       <div>Trigger</div>
     </FileContextMenu>,
