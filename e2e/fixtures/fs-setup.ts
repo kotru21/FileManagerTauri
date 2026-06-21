@@ -6,14 +6,23 @@ export async function withTempWorkspace(
   fn: (workspacePath: string) => Promise<void>,
 ): Promise<void> {
   const workspacePath = await page.evaluate(async () => {
-    const { invoke } = await import("@tauri-apps/api/core")
-    const { tempDir, join } = await import("@tauri-apps/api/path")
-    const root = await tempDir()
-    const workspace = await join(root, "e2e-workspace")
-    await invoke("create_directory", { path: workspace })
-    await invoke("create_file", { path: await join(workspace, "sample.txt") })
-    await invoke("create_directory", { path: await join(workspace, "subdir") })
-    await invoke("create_file", { path: await join(workspace, "subdir", "nested.txt") })
+    const tauri = (window as unknown as {
+      __TAURI__?: {
+        core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> }
+        path: { tempDir: () => Promise<string>; join: (...paths: string[]) => Promise<string> }
+      }
+    }).__TAURI__
+    if (!tauri) {
+      throw new Error("Tauri globals unavailable — is webServer running `tauri dev`?")
+    }
+
+    const { core, path } = tauri
+    const root = await path.tempDir()
+    const workspace = await path.join(root, "e2e-workspace")
+    await core.invoke("create_directory", { path: workspace })
+    await core.invoke("create_file", { path: await path.join(workspace, "sample.txt") })
+    await core.invoke("create_directory", { path: await path.join(workspace, "subdir") })
+    await core.invoke("create_file", { path: await path.join(workspace, "subdir", "nested.txt") })
     return workspace
   })
 
@@ -21,9 +30,12 @@ export async function withTempWorkspace(
     await fn(workspacePath)
   } finally {
     await page.evaluate(async (ws) => {
-      const { invoke } = await import("@tauri-apps/api/core")
+      const tauri = (window as unknown as {
+        __TAURI__?: { core: { invoke: (cmd: string, args?: Record<string, unknown>) => Promise<unknown> } }
+      }).__TAURI__
+      if (!tauri) return
       try {
-        await invoke("delete_entries", { paths: [ws] })
+        await tauri.core.invoke("delete_entries", { paths: [ws] })
       } catch {
         /* best-effort cleanup */
       }
