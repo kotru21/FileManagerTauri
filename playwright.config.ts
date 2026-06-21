@@ -24,7 +24,7 @@ export default defineConfig({
   webServer: {
     command: "npm run tauri dev",
     url: DEV_SERVER_URL,
-    reuseExistingServer: !isCi,
+    reuseExistingServer: false,
     timeout: 180_000,
     env: {
       WEBVIEW2_ADDITIONAL_BROWSER_ARGUMENTS: "--remote-debugging-port=9222",
