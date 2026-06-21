@@ -1,12 +1,11 @@
 import path from "node:path"
 import { defineConfig } from "vitest/config"
 
-// Interim milestone (Task 16): 63.7/54.1/62.2/65.2 actual → floors below.
 const COVERAGE_BASELINE = {
-  statements: 63,
-  branches: 53,
-  functions: 62,
-  lines: 65,
+  statements: 80,
+  branches: 70,
+  functions: 80,
+  lines: 80,
 } as const
 
 export default defineConfig({
@@ -24,6 +23,9 @@ export default defineConfig({
         "src/**/*.spec.ts",
         "src/test/**",
         "src/shared/api/tauri/bindings.ts",
+        "**/index.ts",
+        "**/types.ts",
+        "**/*.d.ts",
       ],
       thresholds: COVERAGE_BASELINE,
     },

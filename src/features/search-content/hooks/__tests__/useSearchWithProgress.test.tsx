@@ -68,4 +68,40 @@ describe("useSearchWithProgress", () => {
     })
     expect(tauriClient.searchFilesStream).not.toHaveBeenCalled()
   })
+
+  it("streams progress and batch events with throttling", async () => {
+    const { tauriEvents } = await import("@/shared/api/tauri")
+    let progressCb: ((event: { payload: { scanned: number; found: number; current_path: string } }) => void) | null = null
+    let batchCb: ((event: { payload: { path: string; name: string; is_dir: boolean; matches: [] }[] }) => void) | null = null
+
+    vi.mocked(tauriEvents.searchProgress).mockImplementation(async (cb) => {
+      progressCb = cb
+      return () => {}
+    })
+    vi.mocked(tauriEvents.searchBatch).mockImplementation(async (cb) => {
+      batchCb = cb
+      return () => {}
+    })
+
+    useSearchStore.setState({ query: "readme", searchPath: "C:/test", shouldCancel: false })
+    vi.mocked(tauriClient.searchFilesStream).mockImplementation(async () => {
+      progressCb?.({ payload: { scanned: 10, found: 1, current_path: "C:/test" } })
+      batchCb?.({
+        payload: [{ path: "C:/test/readme.txt", name: "readme.txt", is_dir: false, matches: [] }],
+      })
+      return [{ path: "C:/test/readme.txt", name: "readme.txt", is_dir: false, matches: [] }]
+    })
+
+    vi.useFakeTimers()
+    const { result } = renderHook(() => useSearchWithProgress())
+    await act(async () => {
+      await result.current.search()
+    })
+    act(() => {
+      vi.advanceTimersByTime(200)
+    })
+    vi.useRealTimers()
+
+    expect(toast.success).toHaveBeenCalled()
+  })
 })

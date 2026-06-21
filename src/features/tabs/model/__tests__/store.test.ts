@@ -143,6 +143,31 @@ describe("useTabsStore", () => {
     expect(s.tabs[1].id).toBe(a)
   })
 
+  it("closeTabsToRight removes tabs after index except pinned", () => {
+    const a = useTabsStore.getState().addTab("/a")
+    const b = useTabsStore.getState().addTab("/b")
+    const c = useTabsStore.getState().addTab("/c")
+
+    act(() => {
+      useTabsStore.getState().pinTab(c)
+      useTabsStore.getState().closeTabsToRight(a)
+    })
+
+    const ids = useTabsStore.getState().tabs.map((t) => t.id)
+    expect(ids).toContain(a)
+    expect(ids).toContain(c)
+    expect(ids).not.toContain(b)
+  })
+
+  it("unpinTab clears pinned flag", () => {
+    const a = useTabsStore.getState().addTab("/a")
+    act(() => {
+      useTabsStore.getState().pinTab(a)
+      useTabsStore.getState().unpinTab(a)
+    })
+    expect(useTabsStore.getState().tabs[0]?.isPinned).toBe(false)
+  })
+
   it("getActiveTab returns active tab; getTabById returns tab", () => {
     const a = useTabsStore.getState().addTab("/a")
 

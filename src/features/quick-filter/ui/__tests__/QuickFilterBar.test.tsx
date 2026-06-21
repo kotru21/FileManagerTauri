@@ -84,4 +84,26 @@ describe("QuickFilterBar", () => {
     expect(input).toBeDefined()
     expect(document.activeElement).toBe(input)
   })
+
+  it("debounces filter updates and clears pending timeout on rapid typing", async () => {
+    vi.useFakeTimers()
+    const setFilter = vi.fn()
+    act(() => {
+      useQuickFilterStore.setState({ filter: "", setFilter })
+    })
+
+    render(<QuickFilterBar totalCount={10} filteredCount={10} />)
+    const input = screen.getByPlaceholderText("Фильтр по имени...")
+
+    fireEvent.change(input, { target: { value: "a" } })
+    fireEvent.change(input, { target: { value: "ab" } })
+
+    await act(async () => {
+      vi.advanceTimersByTime(100)
+    })
+
+    expect(setFilter).toHaveBeenCalledTimes(1)
+    expect(setFilter).toHaveBeenCalledWith("ab")
+    vi.useRealTimers()
+  })
 })

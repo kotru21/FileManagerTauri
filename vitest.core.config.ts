@@ -2,10 +2,10 @@ import path from "node:path"
 import { defineConfig } from "vitest/config"
 
 const CORE_COVERAGE_BASELINE = {
-  statements: 88,
-  branches: 69,
-  functions: 91,
-  lines: 90,
+  statements: 90,
+  branches: 75,
+  functions: 92,
+  lines: 92,
 } as const
 
 export default defineConfig({
@@ -35,7 +35,9 @@ export default defineConfig({
         "src/**/*.spec.ts",
         "src/test/**",
         "src/shared/api/tauri/bindings.ts",
-        "src/shared/lib/index.ts",
+        "**/index.ts",
+        "**/types.ts",
+        "**/*.d.ts",
       ],
       thresholds: CORE_COVERAGE_BASELINE,
     },

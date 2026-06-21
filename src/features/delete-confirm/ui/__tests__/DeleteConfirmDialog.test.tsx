@@ -131,4 +131,23 @@ describe("DeleteConfirmDialog", () => {
     fireEvent.click(screen.getByText("Отмена"))
     expect(cancelFn).toHaveBeenCalledTimes(1)
   })
+
+  it("closing dialog via onOpenChange calls cancel", () => {
+    const cancelFn = vi.fn()
+
+    render(<DeleteConfirmDialog />)
+
+    act(() => {
+      useDeleteConfirmStore.setState({
+        isOpen: true,
+        paths: ["/a.txt"],
+        confirm: vi.fn(),
+        cancel: cancelFn,
+      })
+    })
+
+    const dialog = screen.getByRole("dialog")
+    fireEvent.keyDown(dialog, { key: "Escape" })
+    expect(cancelFn).toHaveBeenCalled()
+  })
 })
