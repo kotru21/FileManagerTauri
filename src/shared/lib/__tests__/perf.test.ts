@@ -25,6 +25,13 @@ describe("perf", () => {
       expect(isPerfEnabled()).toBe(false)
     })
 
+    it("returns false when USE_PERF_LOGS is false", async () => {
+      vi.stubEnv("VITE_USE_PERF_LOGS", "")
+      vi.stubEnv("USE_PERF_LOGS", "false")
+      const { isPerfEnabled } = await import("../perf")
+      expect(isPerfEnabled()).toBe(false)
+    })
+
     it("uses global __fm_perfEnabled when set", async () => {
       ;(globalThis as { __fm_perfEnabled?: boolean }).__fm_perfEnabled = true
       const { isPerfEnabled } = await import("../perf")

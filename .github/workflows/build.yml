@@ -42,7 +42,9 @@ jobs:
       - name: Get version
         id: version
         shell: bash
-        run: echo "value=$(node -p \"require('./package.json').version\")" >> "$GITHUB_OUTPUT"
+        run: |
+          VERSION=$(node -p "require('./package.json').version")
+          echo "value=${VERSION}" >> "$GITHUB_OUTPUT"
       - uses: oven-sh/setup-bun@v2
       - name: Build Tauri app
         uses: tauri-apps/tauri-action@v0.6

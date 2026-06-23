@@ -43,4 +43,17 @@ describe("initLayoutSync", () => {
     expect(isApplyingSettings()).toBe(false)
     stopLayoutSync()
   })
+
+  it("ignores preset updates when preset value is unchanged", () => {
+    const teardown = initLayoutSync()
+    const before = useLayoutStore.getState().layout.mainPanelSize
+    const currentPreset = useSettingsStore.getState().settings.layout.currentPreset
+
+    act(() => {
+      useSettingsStore.getState().setLayoutPreset(currentPreset)
+    })
+
+    expect(useLayoutStore.getState().layout.mainPanelSize).toBe(before)
+    teardown()
+  })
 })
