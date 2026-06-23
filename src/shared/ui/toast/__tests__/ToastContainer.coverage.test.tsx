@@ -3,8 +3,8 @@
 import "@testing-library/jest-dom/vitest"
 import { fireEvent, render, screen } from "@testing-library/react"
 import { act } from "react"
-import { ToastContainer } from "../ToastContainer"
 import { useToastStore } from "../store"
+import { ToastContainer } from "../ToastContainer"
 
 describe("ToastContainer coverage", () => {
   beforeEach(() => {
