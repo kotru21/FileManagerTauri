@@ -4,6 +4,7 @@ import "@testing-library/jest-dom/vitest"
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query"
 import { homeDir } from "@tauri-apps/api/path"
 import { act, render, waitFor } from "@testing-library/react"
+import { useEffect } from "react"
 import { useLayoutStore } from "@/entities/layout"
 import { useSelectionStore } from "@/features/file-selection"
 import { useNavigationStore } from "@/features/navigation"
@@ -29,9 +30,15 @@ vi.mock("@tauri-apps/api/path", () => ({
   homeDir: vi.fn(async () => "C:/Users/test"),
 }))
 
+vi.mock("@/processes/command-palette", () => ({
+  useRegisterCommands: vi.fn(),
+}))
+
 vi.mock("../ui/ResizablePanels", () => ({
   ResizablePanels: ({ onFilesChange }: { onFilesChange: (files: FileEntry[]) => void }) => {
-    act(() => onFilesChange(mockFiles))
+    useEffect(() => {
+      onFilesChange(mockFiles)
+    }, [onFilesChange])
     return <div data-testid="resizable-panels-mock" />
   },
 }))
@@ -55,6 +62,16 @@ function renderPage() {
   )
 }
 
+async function renderPageAndSettle() {
+  renderPage()
+  await waitFor(() => {
+    expect(useNavigationStore.getState().currentPath).toBeTruthy()
+  })
+  await act(async () => {
+    await new Promise((resolve) => setTimeout(resolve, 0))
+  })
+}
+
 describe("FileBrowserPage coverage", () => {
   beforeEach(() => {
     act(() => {
@@ -76,18 +93,14 @@ describe("FileBrowserPage coverage", () => {
   })
 
   it("renders page shell and resolves initial path from homeDir", async () => {
-    renderPage()
-    await waitFor(() => {
-      expect(useNavigationStore.getState().currentPath).toBe("C:/Users/test")
-    })
+    await renderPageAndSettle()
+    expect(useNavigationStore.getState().currentPath).toBe("C:/Users/test")
   })
 
   it("falls back to first drive when homeDir fails", async () => {
     vi.mocked(homeDir).mockRejectedValue(new Error("no home"))
-    renderPage()
-    await waitFor(() => {
-      expect(useNavigationStore.getState().currentPath).toBe("C:/")
-    })
+    await renderPageAndSettle()
+    expect(useNavigationStore.getState().currentPath).toBe("C:/")
   })
 
   it("creates a tab when path is available", async () => {
@@ -102,6 +115,9 @@ describe("FileBrowserPage coverage", () => {
     await waitFor(() => {
       expect(useTabsStore.getState().tabs.length).toBeGreaterThan(0)
     })
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
+    })
   })
 
   it("shows preview panel when a file is selected", async () => {
@@ -109,11 +125,7 @@ describe("FileBrowserPage coverage", () => {
       useNavigationStore.setState({ currentPath: "/", history: ["/"], historyIndex: 0 })
       useLayoutStore.getState().setLayout({ showPreview: false })
     })
-    renderPage()
-
-    await waitFor(() => {
-      expect(useNavigationStore.getState().currentPath).toBeTruthy()
-    })
+    await renderPageAndSettle()
 
     act(() => {
       useSelectionStore.getState().selectFile("/picked.txt")
@@ -121,6 +133,9 @@ describe("FileBrowserPage coverage", () => {
 
     await waitFor(() => {
       expect(useLayoutStore.getState().layout.showPreview).toBe(true)
+    })
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 0))
     })
   })
 })

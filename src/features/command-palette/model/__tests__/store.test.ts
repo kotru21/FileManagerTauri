@@ -145,4 +145,36 @@ describe("useCommandPaletteStore", () => {
     const filtered = useCommandPaletteStore.getState().getFilteredCommands()
     expect(filtered.map((c) => c.id)).toEqual(["t", "d"])
   })
+
+  it("getFilteredCommands prioritizes title match over description-only match", () => {
+    reset()
+
+    const titleOnly = cmd({ id: "title", title: "Find files", description: "Other" })
+    const descOnly = cmd({ id: "desc", title: "Settings", description: "find files panel" })
+
+    act(() => {
+      useCommandPaletteStore.getState().registerCommands([descOnly, titleOnly])
+      useCommandPaletteStore.getState().setSearch("find")
+    })
+
+    const filtered = useCommandPaletteStore.getState().getFilteredCommands()
+    expect(filtered.map((c) => c.id)).toEqual(["title", "desc"])
+  })
+
+  it("getFilteredCommands matches keywords when title and description do not", () => {
+    reset()
+
+    const keywordMatch = cmd({
+      id: "kw",
+      title: "Open panel",
+      keywords: ["palette"],
+    })
+
+    act(() => {
+      useCommandPaletteStore.getState().registerCommands([keywordMatch])
+      useCommandPaletteStore.getState().setSearch("palette")
+    })
+
+    expect(useCommandPaletteStore.getState().getFilteredCommands()).toHaveLength(1)
+  })
 })

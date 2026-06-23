@@ -88,14 +88,15 @@ describe("CommandPalette", () => {
     expect(screen.getByText("Поиск файлов")).toBeDefined()
   })
 
-  it("typing filters commands by title", () => {
+  it("typing filters commands by title", async () => {
     openWithCommands()
     render(<CommandPalette />)
 
     const input = screen.getByPlaceholderText("Введите команду...")
 
-    // Type a filter that only matches "Копировать"
-    fireEvent.change(input, { target: { value: "Копир" } })
+    await act(async () => {
+      fireEvent.change(input, { target: { value: "Копир" } })
+    })
 
     // "Копировать" should still be visible
     expect(screen.getByText("Копировать")).toBeDefined()
@@ -105,7 +106,7 @@ describe("CommandPalette", () => {
     expect(screen.queryByText("Поиск файлов")).toBeNull()
   })
 
-  it("ArrowDown changes selectedIndex", () => {
+  it("ArrowDown changes selectedIndex", async () => {
     openWithCommands()
     render(<CommandPalette />)
 
@@ -113,34 +114,41 @@ describe("CommandPalette", () => {
 
     expect(useCommandPaletteStore.getState().selectedIndex).toBe(0)
 
-    fireEvent.keyDown(input, { key: "ArrowDown" })
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "ArrowDown" })
+    })
     expect(useCommandPaletteStore.getState().selectedIndex).toBe(1)
 
-    fireEvent.keyDown(input, { key: "ArrowDown" })
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "ArrowDown" })
+    })
     expect(useCommandPaletteStore.getState().selectedIndex).toBe(2)
   })
 
-  it("Enter executes the selected command", () => {
+  it("Enter executes the selected command", async () => {
     openWithCommands()
     render(<CommandPalette />)
 
     const input = screen.getByPlaceholderText("Введите команду...")
 
-    // selectedIndex is 0 => first command is "Назад" (navigation category comes first)
-    fireEvent.keyDown(input, { key: "Enter" })
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Enter" })
+    })
 
     expect(mockAction1).toHaveBeenCalledTimes(1)
     // Palette should close after execution
     expect(useCommandPaletteStore.getState().isOpen).toBe(false)
   })
 
-  it("Escape closes palette", () => {
+  it("Escape closes palette", async () => {
     openWithCommands()
     render(<CommandPalette />)
 
     const input = screen.getByPlaceholderText("Введите команду...")
 
-    fireEvent.keyDown(input, { key: "Escape" })
+    await act(async () => {
+      fireEvent.keyDown(input, { key: "Escape" })
+    })
     expect(useCommandPaletteStore.getState().isOpen).toBe(false)
   })
 })
